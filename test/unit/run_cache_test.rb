@@ -30,6 +30,9 @@ class RunCacheTest < Minitest::Test
     Zr::Cache::Run.new("-e", source: "puts 4\n", switches: switches, target: Zr::Target.default, digest: Zr::Runtime.for.digest, link: [])
   end
 
+  # `zr run` of the program in a child, with each build phase on stderr.
+  def zr_run = Checks.run([RbConfig.ruby, File.join(ROOT, "bin/zr"), "run", @main], env: { "ZR_TIMING" => "1" }, chdir: @work)
+
   def build_and_keep
     program = Zr::Native::Build.lower(File.read(@main), @main, sources: true)
     out = File.join(@work, "program")
@@ -122,6 +125,23 @@ class RunCacheTest < Minitest::Test
     assert kept
     assert_equal "4\n", `#{kept}`
     assert_nil inline(Zr::Hir::Switches.new(inline: true, prelude: "$VERBOSE = true\n")).hit
+  end
+
+  # In place of a script that does not parse, the build makes the program
+  # that reports it. The cache keeps that one under the script's own
+  # bytes: a second run builds nothing, and an edit builds again.
+  def test_a_script_that_does_not_parse_is_kept_until_it_changes
+    File.write(@main, "p (\n")
+    first = zr_run
+
+    assert_includes first.stderr, "hir built"
+    second = zr_run
+
+    refute_includes second.stderr, "hir built"
+    assert_equal first.stderr.lines.grep_v(/\Azr: /), second.stderr.lines.grep_v(/\Azr: /)
+    File.write(@main, "p [\n")
+
+    assert_includes zr_run.stderr, "hir built"
   end
 
   def test_the_list_of_sources_names_every_file

@@ -352,15 +352,13 @@ module Zr
         # ruby mode gives for a program with no file.
         #: (String input, BuildOptions options, ?source: String, ?assemble: bool) -> Program
         def lower(input, options, source: File.read(input), assemble: false)
-          return Program.build(source, input, options) unless assemble
-
-          Native::Build.lower(source, input, options, sources: name == "run")
+          built(source, input, options, source: source, assemble: assemble)
         rescue Refused => e
           # A form of the program that ruby's compiler refuses (`Hir::Invalid`)
           # ends as ruby's SyntaxError does, before any of the program runs.
           if (invalid = Refusals.invalid_program(input, e))
             warn "zr: warning: #{input} does not compile in ruby. The output prints ruby's SyntaxError and exits with status 1" if name == "build"
-            return Program.build(invalid, input, options.with(gate: false, trace: false))
+            return built(invalid, input, options.with(gate: false, trace: false), source: source, assemble: assemble)
           end
           warn Refusals.refusal_report(e)
           exit REFUSED
@@ -381,7 +379,25 @@ module Zr
           end
           warn "zr: warning: #{input} does not parse. The output prints ruby's syntax error and exits with status 1" if name == "build"
           # The -r requires still run before it, and their exit handlers after.
-          Program.build(Refusals.syntax_error_program(input, e, warned), input, options.with(gate: false, trace: false))
+          built(Refusals.syntax_error_program(input, e, warned), input, options.with(gate: false, trace: false), source: source,
+                                                                                                    assemble: assemble)
+        end
+
+        # The program of `text` for the script `input`, whose own text is
+        # `source`. In place of a script that does not compile, `text` is the
+        # program that reports it. The run cache keeps that one too, under
+        # the digest of the script's own bytes, so an edit to the script
+        # builds again; it was built each time (4 s for `zr -e "p ("`).
+        #: (String text, String input, BuildOptions options, source: String, assemble: bool) -> Program
+        def built(text, input, options, source:, assemble:)
+          return Program.build(text, input, options) unless assemble
+
+          program = Native::Build.lower(text, input, options, sources: name == "run")
+          path = File.expand_path(input)
+          sources = program.sources
+          return program if text.equal?(source) || sources.nil? || !sources.key?(path)
+
+          program.with(sources: sources.merge(path => Digest::SHA256.hexdigest(source)))
         end
 
         private
