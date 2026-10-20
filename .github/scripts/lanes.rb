@@ -56,11 +56,13 @@ module Lanes
 
   # The programs of a push: the cli tier and a slice where a libc, an ISA
   # or a link difference shows. Under wasmtime, the dispatch, Array and
-  # Hash tests of those directories alone, not of their subdirectories:
-  # each module carries the whole runtime, which wasmtime compiles again
-  # for each test, so all 1,196 took 47 minutes and these 280 about 12.
+  # Hash tests (1,196). Each module carried the whole runtime, which
+  # wasmtime compiled again for each test, and they took 47 minutes; a
+  # program module preloads the runtime, compiled once for the tier
+  # (test/support/harness/wasmtime.rb), and 191 of them took under 3
+  # minutes on 2 workers of a laptop.
   SLICE = "lang/methods,core/string"
-  WASM_SLICE = "lang/methods/*,core/array/*,core/hash/*"
+  WASM_SLICE = "lang/methods,core/array,core/hash"
 
   module_function
 
