@@ -22,7 +22,6 @@ cli/stdlib/ffi/ffi_libc_call.rb	dlopen has no wasm form
 cli/stdlib/rubygems/require_rubygems.rb	rubygems reads a gem's own source by absolute path, and a WASI guest is given no such directory
 
 # A build of these programs for wasm needs more memory than the limit.
-cli/stdlib/bundler/bundler_resolves_a_gemfile.rb	the build holds more than 2048 MB
 
 # socket has no wasi part yet: `socket/constants` has no wasi table.
 cli/stdlib/socket/socket_loopback.rb	cannot load such file -- socket/constants

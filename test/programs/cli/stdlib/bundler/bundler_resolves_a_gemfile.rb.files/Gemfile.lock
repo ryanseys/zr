@@ -1,6 +1,0 @@
-# The two gems that the program reads from the checkout's Gemfile.lock.
-GEM
-  remote: https://rubygems.org/
-  specs:
-    minitest (6.0.6)
-    rake (13.4.2)
