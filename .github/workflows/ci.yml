@@ -343,7 +343,9 @@ jobs:
           docker exec -e ZR_PROGRAMS=lang/methods,core/string alpine bin/minitest test/programs_test.rb
       - name: Write the linux tables again and compare
         if: matrix.vendor
-        run: docker exec alpine ruby tool/zr-dev.rb gen tables --check
+        run: |
+          docker exec alpine ruby .github/scripts/fetch_sources.rb
+          docker exec alpine ruby tool/zr-dev.rb gen tables --check
       # The container's root wrote the cache; the cache step reads it as
       # the runner.
       - name: Clean the cache of what this run did not use, and give it back to the runner
