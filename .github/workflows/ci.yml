@@ -101,19 +101,22 @@ jobs:
     needs: checks
     if: needs.checks.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: ${{ matrix.timeout || 90 }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # A macos-15 runner has 3 cores and 7 GB: with 3 workers, eval
-          # support's build swapped for 50 minutes (9,000 s of work), so it
-          # builds with one.
+          # A macos-15 runner has 3 cores and 7 GB. With 3 workers, eval
+          # support's pieces took 9,000 s of work in 50 minutes, so it
+          # builds with one, and with no IR check: the aarch64 Linux row
+          # checks the same passes, and the bundle is the same either way.
           - triple: aarch64-apple-darwin
             os: macos-15
             experimental: false
             jobs: "1"
+            verify: "0"
+            timeout: 150
           # Experimental: on an x86_64 Linux runner, with 2 workers, the
           # eval support build holds three processes of 5 to 6 GB, 15.2 GB
           # of the runner's 16 GB. One worker holds about half of that.
@@ -131,7 +134,7 @@ jobs:
     # Each IR function is checked once, as the runtime builds: the bundle
     # is the same with or without the check (Config#verify?).
     env:
-      ZR_VERIFY: "1"
+      ZR_VERIFY: ${{ matrix.verify || '1' }}
       ZR_TIMING: "1"
       ZR_JOBS: ${{ matrix.jobs }}
     steps:
@@ -153,15 +156,34 @@ jobs:
           flavor: ${{ matrix.triple }}
       # The runner's memory in use every 10 s, and the largest processes
       # above 8 GB, on Linux, where a build that runs out stops the runner
-      # with no word in the log. On macOS, the swap in use every 30 s.
+      # with no word in the log.
       - name: Build the runtime and export it
         if: steps.bundle.outputs.cache-hit != 'true'
         run: |
           if command -v free > /dev/null; then (while sleep 10; do
             used=$(free -m | awk 'NR == 2 { print $3 }'); echo "memory in use: $used MB"
             if [ "$used" -gt 8000 ]; then ps -eo rss,etimes,args --sort=-rss | head -4 | cut -c1-200; fi
-          done) & else (while sleep 30; do echo "swap: $(sysctl -n vm.swapusage)"; done) & fi
+          done) & fi
           bin/zr cache export --target ${{ matrix.triple }} -o runtime-${{ matrix.triple }}.zrr
+      # A build that stops (a failure, a time limit, a newer push) keeps
+      # what it finished: each phase writes its entries and code when it
+      # ends, and the next run's restore takes the newest key.
+      - name: Keep the runtime cache of a build that did not finish
+        if: (failure() || cancelled()) && steps.bundle.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            tmp/cache/store/object
+            tmp/cache/store/image
+            tmp/cache/store/meta
+            tmp/cache/store/wasm
+            tmp/cache/store/source
+            tmp/cache/store/built
+            tmp/cache/store/code
+            tmp/cache/store/lowering
+            tmp/cache/store/kernel
+            tmp/cache/store/roots
+          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ matrix.triple }}-partial-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: runtime-${{ matrix.triple }}
