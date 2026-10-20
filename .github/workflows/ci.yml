@@ -442,6 +442,9 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           runtimes: ${{ matrix.triple }} wasm32-wasi
+      # Some units read CRuby's sources (zr-dev's generators).
+      - name: Fetch the CRuby and prism sources that the generators read
+        run: ruby .github/scripts/fetch_sources.rb
       - name: Run the unit tier
         run: bin/minitest test/unit
       - if: failure()
@@ -479,6 +482,9 @@ jobs:
       - name: Install the reference gems of test/ext
         if: matrix.shard != 'stage1'
         run: ruby .github/scripts/reference_gems.rb
+      - name: Fetch the CRuby and prism sources that the generators read
+        if: matrix.shard != 'stage1'
+        run: ruby .github/scripts/fetch_sources.rb
       - name: Run every test of this shard
         if: matrix.shard != 'stage1'
         env:
