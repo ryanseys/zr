@@ -65,6 +65,26 @@ class CodeCacheTest < Minitest::Test
     refute_equal Code.dir(:aarch64), Code.dir(:wasm32)
   end
 
+  # A lowering that made a piece keeps the code of its pieces itself: a
+  # build that writes no object (one that reads only eval support's
+  # metadata) would leave the next process entries with no code.
+  def test_a_lowering_that_made_a_piece_keeps_the_code_of_its_pieces
+    Dir.mktmpdir("zr-code-cache-") do |dir|
+      Zr::Session.current.set(:cache, dir)
+      kept = %w[made taken].to_h do |kind|
+        lowering = Zr::Cache::Lowering.new("test-#{kind}", Zr::Target::AARCH64_DARWIN, Code.new("test-#{kind}"))
+        lowering.known["zr_f"] = %w[key blob]
+        lowering.send(:keep, [], [], kind == "made")
+        [kind, Code.new("test-#{kind}")]
+      end
+
+      assert_equal "blob", kept.fetch("made").blob("key")
+      refute kept.fetch("taken").has?("key")
+    ensure
+      Zr::Session.current.forget(:cache)
+    end
+  end
+
   # Part of the runtime, so that the test takes seconds: the object of its
   # first 600 functions, with the data.
   def test_an_object_is_the_same_with_the_cache_cold_warm_and_off

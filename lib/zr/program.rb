@@ -143,22 +143,34 @@ module Zr
     # runs the gem's file instead
     # (`zr_require_redirect`), so one copy loads, as in ruby. The result
     # maps the path of each such copy to the gem's file.
+    #
+    # Eval support's list of files comes from its lowering, so it is read
+    # only for a program that loads a file from a gem: on an empty cache,
+    # `puts 1` in a directory with a Gemfile lowered all of eval support
+    # (50 minutes on a CI macOS runner) only to find no redirect.
     #: (Hir::Program hir, EvalSupport support, GemSet gem_set, Target target) -> Hash[String, String]
     def self.gem_redirects(hir, support, gem_set, target)
+      # Each file of the program in a gem, with its path in the gem.
+      in_gems = [] #: Array[[String, String]]
+      hir.units.each do |unit|
+        next unless unit.file
+
+        gem_set.gems.each do |gem|
+          root = gem.root_of(unit.file) or next
+          in_gems << [unit.file.delete_prefix("#{root}/"), unit.file]
+        end
+      end
+      return {} if in_gems.empty?
+
       stdlib = Library::Roots.stdlib(target)
       carried = support.units.keys.filter_map do |path|
         root = stdlib.find { |dir| path.start_with?("#{dir}/") }
         [path.delete_prefix("#{root}/"), path] if root
       end.to_h
       redirects = {} #: Hash[String, String]
-      hir.units.each do |unit|
-        next unless unit.file
-
-        gem_set.gems.each do |gem|
-          root = gem.root_of(unit.file) or next
-          copy = carried[unit.file.delete_prefix("#{root}/")]
-          redirects[copy] = unit.file if copy && copy != unit.file
-        end
+      in_gems.each do |relative, file|
+        copy = carried[relative]
+        redirects[copy] = file if copy && copy != file
       end
       redirects
     end

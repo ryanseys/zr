@@ -102,8 +102,10 @@ module Zr
         missing.zip(made) { |i, pair| records[i] = pair }
         # Each piece now has its record.
         filled = records #: Array[[Hash[Symbol, untyped], Hash[String, String]?]]
-        Timing.phase("#{label}: keeping the pieces", "#{label}: kept") { keep(pieces, filled) }
-        Timing.phase("#{label}: reading the code", "#{label}: code read") { results(filled) }
+        # The code first: keeping it can remove the oldest pack.
+        code_of = Timing.phase("#{label}: reading the code", "#{label}: code read") { results(filled) }
+        Timing.phase("#{label}: keeping the pieces", "#{label}: kept") { keep(pieces, filled, missing.any?) }
+        code_of
       end
 
       # `[record, nil]` for a piece whose entry holds, else nil. The code
@@ -177,15 +179,20 @@ module Zr
       end
 
       # Writes an entry for each piece that a worker made, and the root that
-      # keeps this build's entries.
-      #: (Array[Piece] pieces, Array[[Hash[Symbol, untyped], Hash[String, String]?]] records) -> void
-      def keep(pieces, records)
+      # keeps this build's entries. When a worker made any, it also writes
+      # a pack of the code of every piece (`known`). The build of the
+      # object writes one too, but a build that reads only eval support's
+      # metadata writes no object, and then the next process found each
+      # entry with no code and made all 473 pieces again.
+      #: (Array[Piece] pieces, Array[[Hash[Symbol, untyped], Hash[String, String]?]] records, bool made) -> void
+      def keep(pieces, records, made)
         return if SourceGuard.changed_file
 
         pieces.zip(records) do |piece, (record, blobs)|
           Store.write(:lowering, piece.key, record) if blobs && piece.key
         end
         Store.root("#{@target.triple}-#{@kind}", pieces.filter_map { |piece| piece.key && Store.path(:lowering, piece.key) })
+        code.keep(known.values) if made
       rescue SystemCallError
         nil
       end
