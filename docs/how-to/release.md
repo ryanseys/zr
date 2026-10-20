@@ -39,7 +39,9 @@ Do these by hand before the first release:
 
 - [ ] The last full `ci.yml` run on `main` (a push or the nightly run)
   passed `ci-ok`. The release workflow checks this again for the tagged
-  commit (`.github/scripts/ci_passed.rb`).
+  commit (`.github/scripts/ci_passed.rb`). A later push to `main` stops
+  the run of the push before it, so a commit can have no finished run:
+  run CI on it by hand (`gh workflow run ci.yml --ref main`).
 - [ ] `bin/minitest test/unit` passes locally.
 - [ ] `gem build zr.gemspec` makes a gem, and `gem spec zr-*.gem
   dependencies` lists none.
