@@ -74,7 +74,7 @@ module Lanes
         timeout: runner.fetch(:timeout, 90), builds: [target.triple, *runner[:host]],
         slice: target.object_format == :wasm ? WASM_SLICE : SLICE, shards: (1..shards).to_a, of: shards,
         test_seconds: runner.fetch(:seconds, "60"), vendor: runner.fetch(:vendor, false), stage1: runner.fetch(:stage1, false),
-        glibc: target.libc == :glibc, tier: runner.fetch(:tier, 2) }
+        glibc: target.libc == :glibc, tier: runner.fetch(:tier, 2), gem_platform: target.gem_platform }
     end
   end
 

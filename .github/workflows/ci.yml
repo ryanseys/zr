@@ -233,11 +233,13 @@ jobs:
           cmp outputs-macos/sum.darwin.o outputs-linux-aarch64/sum.darwin.o
           test "$(cat gem-macos-sha256/gem-macos.sha256)" = "$LINUX_GEM"
 
-  # Release: after a run on main, a GitHub prerelease of the commit,
-  # v<version>.g<sha7>, with the files that this run tested: the gem of
-  # `checks`, and the runtime bundle of each lane whose tests passed (its
-  # `passed-<triple>` marker), by the name that `zr cache fetch` reads,
-  # and SHA256SUMS. It needs no ci-ok, which stays the strict check: a
+  # Release: after a run on main (or on a tag, which `gh workflow run
+  # ci.yml --ref vX.Y.Z` makes), a GitHub prerelease of the commit,
+  # v<version>.g<sha7>, with the files that this run tested: the `ruby`
+  # gem of `checks`; the runtime bundle of each lane whose tests passed
+  # (its `passed-<triple>` marker), by the name that `zr cache fetch`
+  # reads; for each such lane of a host, the platform gem that carries
+  # that bundle (zr.gemspec, ZR_GEM_PLATFORM); and SHA256SUMS. It needs no ci-ok, which stays the strict check: a
   # tier 1 lane (lanes.rb) that did not pass, or a failed `units` or
   # `smoke`, stops it; a tier 2 or 3 lane that did not pass is left out,
   # and the summary and the notes name it. A tagged release (release.yml)
@@ -247,8 +249,8 @@ jobs:
     needs: [checks, units, lane, smoke]
     if: >-
       !cancelled() && needs.checks.result == 'success' && needs.checks.outputs.code == 'true' &&
-      needs.units.result == 'success' &&
-      github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      needs.units.result == 'success' && github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # A push and the nightly run of one commit make one prerelease.
@@ -266,7 +268,14 @@ jobs:
       LANES: ${{ needs.checks.outputs.lanes }}
       SMOKE: ${{ needs.smoke.result }}
     steps:
-      - name: "Release: download the gem and each passed target's runtime"
+      # The gemspec, for the platform gems.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        with:
+          ruby-version: .ruby-version
+      - name: "Release: download the gem and each passed target's runtime, and build the platform gems"
         id: files
         run: |
           [ "$SMOKE" = success ] || { echo "::error::the gem's smoke test did not pass ($SMOKE)"; exit 1; }
@@ -283,7 +292,16 @@ jobs:
             if gh run download "$GITHUB_RUN_ID" -n "passed-$triple" -D "passed-$triple" 2> /dev/null &&
                gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "lane-$triple" 2> /dev/null &&
                [ -f "lane-$triple/runtime-$triple.tar.gz" ]; then
-              mv "lane-$triple/runtime-$triple.tar.gz" "dist/zr-runtime-$version-$triple.tar.gz"
+              bundle="dist/zr-runtime-$version-$triple.tar.gz"
+              mv "lane-$triple/runtime-$triple.tar.gz" "$bundle"
+              platform="$(echo "$LANES" | jq -r --arg t "$triple" '.[] | select(.triple == $t) | .gem_platform // empty')"
+              if [ -n "$platform" ]; then
+                rm -rf data/runtime && mkdir -p "data/runtime/$triple" && tar -xzf "$bundle" -C "data/runtime/$triple"
+                SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ZR_GEM_PLATFORM="$platform" ZR_GEM_RUNTIME="data/runtime/$triple" \
+                  gem build zr.gemspec --output "dist/zr-$version-$platform.gem"
+                size="$(wc -c < "dist/zr-$version-$platform.gem")"
+                [ "$size" -le $((100 << 20)) ] || { echo "::error::zr-$version-$platform.gem is $((size >> 20)) MB, past 100 MB"; exit 1; }
+              fi
             elif [ "$tier" = 1 ]; then
               echo "::error::$triple, a tier 1 target, did not pass: no release"; exit 1
             else
@@ -329,7 +347,13 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           cat > notes.md <<NOTES
-          A prerelease of $GITHUB_SHA, from [CI]($RUN_URL): the gem and the runtime bundles of each target that this run tested and passed. It is not a release, and no gem server has it.
+          A prerelease of $GITHUB_SHA, from [CI]($RUN_URL): the gem, and the runtime bundle and platform gem of each target that this run tested and passed. It is not a release, and no gem server has it.
+
+          A platform gem carries its host's runtime, so its first build builds none:
+
+              gem install ./zr-$VERSION-arm64-darwin.gem
+
+          The \`ruby\` gem builds the runtime on its first use, or takes it from this prerelease:
 
               gem install ./zr-$VERSION.gem
               ZR_PREBUILT_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG zr cache fetch

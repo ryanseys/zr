@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
-# Stops a release unless a CI run of main passed for the commit that it
+# Stops a release unless a CI run passed for the commit that it
 # publishes: a run of ci.yml for a push, the nightly schedule or a run by
-# hand (not a pull request's), whose `ci-ok` job passed. Each lane of a
-# push runs its target's units and programs; the nightly run adds every
-# program. The release workflow runs it before it builds anything, and
-# reads the run's id (`ci_run=` on GITHUB_OUTPUT) to fetch that run's gem
-# and runtime bundles, which the release publishes.
+# hand (not a pull request's), whose release job passed. That job passes
+# only when `checks`, `units`, the gem's smoke test and every tier 1 lane
+# passed (docs/how-to/release.md); a tier 2 or 3 lane that failed is left
+# out of it, as it is of the release. The release workflow runs this
+# before it builds anything, and reads the run's id (`ci_run=` on
+# GITHUB_OUTPUT) to fetch that run's gem, runtime bundles and the
+# `passed-<triple>` marker of each lane that passed.
 #
 #   GITHUB_TOKEN=... ruby .github/scripts/ci_passed.rb OWNER/REPO SHA
 
@@ -16,16 +18,17 @@ require "net/http"
 # The choice of the run, apart from GitHub, so that a test can give it runs.
 module CIGate
   EVENTS = %w[push schedule workflow_dispatch].freeze
-  JOB = "ci-ok"
+  JOB = "release: prerelease of this commit"
 
-  # The newest run in `runs` (the API's workflow runs) of one of EVENTS
-  # that passed, or nil.
-  def self.run(runs)
-    runs.select { |run| EVENTS.include?(run["event"]) && run["conclusion"] == "success" }
-        .max_by { |run| run["created_at"].to_s }
+  # The runs in `runs` (the API's workflow runs) of one of EVENTS, the
+  # newest first. A run's own result does not count: a tier 2 lane that
+  # failed fails it.
+  def self.candidates(runs)
+    runs.select { |run| EVENTS.include?(run["event"]) }.sort_by { |run| run["created_at"].to_s }.reverse
   end
 
-  # Whether the `jobs` of a run (the API's jobs) hold a `ci-ok` that passed.
+  # Whether the `jobs` of a run (the API's jobs) hold a release job that
+  # passed.
   def self.ok?(jobs) = jobs.any? { |job| job["name"] == JOB && job["conclusion"] == "success" }
 end
 return unless $PROGRAM_NAME == __FILE__
@@ -43,9 +46,10 @@ end
 
 runs = get.call("actions/workflows/ci.yml/runs?head_sha=#{sha}&status=completed&per_page=100").fetch("workflow_runs")
 runs.each { |run| puts format("%-8s %-18s run %s", run["conclusion"], run["event"], run["id"]) }
-run = CIGate.run(runs) or abort "ci_passed: no CI run passed for #{sha}; run `gh workflow run ci.yml --ref <tag>`"
-jobs = get.call("actions/runs/#{run["id"]}/jobs?filter=latest&per_page=100").fetch("jobs")
-abort "ci_passed: run #{run["id"]} has no #{CIGate::JOB} that passed" unless CIGate.ok?(jobs)
+run = CIGate.candidates(runs).find do |candidate|
+  CIGate.ok?(get.call("actions/runs/#{candidate["id"]}/jobs?filter=latest&per_page=100").fetch("jobs"))
+end
+run or abort "ci_passed: no CI run of #{sha} has a #{CIGate::JOB.inspect} that passed; run `gh workflow run ci.yml --ref <tag>`"
 
 File.open(ENV.fetch("GITHUB_OUTPUT"), "a") { |file| file.puts "ci_run=#{run["id"]}" } if ENV["GITHUB_OUTPUT"]
 puts "ci_passed: run #{run["id"]} passed for #{sha}"

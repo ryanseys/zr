@@ -96,8 +96,17 @@ zr: to download it in place of the build, stop zr (Ctrl-C) and run 'zr cache fet
 Hello from arm64-darwin23
 ```
 
-The first build fills zr's cache. The builds after it take seconds. To
-skip the first build, run `zr cache fetch` before it: it downloads the
+The first build fills zr's cache. The builds after it take seconds. On
+macOS (Apple silicon) and on aarch64 and x86_64 Linux (glibc or musl),
+`gem install zr` takes the platform gem of your host, which carries its
+runtime: the first build takes seconds too, and prints neither line. A
+Gemfile.lock that lists only the `ruby` platform keeps the `ruby` gem;
+`bundle lock --add-platform arm64-darwin` (or your host's platform)
+adds it. `gem install zr --platform ruby` takes the `ruby` gem on
+purpose.
+
+With the `ruby` gem, to skip the first build, run `zr cache fetch`
+before it: it downloads the
 runtime that this zr release built for your target, checks its SHA-256,
 and puts it in the cache. Add `--target T` for another target. zr
 downloads nothing unless you run it.

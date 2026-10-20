@@ -100,15 +100,16 @@ class LayoutTest < Minitest::Test
     release = jobs.fetch("release")
     assert_equal %w[checks lane smoke units], release.fetch("needs").sort
     assert_includes release.fetch("if"), "!cancelled()"
-    assert_includes release.fetch("steps").first.fetch("run"), "passed-$triple"
+    assert(release.fetch("steps").any? { |step| step["run"].to_s.include?("passed-$triple") })
     assert_equal "always()", jobs.fetch("ci-ok").fetch("if")
     reports = jobs.fetch("checks").fetch("steps").select { |step| step["run"].to_s.match?(/rubocop|steep/) }
     assert_equal 2, reports.size
     assert(reports.all? { |step| step["continue-on-error"] })
   end
 
-  # The release takes the newest run of main of a commit that passed
-  # ci-ok: a pull request's run does not count.
+  # The release takes the newest run of a commit whose release job
+  # passed, whatever the run's own result: a pull request's run does not
+  # count.
   def test_the_release_takes_a_run_of_main_that_passed
     load File.join(ROOT, ".github/scripts/ci_passed.rb")
     runs = [{ "id" => 1, "event" => "pull_request", "conclusion" => "success", "created_at" => "5" },
@@ -116,11 +117,10 @@ class LayoutTest < Minitest::Test
             { "id" => 3, "event" => "schedule", "conclusion" => "failure", "created_at" => "4" },
             { "id" => 4, "event" => "push", "conclusion" => "success", "created_at" => "2" }]
 
-    assert_equal 4, CIGate.run(runs)["id"]
-    assert_equal 2, CIGate.run(runs.reject { |run| run["id"] == 4 })["id"]
-    assert_nil CIGate.run(runs.first(1))
-    assert CIGate.ok?([{ "name" => "ci-ok", "conclusion" => "success" }])
-    refute CIGate.ok?([{ "name" => "ci-ok", "conclusion" => "failure" }, { "name" => "docs", "conclusion" => "success" }])
+    assert_equal [3, 4, 2], CIGate.candidates(runs).map { |run| run["id"] }
+    assert_empty CIGate.candidates(runs.first(1))
+    assert CIGate.ok?([{ "name" => CIGate::JOB, "conclusion" => "success" }, { "name" => "ci-ok", "conclusion" => "failure" }])
+    refute CIGate.ok?([{ "name" => CIGate::JOB, "conclusion" => "failure" }, { "name" => "ci-ok", "conclusion" => "success" }])
   end
 
   # CI runs zr on each ruby series that zr is tested with (RUBY_TESTED):

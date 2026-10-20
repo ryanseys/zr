@@ -36,16 +36,20 @@ env:
 
 jobs:
   # Every check, with no environment, so a dry run works from any ref.
-  # It builds the gem on the OS of CI's gem job, and the bytes must be
-  # the ones that CI built and checked for the commit.
+  # The files are the ones of the commit's prerelease (ci.yml's `release`
+  # job): the `ruby` gem, each passed target's runtime bundle and platform
+  # gem, and SHA256SUMS, which CI built, tested and attested. The gem
+  # built here on the OS of CI's gem job must be the same bytes.
   check:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: read
-      actions: read # the CI run of the tagged commit, and its gem
+      actions: read # the CI run of the tagged commit
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     outputs:
       version: ${{ steps.notes.outputs.version }}
       sha256: ${{ steps.gem.outputs.sha256 }}
@@ -71,67 +75,64 @@ jobs:
           ruby .github/scripts/release_notes.rb "$TAG"
           ruby -r ./lib/zr/version -e 'puts "version=#{Zr::VERSION}"' >> "$GITHUB_OUTPUT"
 
-      # The release runs no test tier: it requires a full CI run of this
-      # commit whose ci-ok passed.
+      # The release runs no test tier: it requires a CI run of this commit
+      # whose release job passed, which every tier 1 lane did.
       - id: ci
-        name: Check that a full CI run passed for this commit
+        name: Check that CI passed for this commit
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ruby .github/scripts/ci_passed.rb "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)"
 
       # Each target of CI's lanes (.github/scripts/lanes.rb).
       - id: lanes
-        name: The targets whose runtimes the release carries
+        name: The targets whose runtimes the release can carry
         run: echo "lanes=$(ruby .github/scripts/lanes.rb matrix | jq -c .)" >> "$GITHUB_OUTPUT"
 
+      - name: Download the commit's prerelease, and check its digests
+        env:
+          VERSION: ${{ steps.notes.outputs.version }}
+        run: |
+          pre="v$VERSION.g$(git rev-parse --short=7 HEAD)"
+          gh release download "$pre" -D pre ||
+            { echo "::error::no prerelease $pre: run CI on the commit (gh workflow run ci.yml --ref $TAG)"; exit 1; }
+          (cd pre && sha256sum -c SHA256SUMS)
+          ls -la pre
+
       - id: gem
-        name: Build the gem
+        name: Build the gem, which must be the prerelease's
+        env:
+          VERSION: ${{ steps.notes.outputs.version }}
         run: |
           SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec --output "zr-$VERSION.gem"
+          sha256sum "zr-$VERSION.gem" "pre/zr-$VERSION.gem"
+          test "$(sha256sum < "zr-$VERSION.gem")" = "$(sha256sum < "pre/zr-$VERSION.gem")"
           echo "sha256=$(sha256sum "zr-$VERSION.gem" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      # CI keeps its gem for 90 days. After that, run CI again on the tag:
-      # gh workflow run ci.yml --ref vX.Y.Z
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: gem
-          path: ci
-          run-id: ${{ steps.ci.outputs.ci_run }}
-          github-token: ${{ github.token }}
-      - name: The gem is the one that CI built and checked
-        run: |
-          sha256sum "zr-$VERSION.gem" ci/zr-*.gem
-          test "$(sha256sum < "zr-$VERSION.gem")" = "$(sha256sum < ci/zr-"$VERSION".gem)"
 
       - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb "zr-$VERSION.gem"
+        run: ruby .github/scripts/smoke.rb "zr-${{ steps.notes.outputs.version }}.gem"
       - name: Run the gem with the user cache
-        run: ruby .github/scripts/smoke.rb --user-cache "zr-$VERSION.gem"
+        run: ruby .github/scripts/smoke.rb --user-cache "zr-${{ steps.notes.outputs.version }}.gem"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release
           path: |
-            zr-*.gem
+            pre/zr-*.gem
+            pre/zr-runtime-*.tar.gz
             notes.md
 
-  # Each target's runtime bundle from the CI run that passed: the bundle
-  # that its lane built, exported and tested, renamed to what `zr cache
-  # fetch` downloads, so a user's first build takes seconds, not minutes.
-  # CI keeps a bundle for 7 days; after that, run CI again on the tag. A
-  # bundle of a target that builds on its runner is imported into an
-  # empty cache, which must then build a program and an eval with no
-  # build of the runtime. A musl bundle's lane imported and tested it in
-  # its Alpine container. An experimental target's missing bundle leaves
-  # it out of the release.
+  # Each target's files on a runner of that target, as a user takes them:
+  # its platform gem installed in an empty GEM_HOME, which must build a
+  # program and an eval with no build of the runtime; for wasm32-wasi,
+  # the bundle imported into an empty cache. A target that the
+  # prerelease left out (a tier 2 or 3 lane that did not pass) has
+  # nothing to check, and the release leaves it out too. A musl lane
+  # tested its files in its Alpine container.
   bundles:
     name: bundle (${{ matrix.lane.triple }})
     needs: check
     runs-on: ${{ matrix.lane.os }}
     timeout-minutes: 30
-    continue-on-error: ${{ matrix.lane.experimental }}
-    permissions:
-      contents: read
-      actions: read # the CI run's runtime bundle
     strategy:
       fail-fast: false
       matrix:
@@ -139,6 +140,7 @@ jobs:
     env:
       VERSION: ${{ needs.check.outputs.version }}
       TRIPLE: ${{ matrix.lane.triple }}
+      PLATFORM: ${{ matrix.lane.gem_platform }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -151,29 +153,35 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: runtime-${{ matrix.lane.triple }}
-          path: ci
-          run-id: ${{ needs.check.outputs.ci_run }}
-          github-token: ${{ github.token }}
-      - name: Take the bundle that CI built and tested
-        run: mv "ci/runtime-$TRIPLE.tar.gz" "zr-runtime-$VERSION-$TRIPLE.tar.gz"
-      - name: Import the bundle into an empty cache, and build from it alone
-        if: ${{ !matrix.lane.container }}
+      - id: has
+        name: The target's files in the prerelease
         run: |
-          gem install --local --no-document --install-dir "$RUNNER_TEMP/gems" "zr-$VERSION.gem"
+          if [ -f "pre/zr-runtime-$VERSION-$TRIPLE.tar.gz" ]; then echo "files=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ matrix.lane.tier }}" = 1 ]; then echo "::error::the prerelease has no $TRIPLE, a tier 1 target"; exit 1
+          else echo "::notice::$TRIPLE is not in this release: its lane did not pass"
+          fi
+      - name: Build from the platform gem alone, with an empty cache
+        if: steps.has.outputs.files == 'true' && !matrix.lane.container && matrix.lane.gem_platform
+        run: |
+          gem install --local --no-document --install-dir "$RUNNER_TEMP/gems" "pre/zr-$VERSION-$PLATFORM.gem"
+          zr="$RUNNER_TEMP/gems/gems/zr-$VERSION-$PLATFORM/exe/zr"
+          export XDG_CACHE_HOME="$RUNNER_TEMP/fresh" GEM_HOME="$RUNNER_TEMP/gems"
+          cd "$RUNNER_TEMP"
+          echo 'puts eval("1 + 1")' > check.rb
+          ruby "$zr" build check.rb -o check 2> build.log || { cat build.log; exit 1; }
+          if grep -q "zr: building" build.log; then cat build.log; echo "the platform gem did not carry the whole runtime"; exit 1; fi
+          test "$(./check)" = 2
+      - name: Import the bundle into an empty cache, and build from it alone
+        if: steps.has.outputs.files == 'true' && !matrix.lane.container && !matrix.lane.gem_platform
+        run: |
+          gem install --local --no-document --install-dir "$RUNNER_TEMP/gems" "pre/zr-$VERSION.gem"
           zr="$RUNNER_TEMP/gems/gems/zr-$VERSION/exe/zr"
           export ZR_CACHE="$RUNNER_TEMP/fresh"
-          ruby "$zr" cache import "zr-runtime-$VERSION-$TRIPLE.tar.gz"
+          ruby "$zr" cache import "pre/zr-runtime-$VERSION-$TRIPLE.tar.gz"
           cd "$RUNNER_TEMP"
           echo 'puts eval("1 + 1")' > check.rb
           ruby "$zr" build --target "$TRIPLE" check.rb -o check 2> build.log || { cat build.log; exit 1; }
           if grep -q "zr: building" build.log; then cat build.log; echo "the bundle did not hold the whole runtime"; exit 1; fi
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: bundle-${{ matrix.lane.triple }}
-          path: zr-runtime-*.tar.gz
 
   # The publish steps, in the release environment, which only v* tags may
   # use. A draft GitHub Release comes first and is published last, so a
@@ -201,14 +209,12 @@ jobs:
       - name: The gem is the one that the check built
         env:
           SHA256: ${{ needs.check.outputs.sha256 }}
-        run: test "$(sha256sum "zr-$VERSION.gem" | cut -d' ' -f1)" = "$SHA256"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: bundle-*
-          merge-multiple: true
+        run: |
+          mv pre/* . && rmdir pre
+          test "$(sha256sum "zr-$VERSION.gem" | cut -d' ' -f1)" = "$SHA256"
       # `zr cache fetch` checks a bundle against this list.
-      - name: List the digests of the gem and the runtimes
-        run: sha256sum "zr-$VERSION.gem" zr-runtime-*.tar.gz > SHA256SUMS
+      - name: List the digests of the gems and the runtimes
+        run: sha256sum zr-*.gem zr-runtime-*.tar.gz > SHA256SUMS
 
       # The attestation names this repository, this workflow and this
       # commit, for the exact file that the next steps publish.
@@ -217,7 +223,7 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
-            zr-${{ env.VERSION }}.gem
+            zr-*.gem
             zr-runtime-*.tar.gz
 
       - name: Create the GitHub Release as a draft
@@ -227,7 +233,7 @@ jobs:
         run: |
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 ||
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --title "zr $VERSION" --notes-file notes.md --verify-tag
-          gh release upload "$TAG" "zr-$VERSION.gem" zr-runtime-*.tar.gz SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" zr-*.gem zr-runtime-*.tar.gz SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber
 
       # Trusted publishing: no API key. rubygems attests the push with
       # sigstore on its own under GitHub Actions; check the attestation on
@@ -239,9 +245,16 @@ jobs:
       - name: Configure trusted publishing to rubygems.org
         if: env.ONLY == 'all' || env.ONLY == 'rubygems'
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+      # The platform gems first and the `ruby` gem last, as nokogiri
+      # pushes: a host that resolves zr between the pushes then finds its
+      # platform gem, not only the `ruby` one. A version's gem that is
+      # already there is skipped, so a run again finishes the rest.
       - name: Push to rubygems.org
         if: env.ONLY == 'all' || env.ONLY == 'rubygems'
-        run: gem push "zr-$VERSION.gem"
+        run: |
+          for gem in $(ls zr-"$VERSION"-*.gem 2> /dev/null) "zr-$VERSION.gem"; do
+            gem push "$gem" 2>&1 | tee push.log || grep -q "Repushing of gem versions is not allowed" push.log || exit 1
+          done
 
       # gem.coop's own index mirrors rubygems.org; a direct push goes to a
       # namespace. The key is a push-only key for it, in the release
@@ -250,7 +263,10 @@ jobs:
         if: env.ONLY == 'all' || env.ONLY == 'gem-coop'
         env:
           GEM_HOST_API_KEY: ${{ secrets.GEM_COOP_API_KEY }}
-        run: gem push --host https://gem.coop/@ryanseys "zr-$VERSION.gem"
+        run: |
+          for gem in $(ls zr-"$VERSION"-*.gem 2> /dev/null) "zr-$VERSION.gem"; do
+            gem push --host https://gem.coop/@ryanseys "$gem"
+          done
 
       - name: Publish the GitHub Release
         if: env.ONLY == 'all' || env.ONLY == 'github-release'

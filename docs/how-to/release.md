@@ -1,9 +1,23 @@
 # How to release zr
 
-A release publishes the platform-independent gem, `zr-<version>.gem`,
-to rubygems.org and to gem.coop, and makes a GitHub Release with the
-gem, each target's prebuilt runtime (`zr cache fetch` downloads it) and
-the version's changelog. A tag starts it: the release workflow
+A release publishes zr's gems to rubygems.org and to gem.coop, and
+makes a GitHub Release with the gems, each target's prebuilt runtime
+(`zr cache fetch` downloads it) and the version's changelog. The gems
+are one name in several variants, as nokogiri ships:
+
+- `zr-<version>.gem`, the `ruby` gem: the compiler with no runtime. It
+  builds the runtime on its first use, or `zr cache fetch` takes it.
+- `zr-<version>-<platform>.gem` for each host whose lane passed:
+  `arm64-darwin`, `x86_64-linux-gnu`, `aarch64-linux-gnu`,
+  `x86_64-linux-musl` and `aarch64-linux-musl` (`Target#gem_platform`).
+  It carries that host's runtime unpacked at `data/runtime/<triple>`, so
+  its first build builds none. RubyGems and Bundler take it in place of
+  the `ruby` gem on that host (RubyGems 3.3.22 and later; Bundler 2.5.6
+  for the gnu and musl names). A host with no platform gem takes the
+  `ruby` gem.
+
+wasm32-wasi is a target, not a host, so it has no platform gem: its
+runtime is only a release file. A tag starts it: the release workflow
 (`.github/workflows/release.yml`) does the rest. `rake release` does
 not release: it stops and points here, because a gem that no CI run
 checked must not go out.
@@ -76,8 +90,9 @@ Do these by hand before the first release:
 
 ## Check before a release
 
-- [ ] The last `ci.yml` run on `main` passed `ci-ok`, and it made the
-  commit's prerelease. The nightly run also runs every program; a push
+- [ ] The last `ci.yml` run on `main` made the commit's prerelease, and
+  the prerelease names no target that was left out that you want in
+  the release. The nightly run also runs every program; a push
   runs each target's units and a slice of its programs. The release
   workflow checks this again for the tagged commit
   (`.github/scripts/ci_passed.rb`).
@@ -114,29 +129,35 @@ The workflow then:
 1. stops unless the tag is `v` and `Zr::VERSION`, and `CHANGELOG.md`
    has a dated section for the version, which becomes the release
    notes (`.github/scripts/release_notes.rb`);
-2. stops unless a CI run of `main` for the tagged commit (a push, the
-   nightly run or a run by hand) passed `ci-ok`
-   (`.github/scripts/ci_passed.rb`). The release runs no test tier
-   itself;
-3. builds the gem, and stops unless its SHA-256 is the one of the gem
-   that that CI run built and checked. CI keeps its gem for 90 days;
-   after that, run CI on the tag again
-   (`gh workflow run ci.yml --ref vX.Y.Z`);
+2. stops unless a CI run of the tagged commit (a push, the nightly run
+   or a run by hand) has a release job that passed, which needs every
+   tier 1 lane (`.github/scripts/ci_passed.rb`), and the commit's
+   prerelease is there. The release runs no test tier itself. Its
+   files are the prerelease's, checked against its `SHA256SUMS`. If
+   the prerelease is gone, run CI on the tag again
+   (`gh workflow run ci.yml --ref vX.Y.Z`): a run on a tag makes it;
+3. builds the `ruby` gem, and stops unless its SHA-256 is the one of
+   the prerelease's;
 4. installs the gem in a clean `GEM_HOME` and runs it as a user would,
    with a fixed cache and again with the user cache
    (`.github/scripts/smoke.rb`);
-5. takes each target's runtime bundle from that CI run, as
-   `zr-runtime-X.Y.Z-<triple>.tar.gz`, and, for a target that builds on its
-   runner, imports it into an empty cache, which must build a program
-   and an eval with no runtime build. CI keeps a bundle for 7 days;
-   after that, run CI on the tag again. An experimental target's
-   missing bundle leaves it out;
-6. in the `release` environment: attests the provenance of the gem and
-   of each bundle, makes the GitHub Release as a draft with the gem,
-   the bundles and their `SHA256SUMS`, pushes the gem
-   to rubygems.org with trusted publishing (rubygems attests the push
-   too; check the attestation on rubygems.org after the first release)
-   and to `https://gem.coop/@ryanseys`, and then publishes the draft.
+5. on a runner of each target in the prerelease: installs its platform
+   gem in an empty `GEM_HOME`, which must build a program and an eval
+   with an empty cache and no runtime build (for wasm32-wasi, imports
+   the bundle with the `ruby` gem). A target that the prerelease left
+   out is left out of the release;
+6. in the `release` environment: attests the provenance of each gem
+   and bundle, makes the GitHub Release as a draft with them and their
+   `SHA256SUMS`, pushes each platform gem and then the `ruby` gem to
+   rubygems.org with trusted publishing (rubygems attests the push too;
+   check the attestation on rubygems.org after the first release) and
+   to `https://gem.coop/@ryanseys`, and then publishes the draft. The
+   `ruby` gem goes last: a host that resolves zr between the pushes
+   finds its platform gem.
+
+A platform that a version left out comes back only as a gem built from
+the same tag: a gem of a version cannot be pushed again, and a fix
+that changes code is the next version.
 
 ## Check a release without publishing
 
