@@ -2,7 +2,9 @@ name: Start the Alpine container
 description: >-
   The setup of a musl lane (.github/workflows/lane.yml): the pinned ruby's
   Alpine image, kept running beside the job as `alpine`, with the
-  workspace at /zr and the bundle installed. JavaScript actions do not
+  workspace at its path on the runner and the bundle installed. Not at
+  /zr: a runtime names zr's own files below /zr (Paths::HOME_SHOWN), and
+  the export refuses an entry that names the install's path. JavaScript actions do not
   run inside an Alpine container on an arm runner, so each step runs its
   command there through .github/scripts/in_lane.sh. Then zr finds its
   cache, tmp/cache, as the container's root's: zr refuses a cache that
@@ -19,8 +21,8 @@ runs:
       env:
         RUBY_PIN: ${{ inputs.ruby }}
       run: |
-        docker run -d --name alpine -e BUNDLE_WITHOUT=development -v "$PWD:/zr" -w /zr "ruby:$RUBY_PIN-alpine" sleep infinity
+        docker run -d --name alpine -e BUNDLE_WITHOUT=development -v "$PWD:$PWD" -w "$PWD" "ruby:$RUBY_PIN-alpine" sleep infinity
         docker exec alpine apk add --no-cache build-base git binutils
-        docker exec alpine git config --global --add safe.directory /zr
+        docker exec alpine git config --global --add safe.directory "$PWD"
         docker exec alpine bundle install
         if [ -d tmp ]; then docker exec alpine chown -R 0:0 tmp; fi

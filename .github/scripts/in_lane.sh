@@ -18,7 +18,7 @@ for name in ZR_TARGET ZR_JOBS ZR_VERIFY ZR_TIMING ZR_PROGRAMS ZR_TEST_SHARD ZR_T
 done
 summary=tmp/step-summary.md
 rm -f "$summary"
-passed+=(-e "GITHUB_STEP_SUMMARY=/zr/$summary")
+passed+=(-e "GITHUB_STEP_SUMMARY=$PWD/$summary")
 
 docker exec "${passed[@]}" alpine "$@"
 status=$?
