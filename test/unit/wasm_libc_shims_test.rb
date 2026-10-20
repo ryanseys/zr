@@ -37,8 +37,8 @@ class WasmLibcShimsTest < Minitest::Test
     "munmap" => "zr_release_fiber"
   }.freeze
 
-  # One test, so the wasm runtime lowers once (seconds): the roots must
-  # be functions of the kernel first, or the walk checks nothing.
+  # The roots must be functions of the kernel, or the walk checks
+  # nothing.
   def test_the_heap_calls_nothing_that_has_no_wasm_form
     assert_empty ROOTS - by_name.keys, "a root this test cannot find checks nothing"
     assert_equal KNOWN.to_a.sort, formless(ROOTS),
@@ -66,11 +66,13 @@ class WasmLibcShimsTest < Minitest::Test
     found.uniq.sort
   end
 
-  # A runtime that only this test uses. `Zr::Runtime.for` belongs to the
-  # process, and `Native::Build.lower` releases its IR as soon as it gets
-  # the runtime object. Thus an earlier build in the process would leave
-  # this test no call graph to walk.
+  # The kernel of a runtime that only this test uses: the heap and the
+  # collector are kernel code, and the kernel comes from its cache, where
+  # the whole runtime lowered the core too (30 s). `Zr::Runtime.for`
+  # belongs to the process, and `Native::Build.lower` releases its IR as
+  # soon as it gets the runtime object, so an earlier build in the
+  # process would leave this test no call graph to walk.
   def by_name
-    @by_name ||= Zr::Runtime.new(TARGET).functions.to_h { |f| [f.name, f] }
+    @by_name ||= Zr::Runtime.new(TARGET).unit.functions.to_h { |f| [f.name, f] }
   end
 end
