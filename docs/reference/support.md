@@ -78,7 +78,6 @@ None.
 | `cli/core/thread/threads_join.rb` | can't allocate fiber stack: Function not implemented |
 | `cli/core/thread/thread_queue_handoff.rb` | can't allocate fiber stack: Function not implemented |
 | `cli/stdlib/ffi/ffi_libc_call.rb` | dlopen has no wasm form |
-| `cli/stdlib/rubygems/require_rubygems.rb` | rubygems reads a gem's own source by absolute path, and a WASI guest is given no such directory |
 | `cli/stdlib/socket/socket_loopback.rb` | cannot load such file -- socket/constants |
 | `core/math/a_float_or_an_integer_argument_is_answered_by_the_kernel_at.rb` | tan(1) is 1.5574077246549023 with musl, 1.557407724654902 with macOS |
 | `core/hash/thread_value_hash_tail.rb` | can't allocate fiber stack: Function not implemented |
