@@ -29,6 +29,7 @@ module Zr
   # slot of the kernel has an entry, and that every entry names one. New
   # kernel state adds its entry with it.
   module LockPlan
+    # @rbs skip -- typed in sig/zr/lock_plan.rbs
     Entry = Data.define(:now, :free, :note)
 
     NOW = %i[thread gvl boot async].freeze #: Array[Symbol]
@@ -152,9 +153,8 @@ module Zr
        %w[G_FFI_CALLBACK G_FFI_UNWIND G_C_CALLBACK]]
     ].freeze #: Array[[Symbol, Symbol, String, Array[String]]]
 
-    ENTRIES = ROWS.each_with_object({}) do |(now, free, note, names), entries|
-      names.each { |name| entries[name] = Entry.new(now:, free:, note:) }
-    end.freeze #: Hash[String, Entry]
+    ENTRIES = ROWS.flat_map { |now, free, note, names| names.map { |name| [name, Entry.new(now:, free:, note:)] } }
+                  .to_h.freeze #: Hash[String, Entry]
 
     module_function
 

@@ -17,11 +17,6 @@ module Zr
     # starts from the program's own table. So an eval uses the same kernel
     # and the same symbol ids as the code around it.
     class Compiler < Eval
-      # The machine of this process: the backend that compiles an eval,
-      # and the code that the JIT loader places. A binary bakes
-      # RUBY_PLATFORM from its target.
-      ARCH = RUBY_PLATFORM.start_with?("x86_64") ? :x86_64 : :aarch64 #: Symbol
-
       # @rbs @runtime: Runtime
       # @rbs @description: Machine::Description
       # @rbs @symbols: Machine::Symbols
@@ -32,6 +27,11 @@ module Zr
       # @rbs @files: Hash[[String, String], [Integer, String?]]
       # @rbs @fixed: Hash[String?, Integer]?
       # @rbs @loaded: Cache::Loaded?
+
+      # The machine of this process: the backend that compiles an eval,
+      # and the code that the JIT loader places. A binary bakes
+      # RUBY_PLATFORM from its target.
+      ARCH = RUBY_PLATFORM.start_with?("x86_64") ? :x86_64 : :aarch64 #: Symbol
 
       # The compiler loads at the first eval (`Eval.current`). Loading it
       # makes about 100,000 objects, and about 90,000 stay live for the rest

@@ -98,7 +98,7 @@ module Zr
       #: (Hir::Unit unit) { (Hir::entry) -> String } -> Array[Integer | String]
       def self.parts(unit, &)
         source = unit.source or raise ArgumentError, "#{unit.file}: a unit with no source"
-        [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, *unit.context, "\0", source, *reached(unit.body, &)]
+        [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, *unit.context.to_a, "\0", source, *reached(unit.body, &)]
       end
 
       # The path and the entry of each unit that a require or an autoload

@@ -26,8 +26,40 @@ module Zr
       # - `wide?(v)`: `v` is 64 bits wide.
       #
       # It also reads `@pinned`, the values that the backend reads from a
-      # fixed register and that have no code at their definition.
+      # fixed register and that have no code at their definition. The
+      # backend's registers and its `Refused` have its own types, which a
+      # shared module cannot name: the registers are untyped here, and a
+      # line that names `self.class::Refused` has `steep:ignore`.
+      # @rbs module-self: _Layout
       module Planner
+        # @rbs @f: IR::Function
+        # @rbs @types: IR::Types
+        # @rbs @fused: Hash[IR::Inst, untyped]
+        # @rbs @bit_tests: Hash[IR::Inst, [String, Integer, Symbol]]
+        # @rbs @mask_tests: Hash[IR::Inst, [String, Integer | String]]
+        # @rbs @uses: Hash[String, Integer]
+        # @rbs @def_of: Hash[String, IR::Inst]
+        # @rbs @returns: Integer
+        # @rbs @enters: bool
+        # @rbs @pinned: Set[String]
+        # @rbs @slot_at: Array[Integer]
+        # @rbs @slots_end: Integer
+        # @rbs @stack: Hash[String, Integer]
+        # @rbs @va_list: IR::Inst?
+        # @rbs @const: Hash[String, Integer]
+        # @rbs @symbol: Hash[String, [String, bool]]
+        # @rbs @remade: Set[String]
+        # @rbs @derived: Hash[String, [String, Integer]]
+        # @rbs @via: Hash[String, String]
+        # @rbs @silent: Set[String]
+        # @rbs @from_sp: Hash[String, Integer]
+        # @rbs @clean: Set[String]
+        # @rbs @home: Hash[String, Integer]
+        # @rbs @frame: Integer
+        # The backend's own registers.
+        # @rbs @reg: Hash[String, untyped]
+        # @rbs @saved_at: Hash[untyped, Integer]
+
         # The bits that an operand of each type gives to an instruction:
         # the width that its load gives it.
         WIDTH_MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze #: Hash[String, Integer]
@@ -74,7 +106,7 @@ module Zr
           @types = IR::Types.new(@f)
           @types.all
         rescue IR::Types::Refused => e
-          raise self.class::Refused, e.message, cause: e
+          raise self.class::Refused, e.message, cause: e # steep:ignore UnknownConstant
         end
 
         # Every value that the backend reads has a type.
@@ -82,7 +114,7 @@ module Zr
         def type_of(v)
           @types.of(v) #: String
         rescue IR::Types::Refused => e
-          raise self.class::Refused, e.message, cause: e
+          raise self.class::Refused, e.message, cause: e # steep:ignore UnknownConstant
         end
 
         # The first instruction after `n` of `insts` that is not neutral to

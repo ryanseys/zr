@@ -73,9 +73,10 @@ module Zr
         kwargs = node.kwargs
         block = node.block
         return false if node.safe || !rest.is_a?(Splat) || !kwargs.is_a?(HashLit) || !block.is_a?(BlockPass)
-        return false unless kwargs.pairs.size == 2 && kwargs.pairs.first.is_a?(HashSplat)
+        splat = kwargs.pairs.first
+        return false unless kwargs.pairs.size == 2 && splat.is_a?(HashSplat)
 
-        [[rest.value, :*], [kwargs.pairs.first.value, :**], [block.value, :&]].all? do |value, name|
+        [[rest.value, :*], [splat.value, :**], [block.value, :&]].all? do |value, name|
           value.is_a?(Local) && value.name == name && value.depth.zero?
         end
       end

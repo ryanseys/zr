@@ -193,7 +193,7 @@ module Zr
           recv_node = node.recv || Hir::SelfRef.new(node.line)
           staged([recv_node], 2) do |slots, base|
             @f.store(kernel("zr_spread_mark"), @rec, value_offset(base + 2))
-            ary = gather(node.args[0...-1], base + 1, spread: true)
+            ary = gather(node.args[0...-1].to_a, base + 1, spread: true)
             argc, argv, kw = forwarded
             start = own_params.required.size
             kernel("zr_ary_push_words", ary, @f.iadd(argv, imm(8 * start)), @f.isub(argc, imm(start)))
@@ -636,7 +636,8 @@ module Zr
           unless Scope.literal_keywords?(kwargs)
             # The literal is a call's keywords: a lone `**h` is lent to the
             # callee (`hash_literal`, `keyword_argc`).
-            (@keywords ||= {}.compare_by_identity)[kwargs] = lent_keywords?(node) ? :lent : :copied
+            fresh = {} #: Hash[Hir::HashLit, Symbol]
+            (@keywords ||= fresh.compare_by_identity)[kwargs] = lent_keywords?(node) ? :lent : :copied
             return [kwargs]
           end
 

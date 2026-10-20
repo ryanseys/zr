@@ -82,7 +82,8 @@ module Zr
       # A gem of `gem_set` stands in place of zr's copy of that gem: a
       # file that every program shares (a port's prebuilt part) does not
       # list zr's version beside the program's.
-      given = gem_set ? gem_set.gems.to_h { |gem| [gem.name, true] } : {}
+      given = {} #: Hash[String, bool]
+      given = gem_set.gems.to_h { |gem| [gem.name, true] } if gem_set
       rows.uniq.reject { |row| given.key?(row.name) && %w[stdlib port].include?(row.source) }.sort_by(&:name)
     end
 

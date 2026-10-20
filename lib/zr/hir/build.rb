@@ -1412,10 +1412,12 @@ module Zr
       # library's own method of that name (JSON.load, Psych.load).
       #: (Prism::CallNode node) -> bool
       def computed_load?(node)
-        return false unless node.name == :load && node.block.nil? && @loader && !@loader.eval? && node.arguments
-        return false unless node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel
+        args = node.arguments
+        receiver = node.receiver
+        return false unless node.name == :load && node.block.nil? && @loader && !@loader.eval? && args
+        return false unless receiver.is_a?(Prism::ConstantReadNode) && receiver.name == :Kernel
 
-        !node.arguments.arguments.first.is_a?(Prism::StringNode)
+        !args.arguments.first.is_a?(Prism::StringNode)
       end
 
       # A call as a plain Send, with none of the special forms above.

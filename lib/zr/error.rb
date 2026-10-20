@@ -5,6 +5,7 @@ module Zr
   # or target, a bad setting, a gem that does not resolve, a cache that is
   # not the user's. `rescue Zr::Error` catches them all (`Zr.build`); any
   # other error is a defect in zr.
+  # @rbs module-self: Exception
   module Error; end
 
   # This host cannot build or run for the target, or zr does not run on

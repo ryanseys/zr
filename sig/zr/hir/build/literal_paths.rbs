@@ -1,0 +1,5 @@
+# LiteralPaths extends itself (`extend self`), so the loader includes its
+# methods and other code calls them on the module.
+module Zr::Hir::Build::LiteralPaths
+  extend Zr::Hir::Build::LiteralPaths
+end

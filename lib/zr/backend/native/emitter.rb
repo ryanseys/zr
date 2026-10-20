@@ -38,7 +38,7 @@ module Zr
           imported = function.callees.find(&:from)
           raise Refused, "#{imported.symbol} is a wasm import from #{imported.from}, which no native link has" if imported
 
-          self::Codegen.new(function, defined: defined, allocate: allocate).compile
+          self::Codegen.new(function, defined: defined, allocate: allocate).compile # steep:ignore UnknownConstant
         end
 
         #: (Obj::Datum d) -> Obj::Datum

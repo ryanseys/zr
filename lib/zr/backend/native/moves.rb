@@ -6,9 +6,20 @@ module Zr
       # Moves between the places of values: the parallel copies of a
       # branch edge and of a function's parameters. A backend's Codegen
       # includes it, with `SCRATCH` (two registers that no value lives
-      # in), `register?(x)`, `load_value`, `store_value`, `store_param`
-      # and `value_in`, and an assembler `mov` between two registers.
+      # in), `load_value`, `store_value`, `store_param` and `value_in`,
+      # and an assembler `mov` between two registers. The backend's
+      # registers and its assembler have its own types, which a shared
+      # module cannot name: they are untyped here, and a line that names
+      # `self.class::SCRATCH` or `GATES` has `steep:ignore`.
+      # @rbs module-self: _Moving
       module Moves
+        # @rbs @home: Hash[String, Integer]
+        # @rbs @pinned: Set[String]
+        # @rbs @remade: Set[String]
+        # The backend's own registers and assembler.
+        # @rbs @reg: Hash[String, untyped]
+        # @rbs @asm: untyped
+
         private
 
         # Parallel moves between registers and values. Each `[to, v]` of
@@ -16,14 +27,14 @@ module Zr
         # value or a register, and `to` is a register or the value whose place
         # gets it. No destination is written while a pending copy reads it.
         # `SCRATCH[1]` breaks a cycle.
-        #: (Array[[Registers::Register | Integer | String, String?]] dests, Array[String | Registers::Register] srcs) -> void
+        #: (Array[[Native::register | Integer | String, String?]] dests, Array[String | Native::register] srcs) -> void
         def move_registers(dests, srcs)
-          pending = {} #: Hash[Registers::Register | Integer | String, [String?, String | Registers::Register]]
+          pending = {} #: Hash[Native::register | Integer | String, [String?, String | Native::register]]
           reads = Hash.new(0)
           dests.each_with_index do |(to, v), n|
             src = srcs[n]
-            from = register?(src) ? src : place(src)
-            next if to == from && (v.nil? || register?(src) || type_of(v) == type_of(src))
+            from = place_of(src)
+            next if to == from && (v.nil? || !src.is_a?(String) || type_of(v) == type_of(src))
 
             pending[to] = [v, src]
             reads[from] += 1
@@ -31,44 +42,48 @@ module Zr
           ready = pending.keys.reject { |p| reads[p].positive? }
           loop do
             while (p = ready.pop)
-              v, src = pending.delete(p) #: [String?, String | Registers::Register]
+              v, src = pending.delete(p) #: [String?, String | Native::register]
               move_register(p, v, src)
-              from = register?(src) ? src : place(src)
+              from = place_of(src)
               reads[from] -= 1
               ready << from if reads[from].zero? && pending.key?(from)
             end
             break if pending.empty?
 
             start = pending.keys.first
-            v, src = pending.delete(start) #: [String?, String | Registers::Register]
-            register?(src) ? @asm.mov(self.class::SCRATCH[1], src) : load_value(src, self.class::SCRATCH[1])
-            at = register?(src) ? src : place(src)
+            v, src = pending.delete(start) #: [String?, String | Native::register]
+            if src.is_a?(String)
+              load_value(src, self.class::SCRATCH[1]) # steep:ignore UnknownConstant
+            else
+              @asm.mov(self.class::SCRATCH[1], src) # steep:ignore UnknownConstant
+            end
+            at = place_of(src)
             while at != start && pending.key?(at)
-              d, s = pending.delete(at) #: [String?, String | Registers::Register]
+              d, s = pending.delete(at) #: [String?, String | Native::register]
               move_register(at, d, s)
-              at = register?(s) ? s : place(s)
+              at = place_of(s)
             end
             if v.nil?
               # A destination with no value is a register.
-              reg = start #: Registers::Register
-              @asm.mov(reg, self.class::SCRATCH[1])
+              reg = start #: Native::register
+              @asm.mov(reg, self.class::SCRATCH[1]) # steep:ignore UnknownConstant
             else
-              store_value(v, self.class::SCRATCH[1])
+              store_value(v, self.class::SCRATCH[1]) # steep:ignore UnknownConstant
             end
           end
         end
 
         # One move of `move_registers`: to the register `to`, or to the
         # home of the value `v`.
-        #: (Registers::Register | Integer | String to, String? v, String | Registers::Register src) -> void
+        #: (Native::register | Integer | String to, String? v, String | Native::register src) -> void
         def move_register(to, v, src)
           if v.nil?
-            reg = to #: Registers::Register
-            register?(src) ? @asm.mov(reg, src) : load_value(src, reg)
-          elsif register?(src)
-            store_param(v, src)
+            reg = to #: Native::register
+            src.is_a?(String) ? load_value(src, reg) : @asm.mov(reg, src)
+          elsif src.is_a?(String)
+            store_value(v, value_in(src, self.class::SCRATCH[0])) # steep:ignore UnknownConstant
           else
-            store_value(v, value_in(src, self.class::SCRATCH[0]))
+            store_param(v, src)
           end
         end
 
@@ -85,14 +100,19 @@ module Zr
         # A constant made at its reads has no place and is never a
         # destination. Its name is in place of a location, and no Register or
         # Integer is equal to it.
-        #: (String v) -> (Registers::Register | Integer | String)
+        # The place of a source of `move_registers`: a register, or the
+        # place of a value.
+        #: (String | Native::register src) -> (Native::register | Integer | String)
+        def place_of(src) = src.is_a?(String) ? place(src) : src
+
+        #: (String v) -> (Native::register | Integer | String)
         def place(v) = @reg[v] || @home.fetch(v) { unhomed(v) }
 
         # The place of a value that has no register and no home.
-        #: (String v) -> (Registers::Register | String)
+        #: (String v) -> (Native::register | String)
         def unhomed(v)
           return v if @remade.include?(v)
-          return self.class::GATES if @pinned.include?(v)
+          return self.class::GATES if @pinned.include?(v) # steep:ignore UnknownConstant
 
           raise KeyError, v
         end
@@ -116,7 +136,7 @@ module Zr
         # the last copy of that cycle.
         #: (Array[String] dests, Array[String] srcs) -> void
         def parallel_copy(dests, srcs)
-          pending = {} #: Hash[Registers::Register | Integer | String, [String, String]]
+          pending = {} #: Hash[Native::register | Integer | String, [String, String]]
           reads = Hash.new(0)
           dests.each_with_index do |d, n|
             s = srcs[n]
@@ -135,8 +155,8 @@ module Zr
 
         # Emits every copy whose destination no pending copy reads, then
         # every copy that this frees, until only cycles are left.
-        # @rbs pending: Hash[Registers::Register | Integer | String, [String, String]]
-        # @rbs reads: Hash[Registers::Register | Integer | String, Integer]
+        # @rbs pending: Hash[Native::register | Integer | String, [String, String]]
+        # @rbs reads: Hash[Native::register | Integer | String, Integer]
         # @rbs return: void
         def drain(pending, reads)
           ready = pending.keys.reject { |p| reads[p].positive? }
@@ -155,18 +175,18 @@ module Zr
         #
         # Move the source of one copy into a scratch register. Then the rest
         # of its cycle can be emitted in order.
-        #: (Hash[Registers::Register | Integer | String, [String, String]] pending) -> void
+        #: (Hash[Native::register | Integer | String, [String, String]] pending) -> void
         def break_cycle(pending)
           start = pending.keys.first
           held, source = pending.delete(start) #: [String, String]
-          load_value(source, self.class::SCRATCH[1])
+          load_value(source, self.class::SCRATCH[1]) # steep:ignore UnknownConstant
           at = place(source)
           while at != start
             d, s = pending.delete(at) #: [String, String]
             copy(d, s)
             at = place(s)
           end
-          store_value(held, self.class::SCRATCH[1])
+          store_value(held, self.class::SCRATCH[1]) # steep:ignore UnknownConstant
         end
 
         # Copies one value to the place of another. A source with a register
@@ -177,7 +197,7 @@ module Zr
           home = @reg[dest]
           return load_value(source, home) if home
 
-          store_value(dest, value_in(source, self.class::SCRATCH[0]))
+          store_value(dest, value_in(source, self.class::SCRATCH[0])) # steep:ignore UnknownConstant
         end
       end
     end

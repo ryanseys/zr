@@ -67,8 +67,10 @@ module Zr
     # keeps NAME's port.
     #: (Config config, Target target) -> Hash[String, [String?, bool]]
     def wanted(config, target)
-      first = Library::Ports::ALL.select { |_, port| port.c_first && target.native? }.to_h { |name, port| [name, [port.version, false]] }
-      asked = config.native_ext.reject { |_, version| version == false }.to_h { |name, version| [name, [version || nil, true]] }
+      first = Library::Ports::ALL.select { |_, port| port.c_first && target.native? }
+                                 .to_h { |name, port| [name, [port.version, false]] } #: Hash[String, [String?, bool]]
+      asked = config.native_ext.reject { |_, version| version == false }
+                               .to_h { |name, version| [name, [version || nil, true]] } #: Hash[String, [String?, bool]]
       first.except(*config.native_ext.keys).merge(asked)
     end
 

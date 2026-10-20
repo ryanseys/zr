@@ -104,14 +104,16 @@ module Zr
       end
 
       # Steep finds a constant through an `include` that a .rbs file
-      # declares, not through an inline one. So these includes have
-      # `# @rbs skip` in the code and are here.
+      # declares, not through an inline one. So these includes (of the
+      # registers, and of Planner's WIDTH_MASK) have `# @rbs skip` in the
+      # code and are here.
       class Assembler
         include Registers
       end
 
       class Codegen
         include Registers
+        include Native::Planner
       end
 
       module Stub

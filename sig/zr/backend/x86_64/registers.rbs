@@ -1,0 +1,53 @@
+# The registers that lib/zr/backend/x86_64/registers.rb assigns from
+# GPR64 and XMM at once (`RAX, RCX, ... = GPR64`), which inline RBS
+# cannot see.
+module Zr
+  module Backend
+    module X86_64
+      module Registers
+        RAX: Register
+        RCX: Register
+        RDX: Register
+        RBX: Register
+        RSP: Register
+        RBP: Register
+        RSI: Register
+        RDI: Register
+        R8: Register
+        R9: Register
+        R10: Register
+        R11: Register
+        R12: Register
+        R13: Register
+        R14: Register
+        R15: Register
+
+        XMM0: Register
+        XMM1: Register
+        XMM2: Register
+        XMM3: Register
+        XMM4: Register
+        XMM5: Register
+        XMM6: Register
+        XMM7: Register
+      end
+
+      # Steep finds a constant through an `include` that a .rbs file
+      # declares, not through an inline one. So these includes (of the
+      # registers, and of Planner's WIDTH_MASK) have `# @rbs skip` in the
+      # code and are here.
+      class Assembler
+        include Registers
+      end
+
+      class Codegen
+        include Registers
+        include Native::Planner
+      end
+
+      module Stub
+        include Registers
+      end
+    end
+  end
+end

@@ -28,11 +28,13 @@ module Zr
     #: (Array[String] paths, Array[String] roots) -> Hash[String, String]
     def for(paths, roots)
       roots = roots.map { |root| "#{root.chomp("/")}/" }
-      paths.each_with_object({}) do |path, out|
+      out = {} #: Hash[String, String]
+      paths.each do |path|
         next unless roots.any? { |root| path.start_with?(root) }
 
         read_by(path).each { |file| out[file] ||= File.binread(file) if roots.any? { |root| file.start_with?(root) } }
       end
+      out
     end
 
     # The files that the file at `path` reads by a path that the build can
@@ -56,6 +58,7 @@ module Zr
     def scan(text, path)
       found = [] #: Array[String]
       locals = {} #: Hash[Symbol, String]
+      # @type var walk: ^(Prism::Node) -> void
       walk = lambda do |node|
         case node
         when Prism::LocalVariableWriteNode

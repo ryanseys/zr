@@ -22,6 +22,8 @@ module Zr
     # evals (`Eval`). Each calls the same libSystem functions.
     class JIT
       # @rbs @syscalls: _Syscalls
+      # @rbs @stub: String
+      # @rbs @relocs: untyped
 
       MAP_ANON_PRIVATE = 0x1002
       MAP_FIXED = 0x10

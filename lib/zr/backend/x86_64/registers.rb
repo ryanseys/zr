@@ -11,6 +11,8 @@ module Zr
       # rsp 4, rbp 5, rsi 6, rdi 7, then r8..r15.
       module Registers
         class Register
+          # @rbs @float: bool
+
           attr_reader :to_i #: Integer
           attr_reader :size #: Integer
 

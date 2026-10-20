@@ -38,7 +38,7 @@ module Zr
       # parallel moves.
       class Codegen
         # @rbs @f: IR::Function
-        # @rbs @defined: Set[String] | Spelled
+        # @rbs @defined: Set[String] | Native::Spelled
         # @rbs @far: bool
         # @rbs @allocate: bool
         # @rbs @asm: Assembler
@@ -81,6 +81,7 @@ module Zr
 
         # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
+        # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Native::Planner
         include Native::Moves
 
@@ -145,7 +146,7 @@ module Zr
         # reference for the allocator: both modes must give the same result,
         # and the tests check it.
         # @rbs function: IR::Function
-        # @rbs defined: Array[String] | Set[String] | Spelled
+        # @rbs defined: Array[String] | Set[String] | Native::Spelled
         # @rbs assembler: singleton(Assembler)
         # @rbs far: bool
         # @rbs allocate: bool
@@ -173,7 +174,7 @@ module Zr
           plan_bytes
           plan_fusion
           plan_pairs
-          @reg = @allocate ? Native::Regalloc.of(@f, POOLS, skip: @silent, via: @via) : {}
+          @reg = @allocate ? Native::Regalloc.of(@f, POOLS, skip: @silent, via: @via) : {} #: Hash[String, Registers::Register]
           assign_homes
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
           @epilogue = @asm.make_label("epilogue") if @returns > 1

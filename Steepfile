@@ -59,7 +59,8 @@ PRESETS = {
 
 target :lib do
   signature "sig/zr", "sig/vendor"
-  library "digest", "json", "socket", "etc", "open3", "pathname", "shellwords", "zlib", "prism"
+  library "digest", "json", "socket", "etc", "open3", "pathname", "shellwords", "zlib", "prism",
+          "net-http", "uri", "timeout", "openssl", "tmpdir", "fileutils"
 
   LEVELS.each do |level, paths|
     group level do
@@ -83,7 +84,13 @@ KERNEL_OS = ENV.fetch("ZR_KERNEL_OS") { RUBY_PLATFORM.include?("darwin") ? "darw
 
 target :kernel do
   kernel = "lib/zr/runtime/kernel"
+  os = "#{kernel}/os/#{KERNEL_OS}"
+  arch = KERNEL_LAYERS.fetch(KERNEL_OS)
+  # The OS layer's own files, and of its arch/ only the one of `arch`: each
+  # arch's files declare the same constants.
+  own = Dir.children(File.join(__dir__, os)).sort.reject { |name| name == "arch" }.map { |name| "#{os}/#{name}" }
+  os_arch = "#{os}/arch/#{arch}"
   signature "sig/zr/kern.rbs"
-  check "#{kernel}/*.rb", "#{kernel}/os/#{KERNEL_OS}", "#{kernel}/arch/#{KERNEL_LAYERS.fetch(KERNEL_OS)}", inline: true
+  check "#{kernel}/*.rb", *own, *(os_arch if File.directory?(File.join(__dir__, os_arch))), "#{kernel}/arch/#{arch}", inline: true
   configure_code_diagnostics(D::Ruby.strict)
 end

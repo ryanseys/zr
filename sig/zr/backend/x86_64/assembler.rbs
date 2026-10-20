@@ -1,0 +1,36 @@
+# The instructions that lib/zr/backend/x86_64/assembler.rb defines from
+# its tables (`ALU`, `SHIFTS`, `BIT_TESTS`, `SSE`) with `define_method`,
+# which inline RBS cannot see.
+module Zr
+  module Backend
+    module X86_64
+      class Assembler
+        # `op d, s` of two registers, or of a register and a signed 32-bit
+        # immediate.
+        def add: (Registers::Register d, Registers::Register | Integer s) -> self
+        def or: (Registers::Register d, Registers::Register | Integer s) -> self
+        def and: (Registers::Register d, Registers::Register | Integer s) -> self
+        def sub: (Registers::Register d, Registers::Register | Integer s) -> self
+        def xor: (Registers::Register d, Registers::Register | Integer s) -> self
+        def cmp: (Registers::Register d, Registers::Register | Integer s) -> self
+
+        # A shift by an immediate, or by `cl` with `:cl`.
+        def shl: (Registers::Register d, Integer | :cl by) -> self
+        def shr: (Registers::Register d, Integer | :cl by) -> self
+        def sar: (Registers::Register d, Integer | :cl by) -> self
+
+        # A test of bit `n` into CF, and a set, clear or flip of it.
+        def bt: (Registers::Register d, Integer n) -> self
+        def bts: (Registers::Register d, Integer n) -> self
+        def btr: (Registers::Register d, Integer n) -> self
+        def btc: (Registers::Register d, Integer n) -> self
+
+        def addsd: (Registers::Register d, Registers::Register s) -> self
+        def mulsd: (Registers::Register d, Registers::Register s) -> self
+        def subsd: (Registers::Register d, Registers::Register s) -> self
+        def divsd: (Registers::Register d, Registers::Register s) -> self
+        def sqrtsd: (Registers::Register d, Registers::Register s) -> self
+      end
+    end
+  end
+end

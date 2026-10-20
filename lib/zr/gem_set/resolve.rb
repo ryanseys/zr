@@ -143,7 +143,8 @@ module ZrGemSet
   #: (Hash[String, untyped] request) -> Hash[String, untyped]
   def answer(request)
     ports = request.fetch("ports")
-    gems = request["gemfile"] ? locked(request["gemfile"], ports) : installed(ports, request.fetch("requests", {}))
+    none = {} #: Hash[String, Array[String]]
+    gems = request["gemfile"] ? locked(request["gemfile"], ports) : installed(ports, request.fetch("requests", none))
     { "gems" => gems, "rubygems" => rubygems }
   rescue Error => e
     { "error" => e.message }

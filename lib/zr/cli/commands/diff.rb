@@ -58,7 +58,7 @@ module Zr
           env = ChildRuby::UNBUNDLED #: Hash[String, String?]
           return env if gemfile.to_s.empty?
 
-          env.merge("BUNDLE_GEMFILE" => File.expand_path(gemfile), "RUBYOPT" => "-rbundler/setup")
+          env.merge("BUNDLE_GEMFILE" => File.expand_path(gemfile.to_s), "RUBYOPT" => "-rbundler/setup")
         end
       end
     end

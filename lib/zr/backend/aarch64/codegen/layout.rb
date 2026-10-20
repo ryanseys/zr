@@ -34,7 +34,7 @@ module Zr
         def callee_saves(used)
           saved = used.select { |r| POOLS.callee?(r) }
           saved = (saved + POOLS.callee + [GATES]).uniq if @enters
-          saved.sort_by(&:to_i)
+          saved.sort_by(&:to_i) #: Array[Registers::Register]
         end
 
         # Two word stores to the same base, the second 8 bytes after the

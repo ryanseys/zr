@@ -88,6 +88,7 @@ module Zr
     # stay when the settings that steer a build are the same.
     #: [T] (Config config) { () -> T } -> T
     def with_config(config)
+      # @type var keep: bool
       session = Session.current
       # The settings that the process read already, if any: ENV is not read.
       held = session.peek(:config) #: Config?
@@ -104,6 +105,7 @@ module Zr
     # process's own stderr.
     #: [T] (untyped diagnostics) { (Array[String]) -> T } -> T
     def with_diagnostics(diagnostics)
+      # @type var was: IO
       lines = [] #: Array[String]
       was = $stderr
       # A Sink answers each method of IO that zr calls on $stderr.

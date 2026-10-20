@@ -213,6 +213,7 @@ module Zr
     # the draft.
     #: [T] (String out) { (String draft) -> T } -> T
     def self.publish(out)
+      # @type var dir: String
       raise Errno::EISDIR, out if File.directory?(out)
 
       dir = new_tmpdir(".zr-#{File.basename(out)}.", File.dirname(out))

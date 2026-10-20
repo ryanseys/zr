@@ -80,7 +80,7 @@ module Zr
         module_function
 
         # Returns the bytes of the object file.
-        #: (Unit unit) -> String
+        #: (Unit unit, ?arch: Symbol) -> String
         def write(unit, arch: :aarch64)
           machine, relocs = MACHINES.fetch(arch)
           items = unit.items

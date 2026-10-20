@@ -141,6 +141,7 @@ module Zr
               kw = @task_kw.call(t)
               @task_set_kw.call(t, 0)
               kwhash = nil
+              mut = 0
               if keywords
                 # A table's values become one Hash argument; a table of no
                 # keywords (an empty `**h` at a yield) makes none.
@@ -318,7 +319,7 @@ module Zr
 
           # The code that binds the keyword parameters from the keywords
           # Hash (nil when the call gave none).
-          #: (Hir::Params p, Scope s) -> ^(Frame, Integer?) -> void
+          #: (Hir::Params p, Scope s) -> ^(Frame, Integer?, Integer) -> void
           def keywords_binder(p, s)
             ids = p.keywords.map(&:first)
             required = p.required_keywords

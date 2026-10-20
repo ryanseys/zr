@@ -10,6 +10,7 @@ module Zr
       # The functions that the kernel subset cannot express, in x86-64
       # machine code for the System V ABI.
       module Stub
+        # @rbs skip -- in sig/zr/backend/x86_64/registers.rbs
         include Registers
 
         # The context `zr_switch` saves and restores: the callee-saved

@@ -1,0 +1,13 @@
+# The record of lib/zr/lock_plan.rb.
+module Zr
+  module LockPlan
+    class Entry < Data
+      attr_reader now: Symbol
+      attr_reader free: Symbol
+      attr_reader note: String
+
+      def self.new: (Symbol now, Symbol free, String note) -> instance
+                  | (now: Symbol, free: Symbol, note: String) -> instance
+    end
+  end
+end

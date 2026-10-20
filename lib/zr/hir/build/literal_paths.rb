@@ -10,6 +10,7 @@ module Zr
       # loader resolves requires with them, and `EmbeddedFiles` the files
       # that a library reads.
       module LiteralPaths
+        # @rbs skip -- inline RBS names no `self`; sig/zr/hir/build/literal_paths.rbs extends it
         extend self
 
         # The absolute path of a literal: a String (frozen or not), `File.expand_path(str,

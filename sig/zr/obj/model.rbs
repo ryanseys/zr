@@ -5,7 +5,7 @@ module Zr
     # A relocation kind (`Reloc#kind`). The comment on `Reloc` tells what
     # each does.
     type reloc_kind = :branch26 | :page21 | :pageoff12 | :got_page21 | :got_pageoff12 | :abs64
-                    | :symid | :symval | :symbit | :site
+                    | :symid | :symval | :symbit | :site | :pc32 | :plt32 | :gotpcrel
     # The section of a datum (`Datum#section`).
     type section = :text_const | :data_const | :data | :bss
     # The linkage of a function or a datum.

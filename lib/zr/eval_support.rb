@@ -140,7 +140,7 @@ module Zr
           "absent",
           [] #: Array[String]
         ))
-        current ? meta : lowered.fetch(:meta)
+        current && meta ? meta : lowered.fetch(:meta)
       end
     end
 

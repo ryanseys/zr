@@ -1,10 +1,10 @@
 # A machine register, as an architecture's `Pools` and its codegen name
 # it. The native backend's shared code (lib/zr/backend/native) only
-# compares and hashes registers.
+# compares and hashes registers, and moves between them.
 module Zr
   module Backend
     module Native
-      type register = Aarch64::Registers::Register
+      type register = Aarch64::Registers::Register | X86_64::Registers::Register
     end
   end
 end

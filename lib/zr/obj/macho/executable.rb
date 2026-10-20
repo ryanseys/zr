@@ -568,7 +568,8 @@ module Zr
           @link_vm = Bytes.align(@segments.map { |s| s.vm + s.vmsize }.max, PAGE)
           fixups = chained_fixups
           trie = exports_trie
-          words, strings, names = with_embed_exports(*@top.symbols(@ordinals, @base.strings.bytesize))
+          words, strings, names = @top.symbols(@ordinals, @base.strings.bytesize)
+          words, strings, names = with_embed_exports(words, strings, names)
           symbols = merged_symbols(words, names)
           strings = @base.strings + strings
           strings = "\0".b if strings.empty?
@@ -606,7 +607,7 @@ module Zr
           exports = @embed_symbols.select { |name, _| name.start_with?("_zr_ext_sym_") }
           return [words, strings, names] if exports.empty?
 
-          rows = names.each_with_index.map { |name, i| [name, words[2 * i], words[(2 * i) + 1]] }
+          rows = names.each_with_index.map { |name, i| [name, words[2 * i], words[(2 * i) + 1]] } #: Array[[String, Integer?, Integer?]]
           strings = strings.dup
           exports.each do |name, address|
             rows << [name, (@base.strings.bytesize + strings.bytesize) | (N_ABS << 32), address]

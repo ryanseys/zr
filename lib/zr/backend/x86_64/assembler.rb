@@ -19,6 +19,7 @@ module Zr
         # @rbs @code: String
         # @rbs @fixups: Array[[Integer, Label, Label?]]
 
+        # @rbs skip -- in sig/zr/backend/x86_64/registers.rbs
         include Registers
 
         class Refused < StandardError
@@ -178,6 +179,7 @@ module Zr
           # `op d, s` of two registers (8-bit ones too), or of a register
           # and a signed 32-bit immediate.
           define_method(op) do |d, s|
+            # @type self: Assembler
             if s.is_a?(Integer)
               if s.between?(-128, 127)
                 rr([0x83], digit, d, w: d.wide?)
@@ -216,6 +218,7 @@ module Zr
         SHIFTS.each do |op, digit|
           # A shift by an immediate, or by `cl` with `:cl`.
           define_method(op) do |d, by|
+            # @type self: Assembler
             if by == :cl
               rr([0xD3], digit, d, w: d.wide?)
             else
@@ -246,6 +249,7 @@ module Zr
         BIT_TESTS.each do |op, digit|
           # A test of bit `n` into CF, and a set, clear or flip of it.
           define_method(op) do |d, n|
+            # @type self: Assembler
             rr([0x0F, 0xBA], digit, d, w: d.wide?)
             byte(n)
           end
@@ -341,7 +345,10 @@ module Zr
         SSE = { addsd: 0x58, mulsd: 0x59, subsd: 0x5C, divsd: 0x5E, sqrtsd: 0x51 }.freeze #: Hash[Symbol, Integer]
 
         SSE.each do |op, opcode|
-          define_method(op) { |d, s| rr([0x0F, opcode], d, s, w: false, prefix: 0xF2) }
+          define_method(op) do |d, s|
+            # @type self: Assembler
+            rr([0x0F, opcode], d, s, w: false, prefix: 0xF2)
+          end
         end
 
         #: (Registers::Register a, Registers::Register b) -> self

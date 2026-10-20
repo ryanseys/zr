@@ -21,6 +21,8 @@ module Zr
         # @rbs @regions: Array[Regions::Region]
         # @rbs @self: String
         # @rbs @sp: Integer
+        # @rbs @task: Machine::Layout
+        # @rbs @task_addr: String
 
         private
 
@@ -470,9 +472,11 @@ module Zr
           return kernel("zr_kw_argc_lent_yield", argc, argv) if lent_keywords?(node)
           return kernel("zr_kw_argc_yield", argc, argv) unless Scope.literal_keywords?(kwargs)
 
-          keys = kwargs.pairs.each_slice(2).map do |key, _|
+          keys = [] #: Array[Symbol]
+          kwargs.pairs.each_slice(2) do |key, _|
             literal = key #: Hir::Literal
-            literal.value #: Symbol
+            name = literal.value #: Symbol
+            keys << name
           end
           @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([keys.size, *keys]))), @task_addr, off(@task, "kw"), region: :task)
           argc

@@ -9,8 +9,6 @@ module Zr
       # $LOAD_PATH with a literal (`$LOAD_PATH.unshift(File.expand_path
       # ("lib", __dir__))` and similar), read before the file's body.
       class Loader
-        include LiteralPaths
-
         # @rbs @deferred: Array[String]
         # @rbs @modules: Hash[String, bool]
         # @rbs @description: (^() -> String?)?
@@ -58,6 +56,9 @@ module Zr
         # @rbs @switches: Switches
         # @rbs @extensions: _Extensions
         # @rbs @target: Target
+        # @rbs @computed_loads: Hash[String, bool]?
+
+        include LiteralPaths
 
         # The C extensions of a build that links none: eval support, which
         # every program shares and the cache keeps, and the code that an
@@ -907,9 +908,10 @@ module Zr
 
           dir = File.dirname(file)
           return if @roots.include?(dir) || @roots.none? { |root| dir.start_with?("#{root}/") }
-          return if (@computed_loads ||= {}).key?(dir)
+          seen = @computed_loads ||= {} #: Hash[String, bool]
+          return if seen.key?(dir)
 
-          @computed_loads[dir] = true
+          seen[dir] = true
           Dir.glob("**/*.rb", base: dir).sort.each { |rel| add(File.join(dir, rel)) }
         end
 

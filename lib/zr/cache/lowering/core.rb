@@ -74,8 +74,9 @@ module Zr
         def core_file(path)
           entry = Runtime.core_entry(path)
           source = @sources.fetch(path) { File.read(path) }
+          description = @description #: Machine::Description
           Piece.new(path, entry, key_of(path, entry, source), source.bytesize,
-                    -> { Runtime.lower_core_file(path, source, @description, @ids, @target) })
+                    -> { Runtime.lower_core_file(path, source, description, @ids, @target) })
         end
 
         # The key text of the gem prelude: the path and the bytes of each file
@@ -87,8 +88,9 @@ module Zr
         def gem_piece
           entry = Runtime::GEM_PRELUDE_ENTRY
           source = gem_source
+          description = @description #: Machine::Description
           Piece.new(Library::Layout::GEM_PRELUDE, entry, key_of(Library::Layout::GEM_PRELUDE, entry, source), source.bytesize,
-                    -> { Runtime.lower_gem_prelude(@gem_hir, @description, @ids, @target) })
+                    -> { Runtime.lower_gem_prelude(@gem_hir, description, @ids, @target) })
         end
       end
     end

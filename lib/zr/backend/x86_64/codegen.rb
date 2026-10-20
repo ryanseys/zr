@@ -31,7 +31,47 @@ module Zr
       # the kernel's static (`zr_static_gates`), which `Machine.gates_set`
       # stores first, so `gates_set` and `gates_enter` emit nothing.
       class Codegen
+        # @rbs @f: IR::Function
+        # @rbs @defined: Set[String] | Native::Spelled
+        # @rbs @allocate: bool
+        # @rbs @asm: Assembler
+        # @rbs @relocs: Array[Obj::Reloc]
+        # @rbs @reg: Hash[String, Registers::Register]
+        # @rbs @home: Hash[String, Integer]
+        # @rbs @labels: Hash[String, Assembler::Label]
+        # @rbs @epilogue: Assembler::Label?
+        # @rbs @returns: Integer
+        # @rbs @next: String?
+        # @rbs @types: IR::Types
+        # @rbs @uses: Hash[String, Integer]
+        # @rbs @def_of: Hash[String, IR::Inst]
+        # @rbs @enters: bool
+        # @rbs @pinned: Set[String]
+        # @rbs @slot_at: Array[Integer]
+        # @rbs @slots_end: Integer
+        # @rbs @stack: Hash[String, Integer]
+        # @rbs @va_list: IR::Inst?
+        # @rbs @const: Hash[String, Integer]
+        # @rbs @symbol: Hash[String, [String, bool]]
+        # @rbs @remade: Set[String]
+        # @rbs @derived: Hash[String, [String, Integer]]
+        # @rbs @via: Hash[String, String]
+        # @rbs @silent: Set[String]
+        # @rbs @from_sp: Hash[String, Integer]
+        # @rbs @clean: Set[String]
+        # A compare maps to its reader, and the reader to its condition.
+        # The key's role tells the two apart.
+        # @rbs @fused: Hash[IR::Inst, untyped]
+        # @rbs @bit_tests: Hash[IR::Inst, [String, Integer, Symbol]]
+        # @rbs @mask_tests: Hash[IR::Inst, [String, Integer | String]]
+        # @rbs @pairs: Hash[IR::Inst, IR::Inst]
+        # @rbs @paired: Set[IR::Inst]
+        # @rbs @saved_at: Hash[Registers::Register, Integer]
+        # @rbs @frame: Integer
+
+        # @rbs skip -- in sig/zr/backend/x86_64/registers.rbs
         include Registers
+        # @rbs skip -- in sig/zr/backend/x86_64/registers.rbs
         include Native::Planner
         include Native::Moves
 
@@ -106,7 +146,7 @@ module Zr
           plan_addresses
           plan_bytes
           plan_fusion
-          @reg = @allocate ? Native::Regalloc.of(@f, POOLS, skip: @silent, via: @via) : {}
+          @reg = @allocate ? Native::Regalloc.of(@f, POOLS, skip: @silent, via: @via) : {} #: Hash[String, Registers::Register]
           assign_homes
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
           @epilogue = @asm.make_label("epilogue") if @returns > 1
@@ -154,7 +194,7 @@ module Zr
         #: (Array[Registers::Register] used) -> Array[Registers::Register]
         def callee_saves(used)
           saved = @enters ? POOLS.callee : used.select { |r| POOLS.callee?(r) }
-          saved.sort_by(&:to_i)
+          saved.sort_by(&:to_i) #: Array[Registers::Register]
         end
 
         #: (untyped x) -> bool

@@ -82,7 +82,8 @@ module Zr
         # no Env, Binding, eval or hook.
         #: (Hir::Params p) -> bool
         def forwards?(p)
-          return @forwards unless @forwards.nil?
+          known = @forwards
+          return known unless known.nil?
 
           @forwards = @kind == :def && p.rest == :* && p.kwrest == :** && p.block == :& && p.optional.empty? && p.post.empty? &&
                       p.keywords.empty? && p.required.all?(Symbol) && !@has_env && !@l.traced? &&
@@ -94,9 +95,9 @@ module Zr
         # Fixnums, and binds only its leading parameters and its block.
         #: (Hir::Params p, String argc, String argv) -> void
         def bind_forwarding(p, argc, argv)
-          @forward_at = reserve(3)
+          at = @forward_at = reserve(3)
           kw = take_keyword_word
-          [argc, argv, kw].each_with_index { |v, i| @f.store(@f.bor(@f.ishl(v, imm(1)), imm(1)), @rec, value_offset(@forward_at + i)) }
+          [argc, argv, kw].each_with_index { |v, i| @f.store(@f.bor(@f.ishl(v, imm(1)), imm(1)), @rec, value_offset(at + i)) }
           check_arity(p, kernel("zr_kw_positional", kw, argc))
           p.required.each_with_index { |name, i| bind(name, arg_at(argv, imm(i))) }
           %i[* **].each { |name| bind(name, @qnil) }
@@ -107,7 +108,7 @@ module Zr
         #: () -> [String, String, String]
         def forwarded
           at = @forward_at #: Integer
-          Array.new(3) { |i| @f.sshr(@f.fetch("i64", @rec, value_offset(at + i)), imm(1)) }
+          Array.new(3) { |i| @f.sshr(@f.fetch("i64", @rec, value_offset(at + i)), imm(1)) } #: [String, String, String]
         end
 
         # A lambda checks its arity and never spreads. One function serves

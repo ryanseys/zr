@@ -49,7 +49,10 @@ module Zr
 
       # Whether rubygems installed the gem on its path, as opposed to a
       # Gemfile's lock naming it.
-      def installed? = source == INSTALLED # steep:ignore UndeclaredMethodDefinition
+      def installed? # steep:ignore UndeclaredMethodDefinition
+        # @type self: Entry
+        source == INSTALLED
+      end
 
       def holds?(path) # steep:ignore UndeclaredMethodDefinition
         # @type self: Entry
@@ -131,7 +134,7 @@ module Zr
         q = y[i] || 0
         next if p == q
         # A word sorts before a number, as Gem::Version sorts a prerelease.
-        return p <=> q if p.is_a?(String) == q.is_a?(String)
+        return (p <=> q).to_i if p.is_a?(String) == q.is_a?(String)
         return p.is_a?(String) ? -1 : 1
       end
       0
@@ -142,7 +145,8 @@ module Zr
     # segments).
     #: (String version) -> Array[Integer | String]
     def self.segments(version)
-      parts = version.scan(/\d+|[a-z]+/i).map { |part| part.match?(/\A\d/) ? part.to_i : part }
+      words = version.scan(/\d+|[a-z]+/i) #: Array[String]
+      parts = words.map { |part| part.match?(/\A\d/) ? part.to_i : part }
       cut = parts.index { |part| part.is_a?(String) } || parts.size
       head = parts.take(cut)
       head.pop while head.last == 0
@@ -190,10 +194,12 @@ module Zr
     # a build can know, so it asks for none.
     #: (String source) -> Hash[String, Array[String]]
     def self.requests(source)
-      source.scan(REQUEST).filter_map do |_, name, rest|
+      calls = source.scan(REQUEST) #: Array[[String, String, String, String?]]
+      calls.filter_map do |_, name, rest|
         next if rest.include?('#{')
 
-        [name, rest.scan(/(["'])([^"'\n]+)\1/).map(&:last)] #: [String, Array[String]]
+        versions = rest.scan(/(["'])([^"'\n]+)\1/) #: Array[[String, String]]
+        [name, versions.map(&:last)]
       end.to_h
     end
 
@@ -205,7 +211,7 @@ module Zr
     #: (?env: RBS::Unnamed::ENVClass, ?requests: Hash[String, Array[String]]) -> GemSet
     def self.resolve(env: ENV, requests: {})
       requests = Config.current.native_ext.each_with_object(requests.dup) do |(name, version), all|
-        all[name] ||= [*version] unless version == false
+        all[name] ||= version ? [version] : [] unless version == false
       end
       named = env["BUNDLE_GEMFILE"].to_s
       gemfile = named.empty? ? nil : File.expand_path(named)
@@ -246,11 +252,11 @@ module Zr
       default = File.join(config["rubylibprefix"], "gems", config["ruby_version"])
       home = env["HOME"].to_s
       path = if env["GEM_PATH"].to_s.empty?
-               [*(File.join(home, ".gem", "ruby", config["ruby_version"]) unless home.empty?), default]
+               home.empty? ? [default] : [File.join(home, ".gem", "ruby", config["ruby_version"]), default]
              else
-               env["GEM_PATH"].split(File::PATH_SEPARATOR)
+               env["GEM_PATH"].to_s.split(File::PATH_SEPARATOR)
              end
-      [*path, env["GEM_HOME"].to_s.empty? ? default : env["GEM_HOME"]].uniq
+      [*path, env["GEM_HOME"].to_s.empty? ? default : env["GEM_HOME"].to_s].uniq
     end
 
     # The lock of `gemfile`, as bundler names it: `gems.locked` for

@@ -194,7 +194,7 @@ module Zr
         def nlist(sym) = nlist_words(sym).pack("Q<2")
 
         # Returns the bytes of the object file.
-        #: (Unit unit, ?minos: Array[Integer]) -> String
+        #: (Unit unit, ?minos: Array[Integer], ?arch: Symbol) -> String
         def write(unit, minos: Target::AARCH64_DARWIN.min_os_parts, arch: :aarch64)
           raise ArgumentError, "a Mach-O object of zr is arm64, not #{arch}" unless arch == :aarch64
 

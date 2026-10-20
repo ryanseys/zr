@@ -145,7 +145,8 @@ module Zr
                 # A root of zr's ports of C (`*`) gives way to such C, as in
                 # the build (`Loader#resolve`).
                 archdir = RbConfig::CONFIG["archdir"]
-                arch = Ext.bundles(target: target).each_key.any? { |path| path.start_with?("#{archdir}/") } ? ["=#{shown[archdir]}"] : []
+                arch = [] #: Array[String]
+                arch = ["=#{shown[archdir]}"] if Ext.bundles(target: target).each_key.any? { |path| path.start_with?("#{archdir}/") }
                 [[*arch, *linked.map(&shown), *native.map { |root| "*#{shown[root]}" }, "", *later.map(&shown)], uncarried, Hir::Build::PRELOADED,
                  [shown[Library::Layout::EXT]]]
               else

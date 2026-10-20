@@ -2,6 +2,15 @@
 # leave out (`Doctor#extensions`).
 class Gem::Specification
   def self.latest_specs: (?bool prerelease) -> Array[Gem::Specification]
+  def self.stubs: () -> Array[Gem::StubSpecification]
 
   def gem_dir: () -> String
+end
+
+# A gem's specification as rubygems' path lists it, before it loads the
+# whole gemspec (`Gem::Specification.stubs`).
+class Gem::StubSpecification
+  def name: () -> String
+  def version: () -> Gem::Version
+  def to_spec: () -> Gem::Specification?
 end

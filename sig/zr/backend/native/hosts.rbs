@@ -1,0 +1,30 @@
+# What the shared modules of lib/zr/backend/native read from the Codegen
+# that includes them: each backend answers these with its own registers,
+# which a shared module cannot name, so a register here is untyped.
+module Zr
+  module Backend
+    module Native
+      # The hooks of `Planner`.
+      interface _Layout
+        def flag_neutral?: (IR::op op) -> bool
+        def logical_immediate?: (Integer mask, Integer bits) -> bool
+        def materialized: (Integer n) -> Integer
+        def immediate?: (Integer off, Integer width) -> bool
+        def slot_address?: (Integer off) -> bool
+        def frame_base: () -> Integer
+        def callee_saves: (Array[untyped] used) -> Array[untyped]
+        def wide?: (String v) -> bool
+      end
+
+      # What `Moves` reads: the backend's loads and stores, and the type of
+      # a value (`Planner#type_of`).
+      interface _Moving
+        def type_of: (String v) -> String
+        def load_value: (String v, untyped reg) -> void
+        def store_value: (String v, untyped reg) -> void
+        def store_param: (String v, untyped reg) -> void
+        def value_in: (String v, untyped scratch) -> untyped
+      end
+    end
+  end
+end
