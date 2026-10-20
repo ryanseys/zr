@@ -83,6 +83,8 @@ module Zr
             end
 
             kernel = +<<~HEAD
+              # Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+              #
               # How to step through a String in a multibyte encoding. `zr-dev gen
               # enc_mb` generates this from the Onigmo encoders that Regexp uses. Each
               # encoding's descriptor (Regexp::Onig::Enc::Base#descriptor) contains the
