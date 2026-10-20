@@ -78,7 +78,10 @@ module Zr
       def upstream_tests(backend, only: nil, jobs: 3, seconds: 600, megabytes: 3000)
         base = File.dirname(upstream || raise("no prism checkout at #{CHECKOUT}"))
         check = "exit(Prism.method(:parse).source_location.nil? ? 1 : 0)"
-        raise "the Ruby backend does not load from #{RUBY_BACKEND}" if backend == :ruby && !system(RbConfig.ruby, "-I", RUBY_BACKEND, "-rprism", "-e", check)
+        # Outside the bundle, as each test file runs (`Child.run`): the
+        # bundle's prism gem can be an older one than ruby's own.
+        loads = backend != :ruby || system(CleanEnv.env, RbConfig.ruby, "-I", RUBY_BACKEND, "-rprism", "-e", check, unsetenv_others: true)
+        raise "the Ruby backend does not load from #{RUBY_BACKEND}" unless loads
         files = Dir.glob("prism/**/*_test.rb", base: base).sort
         files = files.select { |file| File.fnmatch?(only, file, File::FNM_PATHNAME | File::FNM_EXTGLOB) } if only
         Dev.parallel_map(files, jobs: jobs) { |file| upstream_test(base, file, backend, seconds, megabytes) }
