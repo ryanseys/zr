@@ -39,19 +39,31 @@ module Zr
       # agree).
       VERSION = "49.0.2"
       # The bounds of one `wasmtime compile`, summed over its process
-      # group (Child.run): a compile of a module with eval support takes
-      # gigabytes, and without a bound, compiles in each worker can take
-      # all of the machine's memory.
-      COMPILE_MB = Integer(ENV.fetch("ZR_TEST_COMPILE_MB", "4096"))
+      # group (Child.run): a compile of a runtime with eval support peaked
+      # at 4.8 GB with Winch and 5.1 GB with Cranelift. A compile of a
+      # module past BIG_BYTES also takes a lock of the cache, so one runs
+      # at a time: the cli tier compiled one in each worker, and without a
+      # bound they took all of the machine's memory.
+      COMPILE_MB = Integer(ENV.fetch("ZR_TEST_COMPILE_MB", "6144"))
       COMPILE_SECONDS = Integer(ENV.fetch("ZR_TEST_COMPILE_SECONDS", "900"))
+      BIG_BYTES = 32 << 20
 
       module_function
 
       def executable = ENV.fetch("WASMTIME", "wasmtime")
 
-      def compiler
-        ENV.fetch("ZR_TEST_WASM_COMPILER", "winch").tap do |name|
-          raise ArgumentError, "ZR_TEST_WASM_COMPILER is #{name}; wasmtime has #{COMPILERS.join(" and ")}" unless COMPILERS.include?(name)
+      def compiler = named_compiler("ZR_TEST_WASM_COMPILER", "winch")
+
+      # The compiler of a split run: the runtime and the program module
+      # (one engine takes code of one compiler). Cranelift compiles the
+      # runtime once for the tier (6 s on 12 cores, 18 s with eval
+      # support, against 1 s and 3 s for Winch), and its code runs faster:
+      # a program with eval took 0.26 s, against 0.41 s.
+      def split_compiler = named_compiler("ZR_TEST_WASM_SPLIT_COMPILER", "cranelift")
+
+      def named_compiler(variable, default)
+        ENV.fetch(variable, default).tap do |name|
+          raise ArgumentError, "#{variable} is #{name}; wasmtime has #{COMPILERS.join(" and ")}" unless COMPILERS.include?(name)
         end
       end
 
@@ -65,19 +77,19 @@ module Zr
       # runtime, which every test of the run shares.
       def split_dir = File.join(Paths.cache, "wasm-split")
 
-      # The flags of a run: the compiler and the memory limit. Winch
-      # compiles quickly, so the tests turn off wasmtime's cache (it grew
-      # to 67 GB on one machine). Winch also compiles on one thread when
-      # the workers fill the cores: a tier runs wasmtime in each of eight
-      # workers, and eight parallel compiles on all cores made a 2 s test
-      # take 40 s. One thread uses 2.0 s of CPU against 3.0 s in parallel.
-      # Where the workers leave half of the cores free (a CI runner: 2
-      # workers on 4 cores), a compile takes them: a cli program's module
-      # with eval support took 28 s on one thread. Cranelift keeps both,
-      # because a benchmark runs one at a time.
+      # The flags of a run: the compiler and the memory limit. The tests
+      # turn off wasmtime's cache: each test's module is new, and the cache
+      # grew to 67 GB on one machine (the runtime module's compile is kept
+      # by `runtime`). A compile runs on one thread when the workers fill
+      # the cores: a tier runs wasmtime in each of eight workers, and eight
+      # parallel compiles on all cores made a 2 s test take 40 s. One
+      # thread uses 2.0 s of CPU against 3.0 s in parallel. Where the
+      # workers leave half of the cores free (a CI runner: 2 workers on 4
+      # cores), a compile takes them: a cli program's module with eval
+      # support took 28 s on one thread.
       def flags(compiler: self.compiler)
-        own = compiler == "winch" ? ["-C", "cache=n", "-C", "parallel-compilation=#{spare_cores? ? "y" : "n"}"] : []
-        ["-C", "compiler=#{compiler}", *own, "-W", "max-memory-size=#{memory}"]
+        ["-C", "compiler=#{compiler}", "-C", "cache=n", "-C", "parallel-compilation=#{spare_cores? ? "y" : "n"}",
+         "-W", "max-memory-size=#{memory}"]
       end
 
       def spare_cores? = Etc.nprocessors >= 2 * Test::Workers.size
@@ -165,8 +177,22 @@ module Zr
       # COMPILE_SECONDS and COMPILE_MB.
       def compiled?(path, out, compiler: self.compiler)
         argv = [executable, "compile", *flags(compiler: compiler), "-o", out, path]
-        answer, = Child.run(argv, cwd: Dir.pwd, seconds: COMPILE_SECONDS, megabytes: COMPILE_MB)
-        answer.code.zero?
+        one_at_a_time(File.size(path) > BIG_BYTES) do
+          answer, = Child.run(argv, cwd: Dir.pwd, seconds: COMPILE_SECONDS, megabytes: COMPILE_MB)
+          answer.code.zero?
+        end
+      end
+
+      # Runs the block, under the cache's compile lock when `locked`.
+      def one_at_a_time(locked)
+        return yield unless locked
+
+        dir = File.join(Paths.cache, "wasmtime")
+        FileUtils.mkdir_p(dir)
+        File.open(File.join(dir, "compile.lock"), File::RDWR | File::CREAT, 0o644) do |lock|
+          lock.flock(File::LOCK_EX)
+          yield
+        end
       end
     end
   end

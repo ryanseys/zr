@@ -149,7 +149,8 @@ To select tests by name, give minitest's own options (`-i`, `-e`) to
 | `ZR_GEM_PLATFORM` | a RubyGems platform (`arm64-darwin`, `x86_64-linux-gnu`) | | `gem build zr.gemspec` builds the platform gem of that platform, which carries the runtime of `ZR_GEM_RUNTIME` (`docs/how-to/release.md`). Unset, it builds the `ruby` gem. |
 | `ZR_GEM_RUNTIME` | `data/runtime/<triple>` | | The unpacked runtime bundle that a platform gem carries. `ZR_GEM_PLATFORM` needs it. |
 | `ZR_TEST_WASM_SPLIT` | `0` or `1` | `1` | Whether a wasm program test builds a program module that preloads the runtime as a module of its own, which wasmtime compiles once for each runtime (`0`: one whole module for each test, as `zr build` writes). |
-| `ZR_TEST_COMPILE_MB` | megabytes | 4096 | The memory of one `wasmtime compile` in the tests, summed over its process group; past it, the compile is killed. |
+| `ZR_TEST_WASM_SPLIT_COMPILER` | `winch` or `cranelift` | `cranelift` | wasmtime's compiler for a split run: the runtime module, which compiles once for each tier, and the program module. |
+| `ZR_TEST_COMPILE_MB` | megabytes | 6144 | The memory of one `wasmtime compile` in the tests, summed over its process group; past it, the compile is killed. A compile of a module past 32 MB also waits for any other such compile of the cache. |
 | `ZR_TEST_COMPILE_SECONDS` | seconds | 900 | The time of one `wasmtime compile` in the tests; past it, the compile is killed. |
 | `WASMTIME` | a command | `wasmtime` | The wasmtime that the tests run. |
 | `ZR_BLESS` | flag | off | A snapshot test writes its expected file again, in place of a comparison: the HIR dumps, the disassembly listing and the libSystem list. A unit test that checks a generated file (prism's Ruby, its encoding tables, the builtin lines, the libSystem list) runs the generator to write it, in place of `--check`. |

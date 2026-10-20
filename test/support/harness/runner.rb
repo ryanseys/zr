@@ -78,7 +78,7 @@ module Zr
         compiled = precompile(out) if compiled == :here
         env = { "TMPDIR" => "/tmp" }.merge(env)
         if compiled.is_a?(Hash)
-          return [Wasmtime.run(out, *args, dirs: dirs, env: env, compiler: @compiler, preload: compiled.fetch(:preload)), {}]
+          return [Wasmtime.run(out, *args, dirs: dirs, env: env, compiler: split_compiler, preload: compiled.fetch(:preload)), {}]
         end
 
         [Wasmtime.run(compiled || out, *args, dirs: dirs, env: env, compiler: @compiler, argv0: (out if compiled)), {}]
@@ -95,9 +95,13 @@ module Zr
         return Wasmtime.precompile(out, compiler: @compiler) unless name
 
         path = [File.dirname(out), Wasmtime.split_dir].map { |dir| File.join(dir, name) }.find { |file| File.file?(file) }
-        preload = path && Wasmtime.runtime(path, compiler: @compiler)
+        preload = path && Wasmtime.runtime(path, compiler: split_compiler)
         preload ? { preload: preload } : nil
       end
+
+      # The compiler of a split run: the one given to this runner when it
+      # is not the tests' default (`zr-dev bench`), else the split default.
+      def split_compiler = @compiler == Wasmtime.compiler ? Wasmtime.split_compiler : @compiler
 
       # True when wasmtime reports a trap. A trap stops the module as
       # abort(3) stops a process, so it counts as a crash.
