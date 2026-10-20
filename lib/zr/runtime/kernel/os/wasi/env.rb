@@ -261,6 +261,55 @@ module Zr::Kern
     Machine.i32(0)
   end
 
+  # wasi-libc has no user or group database, so each lookup finds no
+  # entry: Etc gives nil, and Dir.home with no HOME raises, as ruby built
+  # for WASI does.
+  #: (ptr) -> ptr
+  def getpwnam(name)
+    Machine.ptr(0)
+  end
+
+  #: (i32) -> ptr
+  def getpwuid(uid)
+    Machine.ptr(0)
+  end
+
+  #: () -> ptr
+  def getpwent
+    Machine.ptr(0)
+  end
+
+  #: () -> void
+  def setpwent
+  end
+
+  #: () -> void
+  def endpwent
+  end
+
+  #: (ptr) -> ptr
+  def getgrnam(name)
+    Machine.ptr(0)
+  end
+
+  #: (i32) -> ptr
+  def getgrgid(gid)
+    Machine.ptr(0)
+  end
+
+  #: () -> ptr
+  def getgrent
+    Machine.ptr(0)
+  end
+
+  #: () -> void
+  def setgrent
+  end
+
+  #: () -> void
+  def endgrent
+  end
+
   #: (i32) -> void
   def exit(code)
     Libc.proc_exit(code)

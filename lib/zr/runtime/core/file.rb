@@ -2265,7 +2265,9 @@ class Dir
   def self.home(user = nil)
     user = Primitive.zr_str_operand(user) unless user.nil?
     user = nil if user&.empty?
-    return Primitive.zr_home_dir(nil) if user.nil? && ENV["HOME"].nil?
+    if user.nil? && ENV["HOME"].nil?
+      return Primitive.zr_home_dir(nil) || raise(ArgumentError, "couldn't find HOME environment -- expanding '~'")
+    end
     return ENV["HOME"].dup if user.nil?
 
     Primitive.zr_home_dir(user) || raise(ArgumentError, "user #{user} doesn't exist")
