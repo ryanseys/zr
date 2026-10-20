@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "etc"
+require_relative "../workers"
+
 module Zr
   module Harness
     # The only place where the tests make a `wasmtime` command, so every
@@ -38,15 +41,20 @@ module Zr
 
       # The flags of a run: the compiler and the memory limit. Winch
       # compiles quickly, so the tests turn off wasmtime's cache (it grew
-      # to 67 GB on one machine). Winch also compiles on one thread: a
-      # tier runs wasmtime in each of eight workers, and eight parallel
-      # compiles on all cores made a 2 s test take 40 s. One thread uses
-      # 2.0 s of CPU against 3.0 s in parallel, and each test keeps to one
-      # core. Cranelift keeps both, because a benchmark runs one at a time.
+      # to 67 GB on one machine). Winch also compiles on one thread when
+      # the workers fill the cores: a tier runs wasmtime in each of eight
+      # workers, and eight parallel compiles on all cores made a 2 s test
+      # take 40 s. One thread uses 2.0 s of CPU against 3.0 s in parallel.
+      # Where the workers leave half of the cores free (a CI runner: 2
+      # workers on 4 cores), a compile takes them: a cli program's module
+      # with eval support took 28 s on one thread. Cranelift keeps both,
+      # because a benchmark runs one at a time.
       def flags(compiler: self.compiler)
-        own = compiler == "winch" ? ["-C", "cache=n", "-C", "parallel-compilation=n"] : []
+        own = compiler == "winch" ? ["-C", "cache=n", "-C", "parallel-compilation=#{spare_cores? ? "y" : "n"}"] : []
         ["-C", "compiler=#{compiler}", *own, "-W", "max-memory-size=#{memory}"]
       end
+
+      def spare_cores? = Etc.nprocessors >= 2 * Test::Workers.size
 
       # The `wasmtime run` command for `module_path` with `args`. It
       # preopens the directories in `dirs` (`{ "." => "." }` gives the
