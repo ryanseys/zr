@@ -210,7 +210,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   def self.feature_listed(feature)
     Primitive.attr! :hidden
     # The list holds names in the file system's encoding.
-    feature = File.send(:os_path, feature)
+    feature = File.send(:os_name, feature)
     bare = File.extname(feature).empty?
     name = bare ? "#{feature}.rb" : feature
     # IS_SOEXT: a native name is .so or .o, or the platform DLEXT.
@@ -442,12 +442,11 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # does, so a require of it is a LoadError.
   def self.found(path)
     Primitive.attr! :hidden
+    # A file below the home has the build's name whether the program
+    # carries it or reads it from disk (`on_disk`, through
+    # `File.os_path`), so a require by either path loads it once.
     built = as_built(path)
-    return built if !built.equal?(path) && Primitive.zr_unit_for(built)
-    return path if Primitive.zr_unit_for(path) || loadable?(path)
-
-    disk = on_disk(path)
-    disk if !disk.equal?(path) && loadable?(disk)
+    built if Primitive.zr_unit_for(built) || loadable?(built)
   end
 
   # `path` as the build wrote it, where it is under the home that the
@@ -469,14 +468,24 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # and reads from disk (a require that rubygems leaves for the run time):
   # a path below the build's root (/zr for an install) below the root of
   # the home that the program runs with, where that is another root.
+  # Every call that gives the OS a path goes through it
+  # (`File.os_path`), so the two roots are read once, after boot has set
+  # the prefix (core/env.rb).
   def self.on_disk(path)
     Primitive.attr! :hidden
-    built = built_home.delete_suffix(HOME_TAIL)
-    home = Primitive.zr_hidden_get(ENV, :__zr_prefix__)
-    return path if home.nil? || !home.end_with?(HOME_TAIL) || !path.start_with?("#{built}/")
+    roots = Primitive.zr_hidden_get(self, :disk_roots)
+    unless roots
+      home = Primitive.zr_hidden_get(ENV, :__zr_prefix__)
+      return path unless home
 
-    root = home.delete_suffix(HOME_TAIL)
-    root == built ? path : "#{root}#{path.byteslice(built.bytesize..)}"
+      built = built_home.delete_suffix(HOME_TAIL)
+      real = home.end_with?(HOME_TAIL) ? home.delete_suffix(HOME_TAIL) : built
+      roots = Primitive.zr_state_set(self, :disk_roots, (built == real ? [nil, nil] : ["#{built}/", real]).freeze)
+    end
+    below, real = roots
+    return path unless below && path.start_with?(below)
+
+    "#{real}#{path.byteslice((below.bytesize - 1)..)}"
   end
 
   # The home (ruby's tree) below a zr root.
@@ -581,7 +590,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
     # rb_get_path gives the file to the system in its encoding (UTF-8
     # here), and that is the name the file runs and is listed under.
-    path = File.send(:os_path, path)
+    path = File.send(:os_name, path)
     # An autoload of this feature stops waiting however the file arrives:
     # through an earlier require, or through this one once it ends. Ruby
     # calls `rb_feature_provided` again each time it checks whether an

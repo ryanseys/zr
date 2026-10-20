@@ -1207,9 +1207,20 @@ class File < IO
   end
   private_class_method :ascii_compatible_path
 
-  # rb_str_encode_ospath: on macOS a path in an encoding other than
-  # binary or UTF-8 goes to the system as UTF-8, where it converts.
+  # The path that a call to the system gets for `path`: a file of zr
+  # below /zr is on this machine below the home's root (`Kernel.on_disk`),
+  # in the encoding of `os_name`.
   def self.os_path(path)
+    Primitive.attr! :hidden
+    os_name(Kernel.on_disk(path))
+  end
+  private_class_method :os_path
+
+  # rb_str_encode_ospath: on macOS a path in an encoding other than
+  # binary or UTF-8 goes to the system as UTF-8, where it converts. A
+  # name that the program keeps (a $LOADED_FEATURES entry) is this, with
+  # no other root.
+  def self.os_name(path)
     Primitive.attr! :hidden
     return path if !RUBY_PLATFORM.include?("darwin") || path.encoding == Encoding::BINARY || path.encoding == Encoding::UTF_8
 
@@ -1217,7 +1228,7 @@ class File < IO
   rescue EncodingError
     path
   end
-  private_class_method :os_path
+  private_class_method :os_name
 
   # rb_file_size: fstat(2) on the stream's own descriptor.
   def size

@@ -1103,9 +1103,20 @@ module Zr
 
         #: (String path) -> String?
         def candidate(path)
-          return path if path.end_with?(".rb") && File.file?(path)
+          found = if path.end_with?(".rb") && File.file?(path) then path
+                  elsif File.file?("#{path}.rb") then "#{path}.rb"
+                  end
+          found && carried(found)
+        end
 
-          File.file?("#{path}.rb") ? "#{path}.rb" : nil
+        # In a binary, `path` as the build wrote it (`Kernel.as_built`): a
+        # $LOAD_PATH directory names the home that the program runs with,
+        # and the build wrote the same file below /zr. A file has one name,
+        # as the kernel's require gives it, so a require that eval compiles
+        # runs a compiled-in file, once, and not its copy on disk.
+        #: (String path) -> String
+        def carried(path)
+          Binary.running? ? Kernel.send(:as_built, path) : path
         end
 
         # The directories that a file adds to $LOAD_PATH with a literal, in
