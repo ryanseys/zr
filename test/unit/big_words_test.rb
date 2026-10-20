@@ -51,14 +51,18 @@ class BigWordsTest < Minitest::Test
   # A value of exactly `n` words with no simple pattern.
   def mixed(n, seed) = (seed**((BITS * n) / Math.log2(seed)).floor) | (1 << ((BITS * n) - 1))
 
-  # `x * y` from zr_big_kara, `x` the longer, over Fiddle buffers.
+  # `x * y` from zr_big_kara, `x` the longer, over Fiddle buffers. Each
+  # buffer stays in a local: GC frees a buffer that nothing holds, and the
+  # host's kernel allocates as it runs.
   def product(x, y)
     x, y = y, x if words(x).size < words(y).size
     xw = words(x)
     yw = words(y)
     out = buffer(xw.size + yw.size)
+    xs = filled(xw)
+    ys = filled(yw)
     work = buffer(self.class.kernel.call("zr_big_kara_work", xw.size))
-    self.class.kernel.call("zr_big_kara", out.to_i, filled(xw).to_i, xw.size, filled(yw).to_i, yw.size, work.to_i)
+    self.class.kernel.call("zr_big_kara", out.to_i, xs.to_i, xw.size, ys.to_i, yw.size, work.to_i)
     out[0, (xw.size + yw.size) * 8].unpack("Q<*").reverse.inject(0) { |acc, word| (acc << BITS) | word }
   end
 
