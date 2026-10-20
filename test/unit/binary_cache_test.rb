@@ -38,10 +38,14 @@ class BinaryCacheTest < Minitest::Test
     refute_equal before, Binaries.library_digest(root)
 
     target = Zr::Target.default
-    a = stub_method(Binaries, :libraries, "a") { Binaries.path(target, program, SOURCE) }
-    b = stub_method(Binaries, :libraries, "b") { Binaries.path(target, program, SOURCE) }
+    a, b = %w[a b].map { |libraries| kept { stub_method(Binaries, :libraries, libraries) { Binaries.path(target, program, SOURCE) } } }
+    refute_nil a
     refute_equal a, b
   end
+
+  # Runs the block where the binary cache keeps binaries: not in a run that
+  # checks the IR (ZR_VERIFY), as the nightly one does.
+  def kept(**settings, &) = Zr::Config.with(ZR_VERIFY: "0", **settings, &)
 
   # The key holds `Config#fingerprint`, so a setting added there misses
   # with no edit here.
@@ -49,7 +53,8 @@ class BinaryCacheTest < Minitest::Test
     target = Zr::Target.default
     runtime = Data.define(:digest).new(digest: "runtime")
     key = proc { stub_method(Zr::Runtime, :for, runtime) { Binaries.path(target, program, SOURCE) } }
-    plain = Zr::Config.with(&key)
+    plain = kept(&key)
+    refute_nil plain
 
     Zr::Config::SETTINGS.select(&:steers).each do |setting|
       next if setting.env == "ZR_VERIFY"
@@ -59,7 +64,7 @@ class BinaryCacheTest < Minitest::Test
               in { env: "ZR_EXT_CONFIG" } then "gem=1"
               else "2"
               end
-      refute_equal plain, Zr::Config.with(setting.env.to_sym => value, &key), "#{setting.env}=#{value} must miss"
+      refute_equal plain, kept(setting.env.to_sym => value, &key), "#{setting.env}=#{value} must miss"
     end
   end
 
