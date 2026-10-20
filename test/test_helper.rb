@@ -18,6 +18,7 @@ require_relative "support/coverage_run"
 Zr::Test::CoverageRun.start(root: File.expand_path("..", __dir__)) if Zr::Test::CoverageRun.requested?
 
 require "minitest/autorun"
+require_relative "support/shard"
 
 require_relative "../lib/zr/target"
 require_relative "../lib/zr/config"

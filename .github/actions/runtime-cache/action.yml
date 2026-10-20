@@ -11,6 +11,12 @@ description: >-
   not kept: they are gigabytes. Each job that uses this action ends with
   `bin/zr cache clean --days 1`, so the saved cache holds only what the
   run read (tar keeps the mtimes, and a read touches an entry).
+inputs:
+  flavor:
+    description: >-
+      A name for the cache of one target or container, apart from the
+      other jobs of the same OS and arch (for example aarch64-linux-musl).
+    default: ""
 runs:
   using: composite
   steps:
@@ -27,5 +33,5 @@ runs:
           tmp/cache/store/lowering
           tmp/cache/store/kernel
           tmp/cache/store/roots
-        key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'vendor/**', 'Gemfile.lock', '.ruby-version') }}
-        restore-keys: runtime-${{ runner.os }}-${{ runner.arch }}-
+        key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ inputs.flavor }}-${{ hashFiles('lib/**', 'vendor/**', 'Gemfile.lock', '.ruby-version') }}
+        restore-keys: runtime-${{ runner.os }}-${{ runner.arch }}-${{ inputs.flavor }}-

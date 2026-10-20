@@ -48,6 +48,13 @@ module Zr
       HOSTS = Target.all.select(&:native_ext?).freeze
       UNSUPPORTED = "needs a host of #{HOSTS.map(&:triple).join(", ")}"
 
+      # The gems that the reference ruby needs for test/ext, by name, at
+      # their versions: json at zr's port, so that both sides load the same
+      # code. .github/scripts/reference_gems.rb installs them in CI. The
+      # tests of the other gems (msgpack, nokogiri, websocket-driver) skip
+      # until a version that zr's C API covers is named here.
+      REFERENCE_GEMS = { "json" => "3.0.2" }.freeze
+
       module_function
 
       # Whether this host runs zr's C extensions.

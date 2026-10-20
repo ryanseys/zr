@@ -69,6 +69,7 @@ module Zr
           o.on("--no-build", "run the programs on CRuby over zr's kernel, with no build [ZR_TEST_HOST=1]") { @env["ZR_TEST_HOST"] = "1" }
           o.on("--no-cache", "run each test again, also one that passed with the same inputs [ZR_TEST_FRESH=1]") { @env["ZR_TEST_FRESH"] = "1" }
           o.on("--fail-fast", "run no more tests after one fails [ZR_TEST_FAIL_FAST=1]") { @env["ZR_TEST_FAIL_FAST"] = "1" }
+          o.on("--shard I/N", "run one Nth of the tests, as one CI machine does [ZR_TEST_SHARD]") { |spec| @env["ZR_TEST_SHARD"] = spec }
           o.on("--timeout SECS", Integer, "the time limit of each test, and of each program's build and run",
                "[ZR_TEST_TIMEOUT, ZR_TEST_SECONDS]") do |v|
             @env["ZR_TEST_TIMEOUT"] = v.to_s

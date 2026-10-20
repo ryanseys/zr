@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby's C API, of the series that zr pins. zr's kernel gives 886 of its
+calls ruby's C API, of the series that zr pins. zr's kernel gives 931 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -40,7 +40,7 @@ instruction sequences, as zr's code is not objects.
 
 The C API's Arrays.
 
-`rb_ary_new`, `rb_ary_new_capa`, `rb_ary_new_from_values`, `rb_ary_new_from_args`, `rb_ary_push`, `rb_ary_entry`, `rb_ary_store`, `rb_ary_clear`, `rb_ary_unshift`, `rb_ary_pop`, `rb_ary_includes`, `rb_ary_resize`, `rb_assoc_new`, `rb_ary_join`, `rb_ary_shift`, `rb_ary_to_ary`, `rb_ary_subseq`, `rb_ary_aref`, `rb_ary_dup`, `rb_ary_concat`, `rb_ary_delete`, `rb_ary_delete_at`, `rb_ary_sort_bang`, `rb_ary_to_s`, `rb_ary_hidden_new`, `rb_ary_tmp_new`, `rb_ary_ptr_use_start`, `rb_ary_ptr_use_end`, `rb_mem_clear`, `rb_ary_cat`, `rb_ary_reverse`, `rb_ary_freeze`, `rb_enum_values_pack`
+`rb_ary_new`, `rb_ary_new_capa`, `rb_ary_new_from_values`, `rb_ary_new_from_args`, `rb_ary_push`, `rb_ary_entry`, `rb_ary_store`, `rb_ary_replace`, `rb_ary_clear`, `rb_ary_unshift`, `rb_ary_pop`, `rb_ary_includes`, `rb_ary_resize`, `rb_assoc_new`, `rb_ary_join`, `rb_ary_shift`, `rb_ary_to_ary`, `rb_ary_subseq`, `rb_ary_aref`, `rb_ary_dup`, `rb_ary_concat`, `rb_ary_delete`, `rb_ary_delete_at`, `rb_ary_sort_bang`, `rb_ary_to_s`, `rb_ary_hidden_new`, `rb_ary_tmp_new`, `rb_ary_ptr_use_start`, `rb_ary_ptr_use_end`, `rb_mem_clear`, `rb_ary_cat`, `rb_ary_reverse`, `rb_ary_freeze`, `rb_enum_values_pack`
 
 ## block
 
@@ -72,11 +72,17 @@ The debug inspector of ruby/debug.h: a debugger's view of the frames that run, a
 
 `rb_debug_inspector_open`, `rb_debug_inspector_backtrace_locations`, `rb_debug_inspector_frame_self_get`, `rb_debug_inspector_frame_class_get`, `rb_debug_inspector_frame_binding_get`, `rb_debug_inspector_frame_iseq_get`, `rb_debug_inspector_frame_depth`, `rb_debug_inspector_current_depth`
 
+## econv
+
+ruby/encoding.h's transcoder (rb_econv_*): an rb_econv_t is a word of C memory that holds an Encoding::Converter, kept alive as a C root while it is open.
+
+`rb_econv_prepare_opts`, `rb_econv_prepare_options`, `rb_econv_open_opts`, `rb_econv_open`, `rb_econv_close`, `rb_econv_convert`, `rb_econv_check_error`, `rb_econv_str_convert`, `rb_str_conv_enc_opts`
+
 ## encoding
 
 The C API's encodings.
 
-`OnigEncodingASCII`, `OnigEncodingUTF_8`, `OnigEncodingUS_ASCII`, `rb_utf8_encoding`, `rb_ascii8bit_encoding`, `rb_usascii_encoding`, `rb_utf8_encindex`, `rb_ascii8bit_encindex`, `rb_usascii_encindex`, `rb_enc_from_index`, `rb_enc_to_index`, `rb_enc_from_encoding`, `rb_to_encoding`, `rb_to_encoding_index`, `rb_enc_find_index`, `rb_enc_get_index`, `rb_enc_get`, `rb_enc_set_index`, `rb_enc_associate_index`, `rb_enc_associate`, `rb_default_external_encoding`, `rb_default_internal_encoding`, `rb_enc_default_external`, `rb_enc_default_internal`, `rb_enc_str_new`, `rb_enc_str_new_cstr`, `rb_enc_str_new_static`, `rb_enc_interned_str`, `rb_enc_interned_str_cstr`, `rb_enc_find`, `rb_enc_dummy_p`, `rb_filesystem_encoding`, `rb_enc_check`, `rb_locale_encoding`, `rb_locale_encindex`, `rb_enc_copy`, `rb_find_encoding`
+`OnigEncodingASCII`, `OnigEncodingUTF_8`, `OnigEncodingUS_ASCII`, `rb_utf8_encoding`, `rb_ascii8bit_encoding`, `rb_usascii_encoding`, `rb_utf8_encindex`, `rb_ascii8bit_encindex`, `rb_usascii_encindex`, `rb_enc_from_index`, `rb_enc_to_index`, `rb_enc_from_encoding`, `rb_to_encoding`, `rb_to_encoding_index`, `rb_define_dummy_encoding`, `rb_enc_find_index`, `rb_enc_get_index`, `rb_enc_get`, `rb_enc_set_index`, `rb_enc_associate_index`, `rb_enc_associate`, `rb_default_external_encoding`, `rb_default_internal_encoding`, `rb_enc_default_external`, `rb_enc_default_internal`, `rb_enc_str_new`, `rb_enc_str_new_cstr`, `rb_enc_str_new_static`, `rb_enc_interned_str`, `rb_enc_interned_str_cstr`, `rb_enc_find`, `rb_enc_dummy_p`, `rb_filesystem_encoding`, `rb_enc_check`, `rb_locale_encoding`, `rb_locale_encindex`, `rb_enc_copy`, `rb_find_encoding`
 
 ## entry
 
@@ -124,7 +130,7 @@ The C API of IO::Buffer: buffers over C's memory, the bytes of a buffer, which C
 
 The C API of IO objects: their struct rb_io (GetOpenFile), their descriptors and modes, and the IO methods that C calls by function.
 
-`rb_io_taint_check`, `rb_io_check_closed`, `rb_io_check_readable`, `rb_io_check_char_readable`, `rb_io_check_writable`, `rb_io_set_nonblock`, `rb_io_synchronized`, `rb_io_descriptor`, `rb_io_mode`, `rb_io_check_io`, `rb_io_get_io`, `rb_io_flush`, `rb_io_close`, `rb_io_gets`, `rb_io_getbyte`, `rb_io_eof`, `rb_io_binmode`, `rb_io_ascii8bit_binmode`, `rb_io_path`, `rb_io_timeout`, `rb_io_wait`, `rb_cloexec_open`, `rb_fd_fix_cloexec`, `rb_update_max_fd`, `rb_file_open`, `rb_file_open_str`, `rb_io_bufwrite`, `rb_io_extract_modeenc`, `rb_io_stdio_file`, `rb_io_open_descriptor`
+`rb_io_taint_check`, `rb_io_check_closed`, `rb_io_check_readable`, `rb_io_check_char_readable`, `rb_io_check_writable`, `rb_io_set_nonblock`, `rb_io_synchronized`, `rb_io_descriptor`, `rb_io_mode`, `rb_io_check_io`, `rb_io_get_io`, `rb_io_flush`, `rb_io_close`, `rb_io_gets`, `rb_io_getbyte`, `rb_io_eof`, `rb_io_binmode`, `rb_io_ascii8bit_binmode`, `rb_io_path`, `rb_io_timeout`, `rb_io_closed_p`, `rb_io_get_write_io`, `rb_io_read_pending`, `rb_io_extract_encoding_option`, `rb_io_wait`, `rb_cloexec_open`, `rb_fd_fix_cloexec`, `rb_update_max_fd`, `rb_file_open`, `rb_file_open_str`, `rb_io_bufwrite`, `rb_io_extract_modeenc`, `rb_io_stdio_file`, `rb_io_open_descriptor`
 
 ## iseq
 
@@ -136,19 +142,19 @@ The private functions of CRuby's instruction sequences that debuggers and covera
 
 Methods whose bodies are C functions, and the C API's calls of Ruby.
 
-`rb_funcallv`, `rb_funcallv_public`, `rb_block_given_p`, `rb_yield`, `rb_yield_values2`, `rb_funcall`, `rb_yield_values`, `rb_keyword_given_p`, `rb_block_proc`, `rb_need_block`, `rb_error_arity`, `rb_scan_args`, `rb_scan_args_kw`, `rb_call_super`, `rb_get_kwargs`, `rb_funcallv_kw`, `rb_funcall_with_block`, `rb_funcall_with_block_kw`, `rb_undef_method`, `rb_f_notimplement`, `rb_notimplement`, `rb_enumeratorize`, `rb_enumeratorize_with_size`, `rb_enumeratorize_with_size_kw`
+`rb_funcallv`, `rb_check_funcall`, `rb_funcallv_public`, `rb_block_given_p`, `rb_yield`, `rb_yield_values2`, `rb_funcall`, `rb_yield_values`, `rb_keyword_given_p`, `rb_block_proc`, `rb_need_block`, `rb_error_arity`, `rb_scan_args`, `rb_scan_args_kw`, `rb_call_super`, `rb_opts_exception_p`, `rb_get_kwargs`, `rb_funcallv_kw`, `rb_funcall_with_block`, `rb_funcall_with_block_kw`, `rb_undef_method`, `rb_f_notimplement`, `rb_notimplement`, `rb_enumeratorize`, `rb_enumeratorize_with_size`, `rb_enumeratorize_with_size_kw`
 
 ## numeric
 
-The C API's numbers.
 
-`rb_num2long`, `rb_num2ll`, `rb_big2long`, `rb_big2ll`, `rb_num2ulong`, `rb_num2ull`, `rb_big2ulong`, `rb_big2ull`, `rb_big_sign`, `rb_num2uint`, `rb_fix2uint`, `rb_absint_size`, `rb_absint_numwords`, `rb_num2int`, `rb_fix2int`, `rb_num2dbl`, `rb_int2big`, `rb_int2inum`, `rb_ll2inum`, `rb_uint2big`, `rb_uint2inum`, `rb_ull2inum`, `rb_float_new`, `rb_float_value`, `rb_out_of_int`, `rb_out_of_long`, `rb_big2str`, `rb_complex_new`, `rb_rational_new`, `rb_to_float`, `rb_big_norm`, `rb_big2dbl`, `rb_big_cmp`, `rb_big_plus`, `rb_big_minus`, `rb_big_mul`, `rb_big_div`, `rb_big_modulo`, `rb_big_pow`, `rb_big_eq`, `rb_dbl2big`, `rb_num_coerce_bin`, `rb_num_coerce_relop`, `rb_num2short`, `rb_fix2short`, `rb_num2ushort`, `rb_integer_pack`, `rb_integer_unpack`
+
+`rb_num2long`, `rb_num2ll`, `rb_big2long`, `rb_big2ll`, `rb_num2ulong`, `rb_num2ull`, `rb_big2ulong`, `rb_big2ull`, `rb_big_sign`, `rb_num2uint`, `rb_fix2uint`, `rb_absint_size`, `rb_absint_numwords`, `rb_num2int`, `rb_fix2int`, `rb_num2dbl`, `rb_int2big`, `rb_int2inum`, `rb_ll2inum`, `rb_uint2big`, `rb_uint2inum`, `rb_ull2inum`, `rb_float_new`, `rb_float_value`, `rb_out_of_int`, `rb_out_of_long`, `rb_big2str`, `rb_complex_new`, `rb_rational_new`, `rb_to_float`, `rb_big_norm`, `rb_big2dbl`, `rb_big_cmp`, `rb_big_plus`, `rb_big_minus`, `rb_big_mul`, `rb_big_div`, `rb_big_modulo`, `rb_big_pow`, `rb_big_eq`, `rb_dbl2big`, `rb_num_coerce_bin`, `rb_num_coerce_relop`, `rb_num_coerce_cmp`, `rb_int_positive_pow`, `rb_Rational`, `rb_complex_real`, `rb_complex_imag`, `rb_rational_num`, `rb_rational_den`, `rb_num2short`, `rb_fix2short`, `rb_num2ushort`, `rb_integer_pack`, `rb_integer_unpack`
 
 ## object
 
 The C API's objects: freezing, kinds, instance variables, constants, conversions and type errors.
 
-`rb_obj_freeze`, `rb_obj_frozen_p`, `rb_obj_is_kind_of`, `rb_obj_is_instance_of`, `rb_respond_to`, `rb_ivar_get`, `rb_iv_get`, `rb_ivar_set`, `rb_iv_set`, `rb_define_const`, `rb_const_set`, `rb_const_get`, `rb_const_get_at`, `rb_class_inherited_p`, `rb_String`, `rb_Integer`, `rb_Float`, `rb_Array`, `rb_obj_as_string`, `rb_inspect`, `rb_class_new_instance`, `rb_obj_call_init`, `rb_frame_this_func`, `rb_proc_call_with_block`, `rb_unexpected_type`, `rb_unexpected_object_type`, `rb_range_beg_len`, `rb_attr_get`, `rb_obj_is_proc`, `rb_class_new_instance_kw`, `rb_class_new_instance_pass_kw`, `rb_require`, `rb_convert_type`, `rb_check_convert_type`, `rb_check_array_type`, `rb_check_hash_type`, `rb_equal`, `rb_error_frozen_object`, `rb_obj_dup`, `rb_obj_alloc`, `rb_obj_hide`, `rb_obj_freeze_inline`, `rb_obj_encoding`, `rb_ivar_defined`, `rb_ivar_count`, `rb_ivar_foreach`, `rb_cvar_get`, `rb_extend_object`, `rb_singleton_class`, `rb_method_boundp`, `rb_obj_method_arity`, `rb_apply`, `rb_check_type`, `rb_gv_get`, `rb_gv_set`, `rb_marshal_dump`, `rb_marshal_load`, `rb_cmpint`, `rb_any_to_s`, `rb_obj_id`, `rb_class_attached_object`, `rb_obj_clone`, `rb_obj_init_copy`, `rb_error_frozen`, `rb_eql`, `rb_obj_method`, `rb_memerror`, `rb_hash`, `rb_to_int`, `rb_check_to_integer`, `rb_obj_instance_variables`, `rb_objspace_internal_object_p`, `rb_get_argv`, `rb_assert_failure`, `rb_copy_generic_ivar`
+`rb_obj_freeze`, `rb_obj_frozen_p`, `rb_obj_is_kind_of`, `rb_obj_is_instance_of`, `rb_respond_to`, `rb_ivar_get`, `rb_iv_get`, `rb_ivar_set`, `rb_iv_set`, `rb_define_const`, `rb_const_set`, `rb_const_get`, `rb_const_get_at`, `rb_class_inherited_p`, `rb_String`, `rb_Integer`, `rb_Float`, `rb_Array`, `rb_obj_as_string`, `rb_inspect`, `rb_class_new_instance`, `rb_obj_call_init`, `rb_frame_this_func`, `rb_proc_call_with_block`, `rb_unexpected_type`, `rb_unexpected_object_type`, `rb_range_beg_len`, `rb_attr_get`, `rb_obj_is_proc`, `rb_class_new_instance_kw`, `rb_class_new_instance_pass_kw`, `rb_ext_resolve_symbol`, `rb_require`, `rb_convert_type`, `rb_check_convert_type`, `rb_check_array_type`, `rb_check_hash_type`, `rb_equal`, `rb_error_frozen_object`, `rb_obj_dup`, `rb_obj_alloc`, `rb_obj_hide`, `rb_obj_reveal`, `rb_obj_freeze_inline`, `rb_obj_encoding`, `rb_ivar_defined`, `rb_ivar_count`, `rb_ivar_foreach`, `rb_cvar_get`, `rb_extend_object`, `rb_singleton_class`, `rb_method_boundp`, `rb_obj_method_arity`, `rb_apply`, `rb_check_type`, `rb_gv_get`, `rb_gv_set`, `rb_marshal_dump`, `rb_marshal_load`, `rb_cmpint`, `rb_any_to_s`, `rb_obj_id`, `rb_class_attached_object`, `rb_obj_clone`, `rb_obj_init_copy`, `rb_error_frozen`, `rb_eql`, `rb_obj_method`, `rb_memerror`, `rb_hash`, `rb_to_int`, `rb_check_to_integer`, `rb_obj_instance_variables`, `rb_objspace_internal_object_p`, `rb_get_argv`, `rb_assert_failure`, `rb_copy_generic_ivar`
 
 ## onig
 
@@ -160,7 +166,7 @@ The functions of an rb_encoding (OnigEncodingType), which CRuby's inline encodin
 
 The C API's printf functions.
 
-`rb_sprintf`, `rb_vsprintf`, `rb_raise`, `rb_name_error`, `rb_enc_raise`, `rb_bug`, `rb_warn`, `rb_warning`, `rb_category_warn`, `rb_category_warning`, `ruby_snprintf`, `ruby_vsnprintf`, `rb_fatal`, `rb_enc_sprintf`, `rb_str_catf`, `rb_str_vcatf`
+`rb_sprintf`, `rb_f_sprintf`, `rb_vsprintf`, `rb_raise`, `rb_name_error`, `rb_enc_raise`, `rb_bug`, `rb_warn`, `rb_warning`, `rb_category_warn`, `rb_category_warning`, `ruby_snprintf`, `ruby_vsnprintf`, `rb_fatal`, `rb_enc_sprintf`, `rb_str_catf`, `rb_str_vcatf`
 
 ## process
 
@@ -182,7 +188,7 @@ The C API's Ranges and arithmetic sequences.
 
 ## regex
 
-Onigmo's regex API, for C that matches a Regexp itself (strscan).
+
 
 `onig_region_init`, `onig_region_new`, `onig_region_resize`, `onig_region_clear`, `onig_region_free`, `onig_region_set`, `onig_region_copy`, `rb_reg_region_copy`, `onig_region_memsize`, `onig_search`, `onig_match`, `rb_reg_onig_match`, `onig_name_to_backref_number`, `onig_foreach_name`, `onig_new`, `onig_free`, `onig_error_code_to_str`
 
@@ -208,7 +214,7 @@ The C API's st tables, which C uses for its own maps.
 
 The C API's Strings.
 
-`rb_str_new`, `rb_str_new_static`, `rb_str_new_cstr`, `rb_utf8_str_new`, `rb_utf8_str_new_static`, `rb_utf8_str_new_cstr`, `rb_usascii_str_new`, `rb_usascii_str_new_static`, `rb_usascii_str_new_cstr`, `rb_str_buf_new`, `rb_str_cat`, `rb_str_cat_cstr`, `rb_str_modify`, `rb_str_resize`, `rb_str_set_len`, `rb_string_value`, `rb_string_value_ptr`, `rb_string_value_cstr`, `rb_check_string_type`, `rb_str_dup`, `rb_str_replace`, `rb_str_substr`, `rb_str_intern`, `rb_sym2str`, `rb_str_encode`, `rb_str_concat`, `rb_str_split`, `rb_enc_str_buf_cat`, `rb_str_conv_enc`, `rb_str_encode_ospath`, `rb_external_str_new_with_enc`, `rb_str_new_frozen`, `rb_str_no_gvl_safe_acquire`, `rb_str_no_gvl_safe_release`, `rb_str_freeze`, `rb_str_append`, `rb_str_buf_append`, `rb_str_plus`, `rb_str_dump`, `rb_str_times`, `rb_str_cmp`, `rb_str_export_to_enc`, `rbimpl_enc_str_coderange_scan`, `rb_enc_str_coderange`, `rb_enc_strlen`, `rb_enc_codepoint_len`, `rb_fix2str`, `rb_cstr2inum`, `rb_sym_to_s`, `rb_str_subseq`, `rb_external_str_new`, `rb_cstr_to_dbl`, `ruby_strtod`, `rb_int_parse_cstr`, `rb_cstr_to_inum`, `rb_str_equal`, `rb_str_hash`, `rb_str_hash_cmp`, `rb_str_update`, `rb_str_strlen`, `rb_str_length`, `rb_str_to_str`, `rb_str_capacity`, `rb_str_modify_expand`, `rb_str_tmp_new`, `rb_str_to_dbl`, `rb_str2inum`, `rb_must_asciicompat`, `rb_memsearch`, `rb_str_free`, `rb_uv_to_utf8`, `rb_str_new_shared`, `rb_str_to_interned_str`, `rb_str_buf_cat_ascii`
+`rb_str_new`, `rb_str_new_static`, `rb_str_new_cstr`, `rb_utf8_str_new`, `rb_utf8_str_new_static`, `rb_utf8_str_new_cstr`, `rb_usascii_str_new`, `rb_usascii_str_new_static`, `rb_usascii_str_new_cstr`, `rb_str_buf_new`, `rb_str_cat`, `rb_str_cat_cstr`, `rb_str_modify`, `rb_str_resize`, `rb_str_set_len`, `rb_string_value`, `rb_string_value_ptr`, `rb_string_value_cstr`, `rb_check_string_type`, `rb_str_dup`, `rb_str_replace`, `rb_str_substr`, `rb_str_intern`, `rb_sym2str`, `rb_str_encode`, `rb_str_concat`, `rb_str_split`, `rb_enc_str_buf_cat`, `rb_str_conv_enc`, `rb_str_encode_ospath`, `rb_external_str_new_with_enc`, `rb_str_new_frozen`, `rb_str_no_gvl_safe_acquire`, `rb_str_no_gvl_safe_release`, `rb_str_freeze`, `rb_str_append`, `rb_str_buf_append`, `rb_str_plus`, `rb_str_dump`, `rb_str_times`, `rb_str_cmp`, `rb_str_export_to_enc`, `rbimpl_enc_str_coderange_scan`, `rb_enc_str_coderange`, `rb_enc_strlen`, `rb_enc_codepoint_len`, `rb_fix2str`, `rb_cstr2inum`, `rb_sym_to_s`, `rb_str_subseq`, `rb_external_str_new`, `rb_filesystem_str_new`, `rb_filesystem_str_new_cstr`, `rb_locale_str_new`, `rb_locale_str_new_cstr`, `rb_str_inspect`, `rb_str_resurrect`, `rb_str_locktmp`, `rb_str_unlocktmp`, `rb_interned_str_cstr`, `rb_cstr_to_dbl`, `ruby_strtod`, `rb_int_parse_cstr`, `rb_cstr_to_inum`, `rb_str_to_inum`, `rb_str_equal`, `rb_str_hash`, `rb_memhash`, `rb_str_format`, `rb_str_hash_cmp`, `rb_str_update`, `rb_str_strlen`, `rb_str_length`, `rb_str_to_str`, `rb_str_capacity`, `rb_str_modify_expand`, `rb_str_tmp_new`, `rb_str_to_dbl`, `rb_str2inum`, `rb_must_asciicompat`, `rb_memsearch`, `rb_str_free`, `rb_uv_to_utf8`, `rb_str_new_shared`, `rb_str_to_interned_str`, `rb_str_buf_cat_ascii`
 
 ## struct
 
@@ -220,13 +226,13 @@ The C API's Structs, through Struct's own methods: a Struct here is not CRuby's 
 
 zr's symbol id of the C ID `id`: an ID that this API gave, or a character, which names the operator of that one character.
 
-`rb_intern`, `rb_intern2`, `rb_id2sym`, `rb_sym2id`, `rb_intern3`, `rb_id2name`, `rb_id2str`, `rb_check_symbol_cstr`, `rb_to_id`, `rb_intern_str`, `rb_to_symbol`, `rb_is_const_id`
+`rb_intern`, `rb_intern2`, `rb_id2sym`, `rb_sym2id`, `rb_intern3`, `rb_id2name`, `rb_id2str`, `rb_check_symbol_cstr`, `rb_check_id`, `rb_to_id`, `rb_intern_str`, `rb_to_symbol`, `rb_is_const_id`
 
 ## thread
 
 C that runs without the GVL: rb_thread_call_without_gvl and its kin.
 
-`rb_thread_call_without_gvl`, `rb_thread_call_without_gvl2`, `rb_nogvl`, `rb_thread_call_with_gvl`, `ruby_native_thread_p`, `ruby_thread_has_gvl_p`, `rb_thread_check_ints`, `rb_thread_current`, `rb_thread_schedule`, `rb_ext_ractor_safe`, `rb_ractor_local_storage_value_newkey`, `rb_ractor_local_storage_value_lookup`, `rb_ractor_local_storage_value`, `rb_ractor_local_storage_value_set`, `rb_nativethread_lock_initialize`, `rb_nativethread_lock_destroy`, `rb_nativethread_lock_lock`, `rb_nativethread_lock_unlock`, `rb_thread_io_blocking_region`, `rb_thread_create`, `rb_thread_alone`, `rb_thread_main`, `rb_thread_stop`, `rb_thread_run`, `rb_thread_wakeup`, `rb_thread_wakeup_alive`, `rb_thread_kill`, `rb_thread_local_aref`, `rb_thread_local_aset`, `rb_thread_sleep_forever`, `rb_thread_sleep_deadly`, `rb_thread_sleep`, `rb_thread_wait_for`, `rb_mutex_new`, `rb_mutex_lock`, `rb_mutex_unlock`, `rb_mutex_trylock`, `rb_mutex_locked_p`, `rb_mutex_sleep`, `rb_mutex_synchronize`, `rb_thread_lock_native_thread`, `rb_internal_thread_add_event_hook`, `rb_internal_thread_remove_event_hook`, `rb_internal_thread_specific_key_create`, `rb_internal_thread_specific_get`, `rb_internal_thread_specific_set`
+`rb_thread_call_without_gvl`, `rb_thread_call_without_gvl2`, `rb_nogvl`, `rb_thread_call_with_gvl`, `ruby_native_thread_p`, `ruby_thread_has_gvl_p`, `rb_thread_check_ints`, `rb_thread_current`, `rb_thread_schedule`, `rb_ext_ractor_safe`, `rb_ractor_local_storage_value_newkey`, `rb_ractor_local_storage_value_lookup`, `rb_ractor_local_storage_value`, `rb_ractor_local_storage_value_set`, `rb_ractor_local_storage_ptr_newkey`, `rb_ractor_local_storage_ptr`, `rb_ractor_local_storage_ptr_set`, `rb_nativethread_lock_initialize`, `rb_nativethread_lock_destroy`, `rb_nativethread_lock_lock`, `rb_nativethread_lock_unlock`, `rb_thread_io_blocking_region`, `rb_thread_create`, `rb_thread_alone`, `rb_thread_main`, `rb_thread_stop`, `rb_thread_run`, `rb_thread_wakeup`, `rb_thread_wakeup_alive`, `rb_thread_kill`, `rb_thread_local_aref`, `rb_thread_local_aset`, `rb_thread_sleep_forever`, `rb_thread_sleep_deadly`, `rb_thread_sleep`, `rb_thread_wait_for`, `rb_mutex_new`, `rb_mutex_lock`, `rb_mutex_unlock`, `rb_mutex_trylock`, `rb_mutex_locked_p`, `rb_mutex_sleep`, `rb_mutex_synchronize`, `rb_thread_lock_native_thread`, `rb_internal_thread_add_event_hook`, `rb_internal_thread_remove_event_hook`, `rb_internal_thread_specific_key_create`, `rb_internal_thread_specific_get`, `rb_internal_thread_specific_set`
 
 ## time
 
@@ -244,5 +250,5 @@ The C API of ruby/debug.h for tracers: a C TracePoint is the Ruby TracePoint of 
 
 ruby/util.h: the digit tables and the scanners of digits.
 
-`ruby_hexdigits`, `ruby_digit36_to_number_table`, `ruby_scan_digits`, `ruby_scan_hex`, `ruby_scan_oct`, `ruby_qsort`
+`ruby_hexdigits`, `ruby_version`, `ruby_digit36_to_number_table`, `ruby_scan_digits`, `ruby_strtoul`, `ruby_scan_hex`, `ruby_scan_oct`, `ruby_qsort`
 

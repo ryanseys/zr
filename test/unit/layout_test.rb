@@ -53,7 +53,9 @@ class LayoutTest < Minitest::Test
   def test_ci_names_no_ruby_version
     ci = Dir[File.join(ROOT, ".github/**/*.yml")].sum("") { |path| File.read(path) }
 
-    assert_equal [".ruby-version"], ci.scan(/ruby-version: (\S+)/).flatten.uniq, "the ruby setup-ruby installs"
+    others = Zr::RUBY_TESTED - [Zr::RUBY.split(".").first(2).join(".")]
+    assert_equal [".ruby-version", *others.map { %("#{_1}") }].sort, ci.scan(/ruby-version: (\S+)/).flatten.uniq.sort,
+                 "the ruby setup-ruby installs: the pinned one, and the other tested series"
     assert_empty ci.scan(/\bruby:\d/), "the container's ruby"
     assert_empty ci.scan(%r{ruby/ruby/\h{40}}), "the CRuby revision CI reads"
     assert_empty ci.scan(/--branch v\d/), "the prism tag CI reads"
@@ -80,16 +82,41 @@ class LayoutTest < Minitest::Test
     end
   end
 
-  # The release waits for each CI job by its name (ci_passed.rb), so each
-  # name is one job's, with each matrix value put in.
-  def test_each_ci_job_has_its_own_name
+  # ci-ok is the one check that branch protection and the release
+  # (ci_passed.rb) require, so it needs every job but the report-only
+  # ones, and nothing needs those.
+  def test_ci_ok_needs_every_job_that_can_fail_the_run
     require "yaml"
-    load File.join(ROOT, ".github/scripts/ci_passed.rb")
-    names = CIJobs.required
+    jobs = YAML.load_file(File.join(ROOT, ".github/workflows/ci.yml")).fetch("jobs")
 
-    assert_equal names.uniq, names
-    assert_empty names.grep(/\$\{\{/)
-    assert_includes names, "stock ruby, user cache (Linux)"
+    assert_equal (jobs.keys - %w[ci-ok lint types]).sort, jobs.fetch("ci-ok").fetch("needs").sort
+    assert_equal "always()", jobs.fetch("ci-ok").fetch("if")
+    %w[lint types].each do |id|
+      assert(jobs.fetch(id).fetch("steps").select { |step| step["run"] }.all? { |step| step["continue-on-error"] }, id)
+      refute(jobs.values.any? { |job| Array(job["needs"]).include?(id) }, "#{id} reports only")
+    end
+  end
+
+  # The release takes the newest full run of a commit that passed ci-ok.
+  def test_the_release_takes_a_full_run_that_passed
+    load File.join(ROOT, ".github/scripts/ci_passed.rb")
+    runs = [{ "id" => 1, "event" => "pull_request", "conclusion" => "success", "created_at" => "3" },
+            { "id" => 2, "event" => "push", "conclusion" => "success", "created_at" => "1" },
+            { "id" => 3, "event" => "schedule", "conclusion" => "failure", "created_at" => "2" }]
+
+    assert_equal 2, CIGate.run(runs)["id"]
+    assert_nil CIGate.run(runs.first(1))
+    assert CIGate.ok?([{ "name" => "ci-ok", "conclusion" => "success" }])
+    refute CIGate.ok?([{ "name" => "ci-ok", "conclusion" => "failure" }, { "name" => "docs", "conclusion" => "success" }])
+  end
+
+  # CI runs zr on each ruby series that zr is tested with (RUBY_TESTED):
+  # the pinned one from .ruby-version, and each other one by its number.
+  def test_ci_runs_each_tested_ruby
+    ci = File.read(File.join(ROOT, ".github/workflows/ci.yml"))
+    others = Zr::RUBY_TESTED - [Zr::RUBY.split(".").first(2).join(".")]
+
+    others.each { |series| assert_includes ci, %(ruby-version: "#{series}"), series }
   end
 
   # RuboCop checks zr's own code for the oldest ruby that runs it.

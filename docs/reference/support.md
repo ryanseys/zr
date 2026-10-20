@@ -31,11 +31,11 @@ require that never runs costs nothing. Every other library of
 the ruby that zr pins is there: the default and bundled gems, and ruby's
 own `lib/`. A gem that ruby does not ship comes from the gems that rubygems has
 installed, or from the Gemfile.lock that `BUNDLE_GEMFILE` names. A gem with a C extension needs a port, or
-`--native-ext` on macOS or aarch64 Linux (see
+`--native-ext` on macOS and on Linux (see
 [How to use a library or a gem](../how-to/use-a-library-or-gem.md)
 and [How to use a C extension](../how-to/use-a-c-extension.md)).
 
-### `aarch64-apple-darwin`, `aarch64-linux-musl`, `wasm32-wasi`
+### `aarch64-apple-darwin`, `aarch64-linux-musl`, `x86_64-linux-musl`, `x86_64-linux-gnu`, `aarch64-linux-gnu`, `wasm32-wasi`
 
 - `mkmf`, which writes a C extension's Makefile: zr runs it in the host ruby when it builds a gem's extension
 - `mkmf/depend`, a part of mkmf: zr runs mkmf in the host ruby when it builds a gem's extension
@@ -50,9 +50,13 @@ baseline that passes fails the run, so these lists are current.
 
 ### aarch64-apple-darwin
 
+None.
+
+### aarch64-linux-gnu
+
 | Test | Why |
 |---|---|
-| `stdlib/ffi/a_thread_runs_off_the_process_main_thread.rb` | a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it |
+| `stdlib/openssl/hpke_kem_key_params_and_crl_serial_lookup.rb` | OpenSSL::HPKE: the floor's OpenSSL 3.0 has no HPKE (3.2) |
 
 ### aarch64-linux-musl
 
@@ -84,3 +88,15 @@ baseline that passes fails the run, so these lists are current.
 | `core/hash/dir_chdir_block_form_restores_the_previous_directory.rb` | chdir has no wasm form |
 | `core/array/iterators_raise_when_a_continuation_reenters_them.rb` | callcc where the stack is out of reach is not implemented yet |
 | `core/array/a_sort_that_a_continuation_reenters_raises_sort_reentered.rb` | callcc where the stack is out of reach is not implemented yet |
+
+### x86_64-linux-gnu
+
+| Test | Why |
+|---|---|
+| `stdlib/openssl/hpke_kem_key_params_and_crl_serial_lookup.rb` | OpenSSL::HPKE: the floor's OpenSSL 3.0 has no HPKE (3.2) |
+
+### x86_64-linux-musl
+
+| Test | Why |
+|---|---|
+| `cli/stdlib/ffi/ffi_libc_call.rb` | dlopen: a static musl binary has no dynamic loader |
