@@ -75,8 +75,12 @@ end
 # How `zr run` ends: as the program ended.
 class CliExitTest < Minitest::Test
   # The status of a child that exits with `code`, or that `signal` stops.
+  # The children write no core file: a host can hand a core to a slow
+  # handler (systemd-coredump, apport), and the test reads only the
+  # signal.
   def status_of(code: 0, signal: nil)
     pid = fork do
+      Process.setrlimit(:CORE, 0)
       if signal
         Zr::CLI::Runner.default_action!(Signal.list.fetch(signal))
         Process.kill(signal, Process.pid)
@@ -96,7 +100,10 @@ class CliExitTest < Minitest::Test
   def test_a_signal_that_stops_the_program_stops_zr_too
     %w[TERM SEGV].each do |signal|
       status = status_of(signal: signal)
-      pid = fork { Zr::CLI::Runner.exit_as(status) }
+      pid = fork do
+        Process.setrlimit(:CORE, 0)
+        Zr::CLI::Runner.exit_as(status)
+      end
       Process.wait(pid)
 
       assert_predicate $?, :signaled?, signal
