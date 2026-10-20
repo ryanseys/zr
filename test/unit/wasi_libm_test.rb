@@ -262,7 +262,7 @@ class WasiLibmTest < Minitest::Test
     xs = [-7.015526294645335, -4.00614210013174, 8.108719095499172, -0.9855017167263247, 2.1718382815680126, 0.7, 0.9,
           1.5707963267948966, 1.0e22, 1.0e40, 2.0**100] + Array.new(200) { (rng.rand - 0.5) * 20 }
 
-    check_unary("tan", xs, 1) { |x| precise_tan(x) }
+    check_unary("tan", xs, 1, exact: true) { |x| precise_tan(x) }
   end
 
   # Values for the hyperbolic functions: the edges of each case, and
@@ -379,8 +379,8 @@ class WasiLibmTest < Minitest::Test
     xs = [-0.22388468102979164, 0.47369317167132863, 0.04606646816455262, -0.8029727352504135, 0.84375, 1.25, 2.857142857142858,
           5.999999999999999, 1.0e-10] + Array.new(150) { (rng.rand * 8) - 2 }
 
-    check_unary("erf", xs, 1) { |x| nearest_double(Rational(precise_erf(x), 2**1600)) }
-    check_unary("erfc", xs, 1) { |x| nearest_double(Rational((2**1600) - precise_erf(x), 2**1600)) }
+    check_unary("erf", xs, 1, exact: true) { |x| nearest_double(Rational(precise_erf(x), 2**1600)) }
+    check_unary("erfc", xs, 1, exact: true) { |x| nearest_double(Rational((2**1600) - precise_erf(x), 2**1600)) }
   end
 
   # Values for tgamma and lgamma_r: integers, half integers, the poles,
@@ -529,7 +529,22 @@ end
     b.negative? ? -(b & 0x7FFF_FFFF_FFFF_FFFF) : b
   end
 
-  def check_unary(name, xs, max_ulps)
+  # The bounds of the checks against this host's libm are those of
+  # macOS's, which musl's ports round as. glibc rounds some values
+  # otherwise, by up to 14 ulp (cos and tan of 5.319372648326541e+255), so
+  # on another host such a check allows OTHER_LIBM_ULPS: a wrong formula
+  # is still far past it. A check against an exact value (`exact:`) keeps
+  # its bound on every host.
+  OTHER_LIBM_ULPS = 32
+
+  def bound(max_ulps, exact)
+    return max_ulps if exact || max_ulps.zero? || RUBY_PLATFORM.include?("darwin")
+
+    [max_ulps, OTHER_LIBM_ULPS].max
+  end
+
+  def check_unary(name, xs, max_ulps, exact: false)
+    max_ulps = bound(max_ulps, exact)
     bad = xs.filter_map do |x|
       want = yield(x)
       got = self.class.kernel.call(name, x)
@@ -539,7 +554,8 @@ end
     assert_empty bad.first(10), "#{bad.size} of #{xs.size} differ by more than #{max_ulps} ulp"
   end
 
-  def check_binary(name, pairs, max_ulps)
+  def check_binary(name, pairs, max_ulps, exact: false)
+    max_ulps = bound(max_ulps, exact)
     bad = pairs.filter_map do |x, y|
       want = yield(x, y)
       got = self.class.kernel.call(name, x, y)
