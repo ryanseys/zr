@@ -138,11 +138,15 @@ jobs:
       - uses: ./.github/actions/runtime-cache
         with:
           flavor: ${{ matrix.triple }}
-      # The runner's memory in use every 10 s, on Linux, where a build
-      # that runs out stops the runner with no word in the log.
+      # The runner's memory in use every 10 s, and the largest processes
+      # above 8 GB, on Linux, where a build that runs out stops the runner
+      # with no word in the log.
       - name: Build the runtime and export it
         run: |
-          if command -v free > /dev/null; then (while sleep 10; do free -m | awk 'NR == 2 { print "memory in use: " $3 " of " $2 " MB" }'; done) & fi
+          if command -v free > /dev/null; then (while sleep 10; do
+            used=$(free -m | awk 'NR == 2 { print $3 }'); echo "memory in use: $used MB"
+            if [ "$used" -gt 8000 ]; then ps -eo rss,etimes,args --sort=-rss | head -4 | cut -c1-200; fi
+          done) & fi
           bin/zr cache export --target ${{ matrix.triple }} -o runtime-${{ matrix.triple }}.zrr
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

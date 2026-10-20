@@ -210,20 +210,32 @@ module Zr
       evals = "puts eval(\"1 + 1\")\n"
       builds = { "plain" => ["puts 1 + 1\n", {}], "evals" => [evals, {}] } #: Hash[String, [String, Hash[Symbol, String]]]
       builds["walked"] = [evals, { eval_mode: "walk" }] if target.link
+      # The settings of this process that a build reads: `Zr.build`
+      # reads none from ENV.
+      config = Config.current
+      given = { cache_dir: Paths.cache, timing: config.timing?, verify: config.verify? } #: Hash[Symbol, untyped]
+      given[:jobs] = config.jobs if config.jobs_given?
       Dir.mktmpdir("zr-warm-") do |dir|
         builds.each do |name, (source, settings)|
           # Each in a process of its own: a process keeps one eval support
           # for each target (`EvalSupport.for`), which a second kind of
           # eval support would reuse.
+          started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           pid = Process.fork do
+            Process.setproctitle("zr warm #{name} #{target.triple}")
             Zr.build(File.join(dir, "#{name}.rb"), source: source, out: File.join(dir, name), target: target.triple,
-                                                   settings: { cache_dir: Paths.cache, **settings })
+                                                   settings: { **given, **settings })
             exit!(0)
           rescue StandardError, ScriptError => e
             warn "zr: #{e.message}"
             exit!(1)
           end
           raise Invalid, "the #{name} build for #{target.triple} did not finish" unless Process.wait2(pid).last.success?
+
+          if config.timing?
+            warn format("zr: warmed %s for %s in %.1f s", name, target.triple,
+                        Process.clock_gettime(Process::CLOCK_MONOTONIC) - started)
+          end
         end
       end
     end
