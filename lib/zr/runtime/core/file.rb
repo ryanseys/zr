@@ -880,12 +880,15 @@ class File < IO
       end
     end
     return result unless result.is_a?(Integer)
+    # A file compiled into the program, with no file on disk, is its own
+    # real path: no link leads to it. Under WASI (ENOSYS) the walk below
+    # would stat each name of a path that only the program holds, such
+    # as eval support's /zr/... files.
+    missing = -result == Errno::ENOENT::Errno || -result == Errno::ENOSYS::Errno
+    return File.expand_path(path) if missing && compiled_in?(File.expand_path(path))
     # ENOSYS: the system has no realpath (WASI), and ruby built without
     # HAVE_REALPATH walks the path in the same way.
     return realpath_walk(path, false) if -result == Errno::ENOSYS::Errno
-    # A file compiled into the program, with no file on disk, is its own
-    # real path: no link leads to it.
-    return File.expand_path(path) if -result == Errno::ENOENT::Errno && compiled_in?(File.expand_path(path))
     return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 
     raise SystemCallError.new(path, -result, +"rb_check_realpath_internal")
