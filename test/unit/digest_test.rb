@@ -115,11 +115,15 @@ class DigestTest < Minitest::Test
 
   # Returns `[runtime digest, link digest]` of the compiler under `root`.
   # A child process computes them, so that this process caches neither.
+  # The runtime digest is that of its sources (`Runtime#digest` without
+  # the gem prelude), which hold every file whose edit it follows: the
+  # gem prelude is built again for each edit, 8 s a child.
   def digests(root)
     env = Zr::Harness::CleanEnv.env.merge("ZR_CACHE" => File.join(root, "cache"))
     said = IO.popen(env, [RbConfig.ruby, "-I#{root}/lib", "-e", <<~RUBY],
       require "zr/runtime"
-      puts Zr::Runtime.new(Zr::Target.default).digest
+      target = Zr::Target.default
+      puts Zr::Digests.sources(target, Zr::RuntimeSources.new(target).sources)
       puts Zr::Digests.link
     RUBY
                     unsetenv_others: true, &:read)
