@@ -30,8 +30,9 @@ module Zr
       # `test/gem_tests/tags/<gem>.txt`, one a line: the test's name, a tab,
       # and why (the file of tags is described at `Dev::GemTests::Tags`).
       # `--update-tags` keeps a reason that a `fail` tag has. A run writes
-      # `log/gem-tests/results/<gem>.json` and `test/gem_tests/summary.tsv`;
-      # test/unit/gem_tests_ratchet_test.rb reads them.
+      # `log/gem-tests/results/<gem>.json` and `test/gem_tests/summary.tsv`.
+      # The command is a sweep for correctness bugs, not part of the test
+      # suite: no test reads its results.
       #
       # A test that hangs ends the gem's run at its time limit: zr's run
       # cannot skip one test, so the tests after it count as not run.
