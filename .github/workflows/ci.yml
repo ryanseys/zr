@@ -262,16 +262,14 @@ jobs:
           docker exec alpine apk add --no-cache build-base git
           docker exec alpine git config --global --add safe.directory /zr
           docker exec alpine bundle install
-      # vendor/ must be upstream code, byte for byte: ruby's own library at
-      # RUBY_REVISION, the .gem files that vendor/vendor.lock names, and
-      # prism's templates at its locked commit.
-      - name: Check vendor/ against its lock, then write it again from the sources
+      # Each file of vendor/ hashes to its line of vendor/vendor.lock, which
+      # `zr-dev vendor` writes from upstream: ruby's own library at
+      # RUBY_REVISION, the .gem files that the lock names, prism's
+      # templates at its locked commit, and ruby trees that podman builds
+      # for each target (hours, so CI checks the lock and writes nothing).
+      - name: Check vendor/ against its lock
         if: matrix.vendor
-        run: |
-          docker exec alpine ruby tool/zr-dev.rb vendor --check
-          docker exec alpine ruby .github/scripts/fetch_sources.rb
-          docker exec alpine ruby tool/zr-dev.rb vendor
-          docker exec alpine git diff --exit-code vendor lib/zr/library/stdlib.rb
+        run: docker exec alpine ruby tool/zr-dev.rb vendor --check
       - name: Run the units this target answers, and the programs
         run: |
           docker exec alpine bin/minitest test/unit/target_test.rb test/unit/elf_test.rb test/unit/interp_test.rb \
