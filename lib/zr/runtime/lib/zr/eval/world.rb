@@ -67,6 +67,11 @@ module Zr
       #: () -> void
       def walk_leave = Primitive.zr_walk_leave
 
+      # A method that the walk defined with define_method: its
+      # `parameters` and `arity` are the def's (`rows`, `arity`), not
+      # those of the block that runs it.
+      def describe(method, rows, arity) = Primitive.zr_walk_describe_m(method, rows, arity)
+
       # `class << obj` and `obj.instance_eval`: the singleton class, or
       # the class itself where the object can hold no singleton.
       def singleton_of(obj) = Primitive.zr_eval_class_of(obj)

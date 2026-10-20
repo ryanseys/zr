@@ -388,6 +388,10 @@ module Zr::Kern
   #: (value) -> word
   def zr_method_arity_of(m)
     e = Machine.ptr(RMethod[m].entry)
+    walked = zr_walk_described(e, Machine.id(:__walk_arity__))
+    if walked != QNIL
+      return zr_fix2long(walked)
+    end
     meta = zr_method_meta(e)
     if meta != 0
       if FrameMeta[meta].file_len == 0 && FrameMeta[meta].ruby == 0 && FrameMeta[meta].arity < 0
@@ -448,9 +452,36 @@ module Zr::Kern
     out
   end
 
+  # A method that the tree walk defines (Zr::Eval::World.describe) is a
+  # define_method of `|*args, **kwargs, &blk|`. Its body keeps the
+  # parameters and the arity of the def that the string wrote, which
+  # `parameters`, `arity` and `inspect` give in place of the block's.
+  #: (value, value, value) -> value
+  def zr_walk_describe_m(m, rows, arity)
+    e = Machine.ptr(RMethod[m].entry)
+    if MEntry[e].kind == KIND_BMETHOD
+      zr_state_set(MEntry[e].cref, zr_sym(Machine.id(:__walk_rows__)), rows)
+      zr_state_set(MEntry[e].cref, zr_sym(Machine.id(:__walk_arity__)), arity)
+    end
+    Machine.value(QNIL)
+  end
+
+  # What `zr_walk_describe_m` kept as `id` for the method entry `e`, or nil.
+  #: (ptr, word) -> value
+  def zr_walk_described(e, id)
+    if MEntry[e].kind != KIND_BMETHOD || zr_special_p(MEntry[e].cref)
+      return Machine.value(QNIL)
+    end
+    zr_ivar_get(MEntry[e].cref, id)
+  end
+
   #: (value) -> value
   def zr_method_rows(m)
     e = Machine.ptr(RMethod[m].entry)
+    walked = zr_walk_described(e, Machine.id(:__walk_rows__))
+    if walked != QNIL
+      return zr_ary_subseq(walked, 0, RArray[walked].len)
+    end
     # A method made from a Symbol's Proc (`define_method(:m, &:sym)`) has
     # that Proc's parameters, as its body is the Proc.
     if MEntry[e].kind == KIND_BMETHOD && RProc[MEntry[e].cref].fn == Machine.addr(:zr_symbol_block)
@@ -983,9 +1014,10 @@ module Zr::Kern
   def zr_buf_method_params(b, m)
     e = Machine.ptr(RMethod[m].entry)
     meta = zr_method_meta(e)
-    if meta == 0 || FrameMeta[meta].file_len == 0
-      # A core method: the list that `parameters` gives, which knows the
-      # ones CRuby writes in Ruby.
+    if meta == 0 || FrameMeta[meta].file_len == 0 || zr_walk_described(e, Machine.id(:__walk_rows__)) != QNIL
+      # A core method, or one that the tree walk defined: the list that
+      # `parameters` gives, which knows the ones CRuby writes in Ruby and
+      # the def that the walk ran.
       params = zr_send(m, Machine.id(:parameters), 0, 0)
       if params != QUNDEF
         arg = Machine.slot(8)
