@@ -352,7 +352,9 @@ module Zr
 
       #: (String what, Target target) -> void
       def waiting(what, target)
-        warn "zr: waiting for another zr to build #{what} for #{target.triple}" unless Paths.checkout? && !$stderr.tty?
+        return if Config.current.quiet? || (Paths.checkout? && !$stderr.tty?)
+
+        warn "zr: waiting for another zr to build #{what} for #{target.triple}"
       end
 
       #: (Runtime runtime, String obj, Integer jobs) -> String

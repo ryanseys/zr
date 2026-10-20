@@ -318,16 +318,20 @@ module Zr
     # `target` starts, which fills the cache for later builds. The first
     # build of an installed zr would otherwise run for minutes with no
     # output. A checkout says it only on a terminal: a test or a tool
-    # that reads stderr gets nothing more. ZR_TIMING prints its own lines.
+    # that reads stderr gets nothing more. ZR_TIMING prints its own lines,
+    # and --quiet prints none. On a terminal, a progress line then names
+    # each phase (`Notice`).
     #: (String what, Target target) -> void
     def self.announce(what, target)
-      return if Config.current.timing? || (Paths.checkout? && !$stderr.tty?)
+      config = Config.current
+      return if config.timing? || config.quiet? || (Paths.checkout? && !$stderr.tty?)
 
       announced = Session.current.memo(:announced) { {} } #: Hash[[String, String], bool]
       return if announced.key?([what, target.triple])
 
       announced[[what, target.triple]] = true
       warn "zr: building #{what} for #{target.triple}. This occurs one time and takes some minutes."
+      Notice.start
     end
 
     # The core library on top of the kernel `unit`: `[functions, data]`,

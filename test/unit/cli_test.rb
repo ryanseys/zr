@@ -154,7 +154,6 @@ class CliParseTest < Minitest::Test
       %w[run] => "zr run: missing <file.rb>",
       %w[run -o x app.rb] => "zr run: -o does not apply; use 'zr build' to keep the output",
       %w[run --emit obj app.rb] => "zr run: cannot run an object file; use 'zr build --emit obj'",
-      %w[build app.rb] => "zr build: missing -o <path>",
       %w[build app.rb -o app extra] => "zr build: unexpected argument 'extra'",
       %w[build --emit=elf app.rb -o app] => "zr build: unknown --emit 'elf'; use binary, obj or wasm",
       %w[build --path-root rel app.rb -o app] => "zr build: --path-root needs an absolute path",
@@ -168,11 +167,20 @@ class CliParseTest < Minitest::Test
     end
   end
 
-  # A word that names no command is the script, as for ruby.
+  # A word that names no command is the script, as for ruby. ruby's line
+  # comes first, then a line that says the word is no command either.
   def test_a_word_that_is_no_command_is_a_missing_script
     _, err = assert_exit(1) { CLI.start(%w[frobnicate app.rb]) }
 
-    assert_equal "zr: No such file or directory -- frobnicate (LoadError)\n", err
+    assert_equal "zr: No such file or directory -- frobnicate (LoadError)\n#{hint("frobnicate")}", err
+  end
+
+  # A path or a .rb name is a script, not a typed command: ruby's line alone.
+  def test_a_missing_script_path_gets_no_command_hint
+    %w[missing.rb ./frob].each do |script|
+      _, err = assert_exit(1) { CLI.start([script]) }
+      assert_equal "zr: No such file or directory -- #{script} (LoadError)\n", err
+    end
   end
 
   # An option is ruby's (lib/zr/cli/ruby_options.rb), and ruby rejects an
@@ -200,7 +208,20 @@ class CliParseTest < Minitest::Test
   def test_machine_and_targets_are_not_commands
     %w[machine targets].each do |word|
       _, err = assert_exit(1) { CLI.start([word]) }
-      assert_equal "zr: No such file or directory -- #{word} (LoadError)\n", err
+      assert_equal "zr: No such file or directory -- #{word} (LoadError)\n#{hint(word)}", err
+    end
+  end
+
+  # The missing file is the first thing to fix, before a missing -o.
+  def test_build_names_a_missing_file_before_a_missing_output
+    _, err = assert_exit(2) { CLI.start(%w[build nope.rb]) }
+    assert_equal "zr: no such file: nope.rb\n", err
+
+    Dir.mktmpdir do |dir|
+      app = File.join(dir, "app.rb")
+      File.write(app, "p 1\n")
+      _, err = assert_exit(2) { CLI.start(["build", app]) }
+      assert_equal "zr build: missing -o <path>\nRun 'zr help build' for usage.\n", err
     end
   end
 
@@ -396,6 +417,9 @@ end
   end
 
   private
+
+  # The line after ruby's for a word that is no command and no file.
+  def hint(word) = "zr: '#{word}' is not a zr command either; run 'zr help' for the commands.\n"
 
   # Returns the stdout and stderr of the block. The block must exit with
   # `status`.

@@ -107,7 +107,11 @@ module Zr
           Errors.usage_error("-o does not apply; use 'zr build' to keep the output", command) if opts[:output]
           Errors.usage_error("cannot run an object file; use 'zr build --emit obj'", command) if opts[:emit] == "obj"
         else
-          Errors.usage_error("missing -o <path>", command) unless opts[:output]
+          unless opts[:output]
+            # A file that is not there is the first thing to fix.
+            Errors.file!(opts[:input])
+            Errors.usage_error("missing -o <path>", command)
+          end
           dir = File.dirname(opts[:output])
           Errors.usage_error("-o #{opts[:output]}: the directory #{dir} does not exist", command) unless File.directory?(dir)
           Errors.usage_error("unexpected argument '#{opts[:args].first}'", command) unless opts[:args].empty?

@@ -109,7 +109,11 @@ module Zr
           [source, file]
         rescue SystemCallError => e
           # strerror's words, without what ruby's message adds after them.
-          fatal("#{e.message.sub(/ @ .*\z/m, "")} -- #{name} (LoadError)")
+          # A bare word that names no file reads as a mistyped command, so
+          # zr says so after ruby's line.
+          word = e.is_a?(Errno::ENOENT) && !as_ruby? && !options.search && !name.to_s.include?("/") && !name.to_s.end_with?(".rb")
+          fatal("#{e.message.sub(/ @ .*\z/m, "")} -- #{name} (LoadError)",
+                hint: ("zr: '#{name}' is not a zr command either; run 'zr help' for the commands." if word))
         end
 
         # load_file: a shebang line that names ruby and ends with "\r\n"
@@ -218,9 +222,10 @@ module Zr
 
         # Prints the line of an error before the program runs, as ruby
         # does, and exits 1: after the program's name, or the script's.
-        #: (String line, ?prefix: String) -> bot
-        def fatal(line, prefix: as_ruby? ? $PROGRAM_NAME : "zr")
+        #: (String line, ?prefix: String, ?hint: String?) -> bot
+        def fatal(line, prefix: as_ruby? ? $PROGRAM_NAME : "zr", hint: nil)
           warn "#{prefix}: #{line}"
+          warn hint if hint
           exit 1
         end
 

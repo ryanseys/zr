@@ -2,6 +2,7 @@
 
 require_relative "config"
 require_relative "session"
+require_relative "notice"
 
 module Zr
   # With `ZR_TIMING=1`, each build phase prints a line to stderr when it
@@ -18,10 +19,11 @@ module Zr
 
     # Runs the block and returns its value. `doing` names the phase as it
     # starts, and `label` as it ends; `zr-dev compile` keys its rows by
-    # the label.
+    # the label. Without timing, the phase shows on the progress line of a
+    # long build (`Notice`).
     #: [T] (String doing, String label) { () -> T } -> T
     def phase(doing, label)
-      return yield unless Config.current.timing?
+      return Notice.phase(doing) { yield } unless Config.current.timing?
 
       warn "zr: #{doing} ..."
       began = now

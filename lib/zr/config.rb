@@ -19,6 +19,7 @@ module Zr
     # @rbs @jobs: Integer?
     # @rbs @eval_mode: String?
     # @rbs @timing: bool
+    # @rbs @quiet: bool
     # @rbs @verify: bool
     # @rbs @kernel_checked: bool
     # @rbs @wasm_names: bool
@@ -62,6 +63,7 @@ module Zr
       row("ZR_JOBS", "--jobs", :value, "N", "the workers that assemble a large unit (-j N)"),
       row("ZR_EVAL", "--eval-mode", :choice, %w[walk], "walk: eval in a native program walks the tree"),
       row("ZR_TIMING", "--timing", :switch, nil, "print each phase of a build and its seconds", steers: false),
+      row("ZR_QUIET", "--quiet", :switch, nil, "print no notice of a long build, and no progress line", steers: false),
       row("ZR_VERIFY", "--verify", :switch, nil, "check each IR function before it is assembled"),
       row("ZR_KERNEL_CHECKED", "--kernel-checked", :switch, nil, "check each operator of the kernel that can wrap"),
       row("ZR_WASM_NAMES", "--wasm-names", :switch, nil, "give a WASI module a name section"),
@@ -133,6 +135,7 @@ module Zr
       # `eval_walk?` is the only thing anything reads this for.
       @eval_mode = text("ZR_EVAL")
       @timing = switch?("ZR_TIMING")
+      @quiet = switch?("ZR_QUIET")
       @verify = switch?("ZR_VERIFY")
       @kernel_checked = switch?("ZR_KERNEL_CHECKED")
       @wasm_names = switch?("ZR_WASM_NAMES")
@@ -306,6 +309,11 @@ module Zr
     # `ZR_TIMING=1` prints a line to stderr as each build phase starts and ends.
     #: () -> bool
     def timing? = @timing
+
+    # `ZR_QUIET=1` prints no notice that a long build starts or waits, and
+    # no progress line (`Notice`). Warnings about the program stay.
+    #: () -> bool
+    def quiet? = @quiet
 
     # `ZR_VERIFY=1` checks each IR function's dominance and operand types
     # (`IR::Verify::Strict`) before it is assembled.

@@ -81,11 +81,17 @@ a value takes it as the next word or after `=`. A bad value stops zr
 with exit status 2 and a line that names the flag:
 `zr: --jobs is "x". Set it to a whole number of 1 or more, for example --jobs=4.`
 
+On a terminal, the first build of the runtime (some minutes) shows its
+phases on one line that each phase rewrites. `--quiet` turns that line
+off, with the notices that a long build starts or waits. zr prints no
+color, so `NO_COLOR` changes nothing.
+
 ## `zr` as a ruby
 
 `zr` takes ruby's command line when its first word names no command.
 A script that is not there stops as ruby stops for it
-(`zr: No such file or directory -- name (LoadError)`, status 1). Only
+(`zr: No such file or directory -- name (LoadError)`, status 1). For a
+bare word, a second line says that it is not a zr command either. Only
 a word one letter away from a command name (`zr biuld`) is a mistyped
 command, unless it is a file, a path or a name that ends in `.rb`. With
 no words, zr reads the program from standard input, unless standard

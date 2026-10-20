@@ -119,6 +119,7 @@ class ConfigTest < Minitest::Test
       "ZR_JOBS" => [%w[-j3], :jobs, 3],
       "ZR_EVAL" => [%w[--eval-mode=walk], :eval_walk?, true],
       "ZR_TIMING" => [%w[--timing], :timing?, true],
+      "ZR_QUIET" => [%w[--quiet], :quiet?, true],
       "ZR_VERIFY" => [%w[--verify], :verify?, true],
       "ZR_KERNEL_CHECKED" => [%w[--kernel-checked], :kernel_checked?, true],
       "ZR_WASM_NAMES" => [%w[--wasm-names], :wasm_names?, true],

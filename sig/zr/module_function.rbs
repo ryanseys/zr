@@ -87,6 +87,10 @@ module Zr::Doctor
   extend Zr::Doctor
 end
 
+module Zr::Notice
+  extend Zr::Notice
+end
+
 module ZrGemSet
   extend ZrGemSet
 end
