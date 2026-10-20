@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # Stops a release unless a full CI run passed for the commit that it
-# publishes: a run of ci.yml for a push, the nightly schedule or a run by
-# hand (a pull request's run has no full suite), whose `ci-ok` job
+# publishes: a run of ci.yml for the nightly schedule or a run by hand
+# (a push or a pull request runs no full suite), whose `ci-ok` job
 # passed. The release workflow runs it before it builds anything, and
 # reads the run's id (`ci_run=` on GITHUB_OUTPUT) to fetch that run's gem.
 #
@@ -13,7 +13,7 @@ require "net/http"
 
 # The choice of the run, apart from GitHub, so that a test can give it runs.
 module CIGate
-  FULL_EVENTS = %w[push schedule workflow_dispatch].freeze
+  FULL_EVENTS = %w[schedule workflow_dispatch].freeze
   JOB = "ci-ok"
 
   # The newest run in `runs` (the API's workflow runs) of a full event

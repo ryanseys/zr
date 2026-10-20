@@ -37,11 +37,10 @@ Do these by hand before the first release:
 
 ## Check before a release
 
-- [ ] The last full `ci.yml` run on `main` (a push or the nightly run)
-  passed `ci-ok`. The release workflow checks this again for the tagged
-  commit (`.github/scripts/ci_passed.rb`). A later push to `main` stops
-  the run of the push before it, so a commit can have no finished run:
-  run CI on it by hand (`gh workflow run ci.yml --ref main`).
+- [ ] The last full `ci.yml` run on `main` (the nightly run or a run by
+  hand) passed `ci-ok`. A push runs no full suite. The release workflow
+  checks this again for the tagged commit
+  (`.github/scripts/ci_passed.rb`).
 - [ ] `bin/minitest test/unit` passes locally.
 - [ ] `gem build zr.gemspec` makes a gem, and `gem spec zr-*.gem
   dependencies` lists none.
@@ -60,8 +59,9 @@ Do these by hand before the first release:
    `bin/zr-dev changelog X.Y.Z` prints the notes.
 2. Read the diff. A plan for later versions goes in
    `docs/explanation/roadmap.md`, not in the notes.
-3. Commit, and push to `main`. Wait until the full CI run of that push
-   passes `ci-ok`.
+3. Commit, and push to `main`. Run the full suite on that commit
+   (`gh workflow run ci.yml --ref main`), and wait until the run passes
+   `ci-ok`.
 4. Tag the commit, and push the tag:
 
    ```console
@@ -74,8 +74,8 @@ The workflow then:
 1. stops unless the tag is `v` and `Zr::VERSION`, and `CHANGELOG.md`
    has a dated section for the version, which becomes the release
    notes (`.github/scripts/release_notes.rb`);
-2. stops unless a full CI run of the tagged commit (a push, the
-   nightly run or a run by hand) passed `ci-ok`
+2. stops unless a full CI run of the tagged commit (the nightly run
+   or a run by hand) passed `ci-ok`
    (`.github/scripts/ci_passed.rb`). The release runs no test tier
    itself;
 3. builds the gem, and stops unless its SHA-256 is the one of the gem

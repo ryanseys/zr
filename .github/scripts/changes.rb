@@ -6,8 +6,9 @@
 #   code=true   the change has a file that is not documentation, so the
 #               build and the smoke tests run; false for a pull request
 #               that changes only docs/ and Markdown files
-#   full=true   the full suite runs: a push to main, the nightly run, or
-#               a run by hand
+#   full=true   the full suite runs: the nightly run, or a run by hand.
+#               A push to main runs the unit tier, not the full suite:
+#               macOS minutes cost the most
 #   ruby=X      the pinned ruby (.ruby-version), for the container jobs
 #
 # A docs-only pull request still runs the `docs` job, which checks the
@@ -23,7 +24,7 @@ require "net/http"
 DOCS = %r{\A(docs/.*|[^/]+\.md)\z}
 
 event = ENV.fetch("GITHUB_EVENT_NAME")
-full = %w[push schedule workflow_dispatch].include?(event)
+full = %w[schedule workflow_dispatch].include?(event)
 code = true
 if event == "pull_request"
   number = JSON.parse(File.read(ENV.fetch("GITHUB_EVENT_PATH"))).dig("pull_request", "number")

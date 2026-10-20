@@ -105,8 +105,9 @@ class LayoutTest < Minitest::Test
   def test_the_release_takes_a_full_run_that_passed
     load File.join(ROOT, ".github/scripts/ci_passed.rb")
     runs = [{ "id" => 1, "event" => "pull_request", "conclusion" => "success", "created_at" => "3" },
-            { "id" => 2, "event" => "push", "conclusion" => "success", "created_at" => "1" },
-            { "id" => 3, "event" => "schedule", "conclusion" => "failure", "created_at" => "2" }]
+            { "id" => 2, "event" => "workflow_dispatch", "conclusion" => "success", "created_at" => "1" },
+            { "id" => 3, "event" => "schedule", "conclusion" => "failure", "created_at" => "2" },
+            { "id" => 4, "event" => "push", "conclusion" => "success", "created_at" => "4" }]
 
     assert_equal 2, CIGate.run(runs)["id"]
     assert_nil CIGate.run(runs.first(1))
