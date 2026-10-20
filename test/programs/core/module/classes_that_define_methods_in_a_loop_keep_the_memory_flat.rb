@@ -35,7 +35,7 @@ GC.start
 before = rss_kb
 60_000.times(&code)
 GC.start
-p rss_kb - before < 8_192
+p rss_kb - before < 32_768 # a leaked class a pass is 60 MB; ruby grows 7 MB, and a host can add more
 
 taker = Class.new
 unbound = nil

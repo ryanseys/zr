@@ -22,7 +22,7 @@ t("wrap 24 31") { x = Time.new(2026, 2, 31, 24, 0, 0, "Z"); [x.month, x.day, x.h
 t("wrap dec") { x = Time.new(2026, 12, 31, 24, 0, 0, "Z"); [x.year, x.month, x.day, x.to_a, x.wday] }
 t("order") { x = Time.new(2026, 2, 30, 0, 0, 0, "Z"); a = [x.month, x.day]; x.wday; a + [x.month, x.day, x.inspect] }
 t("strftime fills") { x = Time.new(2026, 2, 30, 0, 0, 0, "Z"); x.strftime("%F"); [x.month, x.day] }
-t("copies") { x = Time.new(2026, 2, 31, 0, 0, 0, "Z"); [x.getlocal.day, x.utc.day, x.gmtime.day, x.getgm.month, x.dup.day, (x + 0).day, x.round.day, Marshal.load(Marshal.dump(x)).day] }
+t("copies") { x = Time.new(2026, 2, 31, 0, 0, 0, "Z"); [x.getlocal("-05:00").day, x.utc.day, x.gmtime.day, x.getgm.month, x.dup.day, (x + 0).day, x.round.day, Marshal.load(Marshal.dump(x)).day] }
 t("dup wday") { x = Time.new(2026, 2, 31, 0, 0, 0, "Z"); y = x.dup; [y.wday, x.day, y.day] }
 t("frozen") { x = Time.new(2026, 2, 30, 0, 0, 0, "Z").freeze; [x.wday, x.day] }
 t("xmlschema") { x = Time.new(2026, 2, 30, 0, 0, 0, "Z"); [x.iso8601, x.xmlschema(2)] }
