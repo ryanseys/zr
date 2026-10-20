@@ -1084,11 +1084,13 @@ module Zr
           kwrest = ANONYMOUS[:kwrest]
           block = ANONYMOUS[:block]
         else
-          block = case (block_param = node.block)
-                  when nil then nil
-                  # `&nil`: the def refuses a block.
-                  when Prism::NoBlockParameterNode then :noblock
-                  else block_param.name || ANONYMOUS[:block]
+          # Else `&nil`, a NoBlockParameterNode: the def refuses a block.
+          # Not named here: the prism gem on rubygems.org has no such node.
+          block_param = node.block
+          block = if block_param.is_a?(Prism::BlockParameterNode)
+                    block_param.name || ANONYMOUS[:block]
+                  elsif block_param
+                    :noblock
                   end
         end
         Params.new(required, optional, rest, post, keywords, kwrest, block)
