@@ -232,3 +232,100 @@ jobs:
           cmp outputs-macos/sum.wasm outputs-linux-aarch64/sum.wasm
           cmp outputs-macos/sum.darwin.o outputs-linux-aarch64/sum.darwin.o
           test "$(cat gem-macos-sha256/gem-macos.sha256)" = "$LINUX_GEM"
+
+  # Release: after a run on main whose ci-ok passed, a GitHub prerelease
+  # of the commit, v<version>.g<sha7>, with the files that this run
+  # tested: the gem of `checks` and each target's runtime bundle of its
+  # lane, by the name that `zr cache fetch` reads, and SHA256SUMS. A
+  # lane that is experimental and did not pass ships no bundle, and the
+  # job summary names it. A tagged release (release.yml) publishes the
+  # same files to rubygems.org.
+  release:
+    name: "release: prerelease of this commit"
+    needs: [checks, ci-ok]
+    if: >-
+      needs.ci-ok.result == 'success' && needs.checks.outputs.code == 'true' &&
+      github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # A push and the nightly run of one commit make one prerelease.
+    concurrency:
+      group: release-${{ github.sha }}
+      cancel-in-progress: false
+    permissions:
+      contents: write # the tag and the GitHub Release
+      actions: read # this run's artifacts
+      id-token: write # the attestation
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      LANES: ${{ needs.checks.outputs.lanes }}
+    steps:
+      - name: "Release: download the gem and each target's runtime"
+        id: files
+        run: |
+          mkdir dist
+          gh run download "$GITHUB_RUN_ID" -n gem -D dist
+          gem="$(cd dist && ls zr-*.gem)"
+          version="${gem#zr-}"; version="${version%.gem}"
+          tag="v$version.g${GITHUB_SHA:0:7}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Release: prerelease $tag"
+            echo
+            echo "| File | Size | SHA-256 |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          missing=()
+          for triple in $(echo "$LANES" | jq -r '.[].triple'); do
+            if gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "lane-$triple" 2> /dev/null &&
+               [ -f "lane-$triple/runtime-$triple.zrr" ]; then
+              mv "lane-$triple/runtime-$triple.zrr" "dist/zr-runtime-$version-$triple.zrr"
+            elif [ "$(echo "$LANES" | jq -r --arg t "$triple" '.[] | select(.triple == $t) | .experimental')" = true ]; then
+              missing+=("$triple")
+            else
+              echo "::error::no runtime bundle for $triple, a tested target"; exit 1
+            fi
+          done
+          (cd dist && sha256sum -- * > SHA256SUMS)
+          (cd dist && for f in *; do
+            printf '| %s | %s | %s |\n' "$f" "$(du -h "$f" | cut -f1)" "\`$(sha256sum "$f" | cut -c1-16)…\`"
+          done) >> "$GITHUB_STEP_SUMMARY"
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "No bundle for the experimental targets that did not pass: ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - id: exists
+        name: "Release: look for the prerelease"
+        env:
+          TAG: ${{ steps.files.outputs.tag }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "$TAG is already released"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+      # The attestation names this repository, this workflow and the
+      # commit, for each file that the prerelease holds.
+      - name: "Release: attest each file's provenance"
+        if: steps.exists.outputs.found != 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: "Release: publish the prerelease"
+        if: steps.exists.outputs.found != 'true'
+        env:
+          TAG: ${{ steps.files.outputs.tag }}
+          VERSION: ${{ steps.files.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cat > notes.md <<NOTES
+          A prerelease of $GITHUB_SHA, after [CI]($RUN_URL) passed: the gem and the runtime bundles that this run tested. It is not a release, and no gem server has it.
+
+              gem install ./zr-$VERSION.gem
+              ZR_PREBUILT_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG zr cache fetch
+              gh attestation verify zr-$VERSION.gem -R $GITHUB_REPOSITORY
+          NOTES
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "zr $VERSION ($GITHUB_SHA)" --notes-file notes.md

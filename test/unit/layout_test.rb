@@ -88,13 +88,14 @@ class LayoutTest < Minitest::Test
   end
 
   # ci-ok is the one check that branch protection and the release
-  # (ci_passed.rb) require, so it needs every job, and RuboCop and Steep
-  # only report.
+  # (ci_passed.rb) require, so it needs every job but the prerelease,
+  # which comes after it, and RuboCop and Steep only report.
   def test_ci_ok_needs_every_job_that_can_fail_the_run
     require "yaml"
     jobs = YAML.load_file(File.join(ROOT, ".github/workflows/ci.yml")).fetch("jobs")
 
-    assert_equal (jobs.keys - %w[ci-ok]).sort, jobs.fetch("ci-ok").fetch("needs").sort
+    assert_equal (jobs.keys - %w[ci-ok release]).sort, jobs.fetch("ci-ok").fetch("needs").sort
+    assert_includes jobs.fetch("release").fetch("needs"), "ci-ok"
     assert_equal "always()", jobs.fetch("ci-ok").fetch("if")
     reports = jobs.fetch("checks").fetch("steps").select { |step| step["run"].to_s.match?(/rubocop|steep/) }
     assert_equal 2, reports.size

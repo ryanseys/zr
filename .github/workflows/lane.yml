@@ -113,7 +113,9 @@ jobs:
         with:
           name: runtime-${{ fromJSON(inputs.lane).triple }}
           path: bundles/*.zrr
-          retention-days: 1
+          # The prerelease of a run on main (ci.yml, `release`) takes it,
+          # and so can a re-run of that job.
+          retention-days: 7
           compression-level: 0
       - if: steps.bundle.outputs.cache-hit != 'true'
         uses: ./.github/actions/runtime-cache

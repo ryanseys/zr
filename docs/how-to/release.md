@@ -7,17 +7,31 @@ gem and the version's changelog. A tag starts it: the release workflow
 not release: it stops and points here, because a gem that no CI run
 checked must not go out.
 
-## Snapshots
+## Prereleases
 
 Each CI run on `main` whose `ci-ok` passes makes a GitHub prerelease of
-the commit that it tested (`.github/workflows/snapshot.yml`). Its
-version is the version in `lib/zr/version.rb`, then `.g` and the first
-7 characters of the commit's SHA: `0.1.0.geebf308` at the tag
-`v0.1.0.geebf308`. RubyGems sorts it before `0.1.0`. A snapshot holds
-the gem, its `SHA256SUMS` and an attestation (`gh attestation verify`),
-and goes to no gem server. A second CI run of the same commit makes no
-second snapshot. The release workflow does not start on a snapshot's
-tag.
+the commit that it tested: the last job of CI, "release: prerelease of
+this commit" (`.github/workflows/ci.yml`, `release`). Its tag is the
+version in `lib/zr/version.rb`, then `.g` and the first 7 characters of
+the commit's SHA: `v0.1.0.geebf308`. It holds the files that the run
+tested, with no build of its own:
+
+- the gem of the `checks` job, `zr-<version>.gem`;
+- the runtime bundle of each target's lane,
+  `zr-runtime-<version>-<triple>.zrr`, by the name that `zr cache fetch`
+  reads (an experimental target whose lane did not pass has none, and
+  the job summary names it);
+- their `SHA256SUMS`, and an attestation of each (`gh attestation verify`).
+
+The gem's version is the release's, so a bundle of the run imports into
+it. To take a prerelease's runtimes:
+
+    gem install ./zr-0.1.0.gem
+    ZR_PREBUILT_URL=https://github.com/ryanseys/zr/releases/download/v0.1.0.geebf308 zr cache fetch
+
+A prerelease goes to no gem server. A second CI run of the same commit
+makes no second prerelease. The release workflow does not start on a
+prerelease's tag.
 
 ## Set up once
 
@@ -40,7 +54,7 @@ Do these by hand before the first release:
    the gem.coop key to it as the secret `GEM_COOP_API_KEY`. Limit the
    environment to tags `v*`.
 5. Add a ruleset for the tags `v*`, with `v*.g*` excluded (the
-   snapshots' tags, which the workflow makes): no deletion, no update
+   prereleases' tags, which CI makes): no deletion, no update
    and no force push, and only admins create one. Add a ruleset for `main`: no
    deletion and no force push, and the status check `ci-ok` is
    required (an admin can bypass it to push directly).

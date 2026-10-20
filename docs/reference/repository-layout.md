@@ -128,7 +128,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `vendor/targets/` | the pinned ruby's C headers and `rbconfig.rb` for each target that zr builds C extensions for from another host (`aarch64-linux-musl`) |
 | `lib/zr/prism_shim/` | makes `require "prism/prism"` load the port on the host |
 | `docs/` | this documentation |
-| `.github/workflows/` | CI (`ci.yml`) and its lane for each target (`lane.yml`), the snapshot of each green commit on main (`snapshot.yml`) and the release (`release.yml`) |
+| `.github/workflows/` | CI (`ci.yml`, whose last job makes the prerelease of each green commit on main) and its lane for each target (`lane.yml`), and the release (`release.yml`) |
 | `.github/actions/runtime-cache/` | the CI step that keeps the built runtime between runs |
 | `.github/actions/alpine/` | the CI step that starts the Alpine container of a musl lane |
 | `.github/scripts/` | the scripts of CI and the release: the lanes and their unit files (`lanes.rb`, `in_lane.sh`), the smoke test of a built gem, the type check, and the check that CI passed for a tag |
