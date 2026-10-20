@@ -13,9 +13,9 @@ true
 true
 false
 true
-"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more/a.txt"
+"/tmp/zr-files-more/a.txt"
 true
-"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more/a.txt"
+"/tmp/zr-files-more/a.txt"
 true
 false
 "link"
@@ -37,10 +37,10 @@ true
 0
 0
 1
-"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more"
-"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more"
+"/tmp/zr-files-more"
+"/tmp/zr-files-more"
 0
-"#<Dir:/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-more>"
+"#<Dir:/tmp/zr-files-more>"
 [".", "..", "a.txt", "hard", "link"]
 ["a.txt", "hard", "link"]
 true

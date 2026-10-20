@@ -1,5 +1,5 @@
 # Links, times, modes and Dir objects, all over libSystem.
-dir = "#{ENV["TMPDIR"] || "/tmp"}/zr-files-more"
+dir = "/tmp/zr-files-more"
 if Dir.exist?(dir)
   Dir.each_child(dir) { |name| File.delete("#{dir}/#{name}") }
   Dir.rmdir(dir)

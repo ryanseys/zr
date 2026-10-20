@@ -1,5 +1,5 @@
 # Files come from libSystem.
-dir = "#{ENV["TMPDIR"] || "/tmp"}/zr-files-test"
+dir = "/tmp/zr-files-test"
 if Dir.exist?(dir)
   Dir.each_child(dir) { |name| File.delete("#{dir}/#{name}") }
   Dir.rmdir(dir)

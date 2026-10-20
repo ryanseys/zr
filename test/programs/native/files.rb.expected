@@ -25,7 +25,7 @@ false
 nil
 "one\ntwo\nthreefour\nfive\n6\nseven\n008\n"
 File
-"/var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-test/a.txt"
+"/tmp/zr-files-test/a.txt"
 true
 false
 false
@@ -74,18 +74,18 @@ nil
 "new"
 "new!"
 Errno::ENOENT
-"No such file or directory @ rb_sysopen - /var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-test/nope"
+"No such file or directory @ rb_sysopen - /tmp/zr-files-test/nope"
 2
 2
 SystemCallError
 true
 true
 Errno::ENOENT
-"No such file or directory @ rb_sysopen - /var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-test/nope"
-"Is a directory @ rb_sysopen - /var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-test"
-"No such file or directory @ apply2files - /var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-test/nope"
+"No such file or directory @ rb_sysopen - /tmp/zr-files-test/nope"
+"Is a directory @ rb_sysopen - /tmp/zr-files-test"
+"No such file or directory @ apply2files - /tmp/zr-files-test/nope"
 "invalid access mode q"
-"No such file or directory @ rb_sysopen - /var/folders/7r/0kdzlwm12_19f3qc1j8w5vjr0000gn/T//zr-files-test/nope/deep"
+"No such file or directory @ rb_sysopen - /tmp/zr-files-test/nope/deep"
 "No such file or directory"
 "No such file or directory - x"
 Errno::ENOENT
