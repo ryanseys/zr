@@ -67,17 +67,22 @@ module Zr
       # WASI guest sees only the directories and variables that it is
       # given. Without a temporary directory, `Dir.tmpdir` fails, and a
       # program that writes a file fails where the binary does not. The
-      # module is compiled first (`Wasmtime.precompile`), so the memory
-      # limit of a run counts the program and not wasmtime's compiler.
-      def run(out, args, env)
+      # module is compiled first (`precompile`), so the memory limit of a
+      # run counts the program and not wasmtime's compiler. A caller that
+      # times the compile gives its result as `compiled`.
+      def run(out, args, env, compiled: :here)
         return [[*exec, out, *args], env] if exec && !wasm?
         return [[out, *args], env] unless wasm?
 
         dirs = { "." => ".", Dir.tmpdir => "/tmp" }
-        compiled = Wasmtime.precompile(out, compiler: @compiler)
+        compiled = precompile(out) if compiled == :here
         [Wasmtime.run(compiled || out, *args, dirs: dirs, env: { "TMPDIR" => "/tmp" }.merge(env), compiler: @compiler,
                                               argv0: (out if compiled)), {}]
       end
+
+      # The compiled form of a wasm module `out`, or nil: a native binary
+      # needs none.
+      def precompile(out) = wasm? ? Wasmtime.precompile(out, compiler: @compiler) : nil
 
       # True when wasmtime reports a trap. A trap stops the module as
       # abort(3) stops a process, so it counts as a crash.

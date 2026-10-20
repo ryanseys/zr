@@ -34,7 +34,8 @@ module Zr
       module_function
 
       # `parts` (a hash, or nil) gets the seconds of the lowering, the
-      # link and the run (`Progress.clock`); a `zr build` counts as lowering.
+      # link, wasmtime's compile of a module and the run (`Progress.clock`);
+      # a `zr build` counts as lowering.
       def answer(test, runner, parts = nil)
         target = runner.target
         ProgramRun.within(test) do |run, rb|
@@ -42,7 +43,9 @@ module Zr
           built = cli?(test) ? Progress.clock(parts, :lower) { cli(test, run, bin, runner) } : in_process(test, run, bin, target, parts)
           next built if built
 
-          command, env = runner.run(bin, test.args, cli?(test) && !runner.wasm? ? zr_run_env.merge(test.env) : test.env)
+          compiled = Progress.clock(parts, :compile) { runner.precompile(bin) }
+          command, env = runner.run(bin, test.args, cli?(test) && !runner.wasm? ? zr_run_env.merge(test.env) : test.env,
+                                    compiled: compiled)
           megabytes = [test.limits[:run_mb] || 0, Harness::Child::RUN_MB].max
           out, = Progress.clock(parts, :run) do
             Harness::Child.run(command, cwd: run, stdin: test.stdin, env: env, seconds: Harness::Child::SECONDS, megabytes: megabytes)

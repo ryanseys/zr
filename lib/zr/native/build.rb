@@ -541,7 +541,10 @@ module Zr
         zero_words(functions, data, pre.data_at.keys)
         functions += stops(functions, [], data, pre.functions)
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
-        File.binwrite(out, Backend::Wasm.emit(functions, data, prelude: pre))
+        bytes = Timing.phase("emitting the program's module (#{functions.size} functions)", "program module emitted") do
+          Backend::Wasm.emit(functions, data, prelude: pre)
+        end
+        File.binwrite(out, bytes)
         nil
       rescue Backend::Refused => e
         e.message
@@ -560,9 +563,10 @@ module Zr
       # symbols, and kept in the cache.
       #
       # It is also kept in memory for the life of the process, as the
-      # prelink is. The prelude is 41 MB of Marshal, and a test tier builds
-      # one module for each example. A worker forked after the first build
-      # shares the one copy. A build never writes to it.
+      # prelink is. The prelude is about 74 MB of Marshal (250 MB with eval
+      # support), and a test tier builds one module for each example. A
+      # worker forked after the first build shares the one copy. A build
+      # never writes to it.
       #: (Runtime runtime, Backend::Wasm::Codegen::pending pending, ?EvalSupport? support) -> Backend::Wasm::Codegen::Prelude
       def wasm_prelude(runtime, pending, support = nil)
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")

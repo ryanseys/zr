@@ -201,11 +201,11 @@ entry for the target.
 ## Limits
 
 - A WASI module contains the whole front end, where a binary links a
-  cached object. Thus a WASI program that evals is about 90 MB, and its
-  build takes about three minutes.
-- An engine compiles a module whole before it runs it. Thus the 90 MB
-  module needs about 2.1 GB of the host's memory when wasmtime
-  instantiates it (measured on `test/programs/cli/lang/eval/eval_in_a_binary.rb`).
+  cached object. Thus a WASI program that evals is about 230 MB (one that
+  does not is about 70 MB), and its first build takes minutes.
+- An engine compiles a module whole before it runs it. Thus the module
+  needs gigabytes of the host's memory when wasmtime compiles it: 2.1 GB
+  when it was 90 MB (measured on `test/programs/cli/lang/eval/eval_in_a_binary.rb`).
   The program's own memory is a small part of this. `wasmtime compile`
   moves this cost out of the run.
 - A binary with eval support contains the absolute paths of the gem's

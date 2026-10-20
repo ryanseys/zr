@@ -17,7 +17,7 @@ class ProgramBuildTest < Minitest::Test
     answer = with_env("ZR_TEST_BINARIES" => "0") { Zr::Test::ProgramBuild.answer(test, Zr::Test::Programs.new.runner, parts) }
 
     refute_kind_of Array, answer, "the program builds and runs"
-    assert_equal %i[link lower run], parts.keys.sort
-    assert(parts.values.all?(&:positive?), parts.inspect)
+    assert_equal %i[compile link lower run], parts.keys.sort
+    assert(parts.except(:compile).values.all?(&:positive?), parts.inspect)
   end
 end

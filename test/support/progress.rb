@@ -36,7 +36,7 @@ module Zr
 
       # The metadata key for the build part times of an example, in seconds.
       PARTS_KEY = :zr_phases
-      PARTS = %i[lower link run].freeze
+      PARTS = %i[lower link compile run].freeze
       DEFAULT = 10
       ASKED = 20
       SMALL = 20
@@ -90,7 +90,7 @@ module Zr
 
         def +(other) = Spent.new(examples + other.examples, whole + other.whole, PARTS.to_h { |part| [part, parts[part] + other.parts[part]] })
 
-        def to_s = format("%8d %8.1f %8.1f %8.1f %8.1f", examples, *PARTS.map { |part| parts[part] }, whole)
+        def to_s = format("%8d#{" %8.1f" * (PARTS.size + 1)}", examples, *PARTS.map { |part| parts[part] }, whole)
       end
 
       # `status` is the file of the run's status, or nil for none. With
@@ -197,7 +197,7 @@ module Zr
         def spent_by_directory
           rows = @spent.sort_by { |_, spent| -spent.whole }
           @io.puts "\nWhat the examples that build a program spent, in seconds:"
-          @io.puts format("%-36s %8s %8s %8s %8s %8s", "directory", "examples", *PARTS, "whole")
+          @io.puts format("%-36s %8s#{" %8s" * (PARTS.size + 1)}", "directory", "examples", *PARTS, "whole")
           rows.first(@count).each { |name, spent| @io.puts format("%-36s %s", name, spent) }
           @io.puts format("%-36s %s", "all #{rows.size} directories", rows.sum(Spent.zero, &:last))
         end
