@@ -22,7 +22,7 @@ class RuntimeTest < Minitest::Test
         assert_nil Zr::Native::Build.program(program, bin, work: dir)
         [{}, { "ZR_GC_STRESS" => "1" }].each do |env|
           out = IO.popen(env, [bin], err: %i[child out], &:read)
-          assert_equal status, $?.exitstatus, "#{name} (#{env}) exited #{$?.exitstatus}: #{out}"
+          assert_equal status, $?.exitstatus, "#{name} (#{env}) exited #{$?.exitstatus}: #{Zr::Harness::Segments.explain(out)}"
           assert_equal want, out
         end
       end

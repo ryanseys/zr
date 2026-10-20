@@ -3,6 +3,7 @@
 require "etc"
 require_relative "answer"
 require_relative "clean_env"
+require_relative "segments"
 require_relative "../../../lib/zr/timing"
 
 module Zr
@@ -60,6 +61,8 @@ module Zr
         status, over = watch(pid, seconds && started + seconds, megabytes)
         writer.join
         stdout, stderr = reader.map(&:value)
+        stderr = Segments.explain(stderr) if stderr
+        stdout = Segments.explain(stdout) if merge && stdout
         seconds = now - started
         return [Answer.new(stdout, stderr, over, nil), seconds] if over
 

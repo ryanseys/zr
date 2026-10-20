@@ -6,6 +6,7 @@ require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/obj/macho/executable"
 require_relative "../../lib/zr/obj/macho/relink"
+require_relative "../support/harness/segments"
 require_relative "../../lib/zr/obj/macho/stamps"
 require_relative "../native/fixtures"
 
@@ -266,6 +267,22 @@ class ExeTest < Minitest::Test
         assert_operator s.vmaddr + s.vmsize, :<=, Zr::Obj::MachO::Executable::SHARED_REGION, "#{s.name} reaches the shared region"
       end
       assert_equal [0, "hooks\n"], ran(bin)
+    end
+  end
+
+  # A dyld failure to map the shared cache gets the segments of the binary
+  # that it names, so a CI log shows where the image lies.
+  def test_a_shared_region_failure_shows_the_segments_of_its_binary
+    Dir.mktmpdir("zr-exe-") do |dir|
+      bin = File.join(dir, "hooked")
+      assert_nil Zr::Obj::MachO::Executable.write(hooked_unit, bin, objects: [calling_object], embeds: [tiny_embed(dir)])
+      failed = "dyld[1]: dyld cache '(null)' not loaded: syscall to map cache into shared region failed\n" \
+               "  Referenced from: <0000> #{bin}\n"
+
+      shown = Zr::Harness::Segments.explain(failed)
+      assert_includes shown, "__ZRX0"
+      refute_includes shown, "in the shared region\n", "every segment ends below the shared region"
+      assert_equal "other\n", Zr::Harness::Segments.explain("other\n")
     end
   end
 
