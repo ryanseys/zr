@@ -51,9 +51,13 @@ class UnsupportedLibrariesTest < Minitest::Test
   end
 
   # The table in a program: the name, then a tab and the reason when
-  # there is one. `Kernel.missing` reads the table.
+  # there is one. `Kernel.missing` reads the table. The extensions are
+  # stubbed: they give only the roots' line, and on ELF they compile the
+  # C ports from their extconf.rb (73 s on a runner).
   def test_load_names_table_has_the_reason_after_the_name
-    rows = Zr::LoadTables.new(computed: true).data.find { |data| data.name == "zr_load_names_1" }.bytes.chomp("\0").split("\n")
+    rows = stub_method(Zr::Ext, :bundles, {}) do
+      Zr::LoadTables.new(computed: true).data.find { |data| data.name == "zr_load_names_1" }.bytes.chomp("\0").split("\n")
+    end
 
     assert_includes rows, "mkmf\t#{Build::UNSUPPORTED_LIBRARIES.fetch("mkmf")}"
     name = unreasoned
