@@ -97,8 +97,12 @@ class CliExitTest < Minitest::Test
     assert_equal 3, error.status
   end
 
+  # VTALRM, as SEGV, is a signal that ruby keeps for itself (exit_as sets
+  # its default action through Fiddle), but it stops a process with no
+  # core: Linux gives a core to a handler that a pipe names (apport) even
+  # when the core limit is 0, and a runner's handler can hang the test.
   def test_a_signal_that_stops_the_program_stops_zr_too
-    %w[TERM SEGV].each do |signal|
+    %w[TERM VTALRM].each do |signal|
       status = status_of(signal: signal)
       pid = fork do
         Process.setrlimit(:CORE, 0)
