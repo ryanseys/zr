@@ -93,22 +93,23 @@ class CodeCacheTest < Minitest::Test
     end
   end
 
-  # Part of the runtime, so that the test takes seconds: the object of its
-  # first 600 functions, with the data.
+  # Part of the kernel, so that the test takes seconds: the object of its
+  # first 600 functions, with its data. The kernel comes from its cache;
+  # the whole runtime lowered the core too (60-79 s on a runner).
   def test_an_object_is_the_same_with_the_cache_cold_warm_and_off
     skip "a native link on this host only" unless Zr::Target.default.link
 
     # Its own runtime: `Native::Build.lower` releases the IR of the
     # process's `Zr::Runtime.for`, so an earlier build would leave none here.
-    runtime = Zr::Runtime.new(Zr::Target.default)
-    functions = Marshal.dump(runtime.functions.first(600))
+    kernel = Zr::Runtime.new(Zr::Target.default).unit
+    functions = Marshal.dump(kernel.functions.first(600))
     Dir.mktmpdir("zr-code-cache-") do |dir|
       cache = File.join(dir, "cache")
       objects = %w[off cold warm].map do |mode|
         out = File.join(dir, "#{mode}.o")
         Zr::Config.with(ZR_CODE_CACHE: mode == "off" ? "0" : "1") do
           Zr::Session.current.set(:cache, cache)
-          why = Zr::Native::Build.object(Marshal.load(functions), runtime.data, out, export: true,
+          why = Zr::Native::Build.object(Marshal.load(functions), kernel.data, out, export: true,
                                          cache: Zr::Cache::Code.for("test", Zr::Target.default))
           assert_nil why
         ensure
