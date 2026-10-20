@@ -70,6 +70,9 @@ None.
 |---|---|
 | `cli/core/process/process_spawn.rb` | spawn() is unimplemented on wasi |
 | `cli/core/process/signal_trap.rb` | kill has no wasm form |
+| `cli/core/kernel/recursion_depth_follows_the_vm_stack_size.rb` | IO.popen: pipe has no wasm form |
+| `cli/lang/require/a_cleared_load_path_finds_no_file_of_rubys_library.rb` | IO.popen: pipe has no wasm form |
+| `cli/stdlib/rbconfig/ruby_is_bindir_and_ruby_install_name.rb` | RbConfig.ruby: a wasm guest has no ruby executable |
 | `cli/core/fiber/fiber_resume.rb` | can't allocate fiber stack: Function not implemented |
 | `cli/core/thread/threads_join.rb` | can't allocate fiber stack: Function not implemented |
 | `cli/core/thread/thread_queue_handoff.rb` | can't allocate fiber stack: Function not implemented |
