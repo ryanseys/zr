@@ -49,6 +49,23 @@ Gem::Specification.new do |spec|
   # Outside a git checkout, the list is empty, and so would the gem be.
   raise "zr.gemspec: `git ls-files` listed no files; build the gem in a git checkout" if spec.files.empty?
 
+  # A platform gem (ZR_GEM_PLATFORM, from Target#gem_platform) also
+  # carries its host's built runtime: the bundle of ZR_GEM_RUNTIME,
+  # unpacked at data/runtime/<triple> (lib/zr/prebuilt.rb, `bundled`), so
+  # its first build builds no runtime. Without them, this is the `ruby`
+  # gem, which builds the runtime on its first use, or fetches it.
+  if (platform = ENV.fetch("ZR_GEM_PLATFORM", "")) != ""
+    runtime = ENV.fetch("ZR_GEM_RUNTIME", "")
+    unless runtime.match?(%r{\Adata/runtime/[\w.-]+\z}) && File.file?(File.join(__dir__, runtime, "manifest.json"))
+      raise "zr.gemspec: ZR_GEM_PLATFORM needs ZR_GEM_RUNTIME, an unpacked bundle at data/runtime/<triple>"
+    end
+
+    spec.platform = platform
+    spec.files += Dir.glob("#{runtime}/**/*", base: __dir__).select { |file| File.file?(File.join(__dir__, file)) }.sort
+    # The libc in the platform's name (aarch64-linux-gnu, -musl).
+    spec.required_rubygems_version = ">= 3.3.22"
+  end
+
   spec.bindir = "exe"
   spec.executables = ["zr"]
   # Only lib/: lib/zr/runtime/ and vendor/ hold files named like ruby's

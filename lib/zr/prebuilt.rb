@@ -26,9 +26,10 @@ module Zr
   # tree unpacked serves as a bundle too: a platform gem holds one
   # (`bundled`). It holds the entries that the link and built roots
   # of the target name (`ROOTS`): what a build reads when nothing has
-  # changed. The lowerings and the packs of machine code (`LEFT_OUT`),
-  # which only speed up a build after a change, stay out: half of a
-  # runtime's bytes.
+  # changed. Two kinds stay out (`LEFT_OUT`): the packs of machine code,
+  # which only speed up a build after a change, and the prelinked images
+  # of the objects, which the first link makes again from the objects in
+  # seconds. The images were 70 % of a darwin bundle: 199 MB of 280.
   #
   # An import trusts the bundle as zr trusts its cache (SECURITY.md): the
   # cache holds Marshal data and code that zr runs. So it takes only a
@@ -54,8 +55,10 @@ module Zr
     ROOT_LINE = %r{\A[a-z]+/[0-9a-f]{2}/[0-9A-Za-z][\w.-]*\z}
 
     # The kinds of entry that a root names and a bundle leaves out: a
-    # build from the runtime's object and images reads none of them.
-    LEFT_OUT = %w[code].freeze
+    # build reads no code pack, and makes an image that it lacks from the
+    # objects (`Native::Build#prelink`, `#skeleton`): 0.6 s for the plain
+    # runtime, 2.4 s with eval support.
+    LEFT_OUT = %w[code image].freeze
 
     # A bundle that zr cannot take.
     class Invalid < StandardError
@@ -77,6 +80,39 @@ module Zr
     # The file name of the bundle of `target` for this zr.
     #: (Target target) -> String
     def bundle_name(target) = "zr-runtime-#{VERSION}-#{target.triple}.tar.gz"
+
+    # Where a platform gem holds its host's runtime: the unpacked bundle of
+    # each target, `data/runtime/<triple>` beside lib/.
+    BUNDLED = File.expand_path("../../data/runtime", __dir__)
+
+    # The unpacked bundle of `target` that this install carries, or nil:
+    # a platform gem has its host's (zr.gemspec, ZR_GEM_RUNTIME), the
+    # `ruby` gem and a checkout have none.
+    #: (Target target) -> String?
+    def bundled(target)
+      dir = File.join(BUNDLED, target.triple)
+      File.file?(File.join(dir, MANIFEST)) ? dir : nil
+    end
+
+    # Imports the bundle that this install carries for `target`, one time
+    # for each cache: a mark in the store, named by the manifest's digest,
+    # says that it is in. Then the first build of a platform gem takes the
+    # runtime and builds none. A bundle that does not import is a warning,
+    # and the build goes on to build the runtime.
+    #: (Target target) -> bool
+    def take_bundled(target)
+      dir = bundled(target) or return false
+      digest = Digest::SHA256.file(File.join(dir, MANIFEST)).hexdigest
+      mark = Cache::Store.path(:meta, "#{Cache::Store.key("bundled", digest)}-bundled")
+      return true if File.exist?(mark)
+
+      import(dir)
+      Paths.write_atomic(mark, JSON.generate({ "target" => target.triple, "manifest" => digest }))
+      true
+    rescue Invalid, SystemCallError => e
+      warn "zr: the runtime that this gem carries did not import (#{e.message}); zr builds it"
+      false
+    end
 
     # The directory of this version's bundles.
     #: () -> String
@@ -188,6 +224,7 @@ module Zr
     #: (String file, ?sha256: String?) -> Hash[String, untyped]
     def import(file, sha256: nil)
       # @type var staging: String
+      raise Invalid, "#{file} is a directory; --sha256 checks a bundle file" if sha256 && File.directory?(file)
       if sha256 && (got = Digest::SHA256.file(file).hexdigest) != sha256.downcase
         raise Invalid, "#{file} has SHA-256 #{got}, not #{sha256}"
       end

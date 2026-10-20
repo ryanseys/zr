@@ -134,6 +134,18 @@ class TargetTest < Minitest::Test
     end
   end
 
+  # A platform gem's name is the one that RubyGems reports for the host:
+  # `arm64-darwin`, never `aarch64-darwin`, and a Linux one keeps its libc.
+  def test_each_host_target_names_the_gem_platform_that_rubygems_picks
+    names = Zr::Target.all.to_h { |target| [target.triple, target.gem_platform] }
+
+    assert_equal({ "aarch64-apple-darwin" => "arm64-darwin", "aarch64-linux-musl" => "aarch64-linux-musl",
+                   "x86_64-linux-musl" => "x86_64-linux-musl", "x86_64-linux-gnu" => "x86_64-linux-gnu",
+                   "aarch64-linux-gnu" => "aarch64-linux-gnu", "wasm32-wasi" => nil }, names)
+    assert_operator(Gem::Platform.new("arm64-darwin"), :===, Gem::Platform.new("arm64-darwin-27"), "an Apple-silicon host picks it")
+    refute_operator(Gem::Platform.new("aarch64-linux-musl"), :===, Gem::Platform.new("aarch64-linux"), "a glibc host does not")
+  end
+
   private
 
   # Runs the block while RbConfig::CONFIG is `config`.

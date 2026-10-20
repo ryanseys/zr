@@ -15,6 +15,7 @@ require_relative "symbol_numbering"
 require_relative "gc_tuning"
 require_relative "source_guard"
 require_relative "cache/store"
+require_relative "prebuilt"
 require_relative "cache/kernel"
 require_relative "runtime_sources"
 require_relative "cache/lowering/core"
@@ -312,9 +313,15 @@ module Zr
       end
     end
 
-    # The runtime for `target`, lowered once per process.
+    # The runtime for `target`, lowered once per process. A platform gem's
+    # own runtime goes into the cache first (`Prebuilt.take_bundled`).
     #: (?Target target) -> Runtime
-    def self.for(target = Target.default) = loaded[target.triple] ||= new(target)
+    def self.for(target = Target.default)
+      loaded[target.triple] ||= begin
+        Prebuilt.take_bundled(target)
+        new(target)
+      end
+    end
 
     # Says on stderr, once in a process, that a build of `what` for
     # `target` starts, which fills the cache for later builds. The first

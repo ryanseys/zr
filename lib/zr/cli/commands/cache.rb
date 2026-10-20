@@ -101,14 +101,14 @@ module Zr
         end
 
         # `zr cache import FILE [--sha256 HEX]`: a runtime that `export`
-        # wrote, into this cache.
+        # wrote, or the directory that it unpacks to, into this cache.
         #: (Array[String] argv) -> void
         def import(argv)
           require_relative "../../prebuilt"
           sha256 = option(argv, "--sha256")
           file = argv.shift or usage_error("import needs the file of a runtime bundle")
           no_more!(argv)
-          Errors.file!(file)
+          Errors.file!(file) unless File.directory?(file)
           manifest = Prebuilt.import(file, sha256: sha256)
           puts format("imported the %s runtime of zr %s: %d file(s)", manifest.fetch("target"), manifest.fetch("zr"), manifest.fetch("files").size)
         end

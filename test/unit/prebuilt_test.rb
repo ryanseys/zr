@@ -191,6 +191,28 @@ class PrebuiltTest < Minitest::Test
     assert_equal "object bytes", File.binread(built[:object].sub(@from, to))
   end
 
+  # A platform gem carries its host's bundle unpacked (zr.gemspec); the
+  # first runtime of a cache takes it in, and later ones read the mark.
+  def test_a_carried_bundle_imports_once_for_each_cache
+    built = built_runtime
+    Prebuilt.export(TARGET, @bundle)
+    tree = Dir.mktmpdir("zr-carried-").tap { |dir| @dirs << dir }
+    assert system("tar", "-xzf", @bundle, "-C", tree)
+    bundled = Prebuilt.method(:bundled)
+    Prebuilt.define_singleton_method(:bundled) { |target| target == TARGET ? tree : nil }
+    to = cache
+
+    assert Prebuilt.take_bundled(TARGET)
+    assert_equal "object bytes", File.binread(built[:object].sub(@from, to))
+    import = Prebuilt.method(:import)
+    Prebuilt.define_singleton_method(:import) { |*| raise "imported again" }
+    assert Prebuilt.take_bundled(TARGET)
+    refute Prebuilt.take_bundled(Zr::Target::X86_64_LINUX_GNU), "no bundle of that target"
+  ensure
+    Prebuilt.define_singleton_method(:bundled, bundled) if bundled
+    Prebuilt.define_singleton_method(:import, import) if import
+  end
+
   private
 
   # Writes the bundle again, with the manifest and the files (path to

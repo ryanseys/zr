@@ -4,6 +4,8 @@
 # Suite results and gap logs, kept when tmp/ is cleared.
 /log/
 /pkg/
+# The runtime that a platform gem carries (zr.gemspec).
+/data/runtime/
 *.gem
 /.bundle/
 

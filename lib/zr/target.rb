@@ -179,6 +179,19 @@ module Zr
     #: () -> bool
     def jits? = arch != :wasm32
 
+    # The RubyGems platform of the gem that carries this target's runtime
+    # (zr.gemspec, ZR_GEM_PLATFORM), or nil for a target that is no host.
+    # RubyGems calls an Apple-silicon host `arm64-darwin`: an
+    # `aarch64-darwin` gem would match none. A Linux name keeps its libc,
+    # since a bare `aarch64-linux` matches a musl host as well.
+    #: () -> String?
+    def gem_platform
+      return nil if arch == :wasm32
+      return "#{arch == :aarch64 ? "arm64" : arch}-darwin" if os == :darwin
+
+      "#{arch}-linux-#{libc == :glibc ? "gnu" : libc}"
+    end
+
     # The output for `emit`: `:native` for nil, else the symbol.
     #: (String | Symbol | nil emit) -> Symbol
     def self.output(emit) = emit ? emit.to_sym : :native

@@ -20,6 +20,32 @@ class GemspecTest < Minitest::Test
     assert_includes spec.executables, "zr"
   end
 
+  # A platform gem (ZR_GEM_PLATFORM) carries its host's runtime, unpacked
+  # under data/runtime (Prebuilt.bundled); without its runtime, the
+  # gemspec refuses. The `ruby` gem carries none.
+  def test_a_platform_gem_carries_the_runtime_that_it_names
+    dir = "data/runtime/zr-test-#{Process.pid}"
+    FileUtils.mkdir_p(File.join(ROOT, dir, "store/meta/ab"))
+    File.write(File.join(ROOT, dir, "manifest.json"), "{}")
+    File.write(File.join(ROOT, dir, "store/meta/ab/x.json"), "{}")
+    platform = fresh_spec("ZR_GEM_PLATFORM" => "arm64-darwin", "ZR_GEM_RUNTIME" => dir)
+
+    assert_equal "arm64-darwin", platform.platform.to_s
+    assert_equal ["#{dir}/manifest.json", "#{dir}/store/meta/ab/x.json"], platform.files.grep(%r{\Adata/})
+    assert_equal Gem::Platform::RUBY, spec.platform.to_s
+    assert_empty spec.files.grep(%r{\Adata/})
+    assert_raises(RuntimeError) { fresh_spec("ZR_GEM_PLATFORM" => "arm64-darwin", "ZR_GEM_RUNTIME" => "data/runtime/none") }
+  ensure
+    FileUtils.rm_rf(File.join(ROOT, dir))
+  end
+
+  # The gemspec read again under `env`: Gem::Specification.load keeps
+  # the first spec of a path.
+  def fresh_spec(env)
+    path = File.join(ROOT, "zr.gemspec")
+    with_env(env) { Dir.chdir(ROOT) { eval(File.read(path), TOPLEVEL_BINDING, path) } }
+  end
+
   # A `require_relative` in lib/ or exe/zr that leaves the gem's files
   # would work in a checkout and fail in an install.
   def test_each_require_relative_stays_in_the_gem
