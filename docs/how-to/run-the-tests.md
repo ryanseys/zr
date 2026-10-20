@@ -348,6 +348,26 @@ $ docker exec alpine bundle exec rake build
 $ docker exec alpine bin/zr-dev test --target aarch64-linux-musl test/programs/cli
 ```
 
+### Run what one CI lane runs
+
+CI has one lane for each target (`.github/workflows/lane.yml`). Each lane
+runs the unit files of its target, then the programs of a push. On the
+nightly run, it runs every program, in shards. To run the same tests
+here, on a host of that target:
+
+```console
+$ ruby .github/scripts/lanes.rb units aarch64-apple-darwin      # the lane's unit files
+$ ruby .github/scripts/lanes.rb units aarch64-apple-darwin --run
+$ ZR_PROGRAMS=cli bin/minitest test/programs_test.rb
+$ ZR_PROGRAMS=lang/methods,core/string bin/minitest test/programs_test.rb
+$ bin/zr-dev test --suite programs --shard 2/6                   # a nightly shard
+$ ruby .github/scripts/lanes.rb untagged --run                   # the files of no lane
+```
+
+`ruby .github/scripts/lanes.rb matrix` prints each lane's runner, its
+shards and its settings. A unit file goes to a lane through its
+`# zr-test: on KIND` comment ([how the tests run](../explanation/how-the-tests-run.md)).
+
 ## The reference ruby and its gems
 
 Every expected output comes from the ruby that `.ruby-version` names
