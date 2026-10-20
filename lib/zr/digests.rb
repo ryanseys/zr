@@ -51,6 +51,28 @@ module Zr
       end
     end
 
+# A top-level `require_relative`. A require inside a method loads
+# later, when the method runs, and `required` does not follow it.
+REQUIRE = /^require_relative "([^"]+)"$/
+
+# Each file of zr that `entries` (paths under lib/zr) load as they
+# load, relative to lib/zr and sorted: the entries, and the files of
+# each top-level `require_relative` in them, and in those files.
+#: (Array[String] entries) -> Array[String]
+def required(entries)
+  seen = [] #: Array[String]
+  todo = entries.map { |name| File.join(COMPILER, name) }
+  while (file = todo.shift)
+    next if seen.include?(file)
+
+    seen << file
+    File.foreach(file) do |line|
+      todo << File.expand_path("#{Regexp.last_match(1)}.rb", File.dirname(file)) if line =~ REQUIRE
+    end
+  end
+  seen.map { |file| file.delete_prefix(COMPILER) }.sort
+end
+
     COMPILER = File.join(__dir__, "") #: String
 
     # Whether `path` is a file of the compiler, not one that it compiles.

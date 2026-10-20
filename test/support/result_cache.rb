@@ -4,6 +4,7 @@ require_relative "flag"
 require "digest"
 require_relative "../../lib/zr/cache/store"
 require_relative "../../tool/lib/zr/dev/process"
+require_relative "../../tool/lib/zr/dev/reach"
 
 module Zr
   module Test
@@ -28,25 +29,16 @@ module Zr
       ROOT = File.expand_path("../..", __dir__)
       # A pass is an empty entry of the store kind `result`.
       Zr::Cache::Store.register(Zr::Cache::Store::Kind.new(:result, :raw, "", nil))
-      # The test files that a program test loads, from test/programs_test.rb
-      # down: result_cache_test.rb walks that load path, so a file that
-      # joins it must join here.
-      HARNESS = %w[
-        test/test_helper.rb test/programs_test.rb
-        test/support/baseline.rb test/support/binaries.rb test/support/built.rb test/support/coverage_run.rb
-        test/support/flag.rb test/support/fork_pool.rb test/support/history.rb test/support/host_program.rb
-        test/support/needs.rb test/support/pending.rb test/support/program_build.rb test/support/program_case.rb
-        test/support/program_run.rb test/support/program_selection.rb test/support/programs.rb test/support/progress.rb
-        test/support/result_cache.rb test/support/ruby_syntax_report.rb test/support/run_files.rb test/support/scratch.rb test/support/stubs.rb
-        test/support/workers.rb test/support/harness
-      ].freeze
-      # The tools on that load path: the walker of `ZR_TEST_HOST`, the
-      # recorder of `ZR_EXPECTED=record`, and what they load.
-      TOOLS = %w[tool/expect.rb tool/lib/zr/dev.rb tool/lib/zr/dev/command.rb tool/lib/zr/dev/files.rb
-                 tool/lib/zr/dev/parallel.rb tool/lib/zr/dev/process.rb tool/lib/zr/dev/sources.rb].freeze
+      # The test and tool files that a program test loads: each file that
+      # test/programs_test.rb reaches by a literal require
+      # (`Dev::Reach::LoadGraph`), outside lib and vendor, which READ holds
+      # whole.
+      HARNESS = Zr::Dev::Reach::LoadGraph.new.closure(File.join(ROOT, "test/programs_test.rb"))
+                                         .map { |path| path.delete_prefix("#{ROOT}/") }
+                                         .reject { |rel| rel.start_with?("lib/", "vendor/") }.sort.freeze
       # What a run reads, below the root: zr itself, the pinned ruby, the
-      # locked gems, the baselines, and HARNESS and TOOLS.
-      READ = ["lib", "vendor", "exe", ".ruby-version", "Gemfile.lock", "test/baselines", *HARNESS, *TOOLS].freeze
+      # locked gems, the baselines, and HARNESS.
+      READ = ["lib", "vendor", "exe", ".ruby-version", "Gemfile.lock", "test/baselines", *HARNESS].freeze
       # The variables that change no result: they pick, report or speed up
       # tests, or bound the caches.
       IGNORED = %w[ZR_PROGRAMS ZR_TEST_FRESH ZR_TEST_FAIL_FAST ZR_TEST_TMP ZR_MINITEST_RUN ZR_TEST_ALL ZR_TEST_BUILT ZR_TEST_BINARIES

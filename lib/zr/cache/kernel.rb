@@ -15,23 +15,18 @@ module Zr
     # The key has the target, the path root (a checked kernel's messages
     # name files by it), ZR_KERNEL_CHECKED, each kernel file with its
     # bytes, and the code of each file that the kernel lowering loads
-    # (`LOADS`, which `kernel_cache_test.rb` checks).
+    # (`loads`, which `kernel_cache_test.rb` checks).
     module Kernel
       VERSION = 1
 
       LIB = File.expand_path("..", __dir__) #: String
 
-      # The files that `require "zr/machine/lower"` loads, relative to
-      # lib/zr: the kernel lowering, the IR, and zr's Prism, which parses
-      # the kernel. Not prism's import.rb: only Ruby::Prism, in a program,
-      # loads it. Not the parse cache, which loads at the first parse
-      # (`Zr.parse_cache`) and gives the same tree as a parse.
-      LOADS = (%w[
-        binary.rb bytes.rb config.rb ir.rb ir/analysis.rb ir/effects.rb
-        ir/function.rb ir/inst.rb ir/mem2reg.rb ir/promotion.rb library/layout.rb library/ports.rb line_cursor.rb
-        machine/description.rb machine/function.rb machine/function/intrinsics.rb machine/lower.rb obj/model.rb
-        parse.rb paths.rb prism_shim/prism/prism.rb refused.rb ruby_version.rb session.rb version.rb
-      ] + Dir.glob("runtime/ext/prism/**/*.rb", base: LIB) - %w[runtime/ext/prism/ruby/import.rb]).sort.freeze #: Array[String]
+      # The files that start the kernel lowering, relative to lib/zr: the
+      # lowering, and zr's Prism, which parses the kernel (parse.rb finds it
+      # by `require "prism"`). The key covers each file that they load
+      # (`Digests.required`). Not the parse cache, which loads at the first
+      # parse (`Zr.parse_cache`) and gives the same tree as a parse.
+      ENTRIES = %w[machine/lower.rb prism_shim/prism/prism.rb].freeze
 
       module_function
 
@@ -49,11 +44,14 @@ module Zr
                   *files.flat_map { |source, path| [path, source] })
       end
 
+      #: () -> Array[String]
+      def loads = Session.current.memo(:kernel_loads) { Digests.required(ENTRIES) }
+
       #: () -> String
       def loads_digest
         Session.current.memo(:kernel_loads_digest) do
           Digest::SHA256.new.tap do |d|
-            LOADS.each { |name| d << name << "\0" << Digests.file(File.join(LIB, name)) << "\0" }
+            loads.each { |name| d << name << "\0" << Digests.file(File.join(LIB, name)) << "\0" }
           end.hexdigest
         end
       end

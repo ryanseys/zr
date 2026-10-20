@@ -70,16 +70,13 @@ class ResultCacheTest < Minitest::Test
     end
   end
 
-  # READ names each file that the program tests load, so an edit to one
-  # misses. The walk sees each literal require (tool/lib/zr/dev/reach.rb).
-  def test_the_key_holds_every_file_that_a_program_test_loads
-    require_relative "../../tool/lib/zr/dev/reach"
-    graph = Zr::Dev::Reach::LoadGraph.new
-    loaded = graph.closure(File.join(ROOT, "test/programs_test.rb")).map { |path| path.delete_prefix("#{ROOT}/") }
-    read = ResultCache::READ
-
-    assert_empty loaded.reject { |rel| read.any? { |entry| rel == entry || rel.start_with?("#{entry}/") } }
-  end
+# READ names the program tests' harness from its load graph, so a new
+# support file joins the key with no list to edit.
+def test_the_key_holds_the_harness_that_a_program_test_loads
+  %w[test/programs_test.rb test/test_helper.rb test/support/result_cache.rb test/support/shard.rb
+     tool/lib/zr/dev/reach.rb].each { |rel| assert_includes ResultCache::READ, rel }
+  assert ResultCache::HARNESS.none? { |rel| rel.start_with?("/", "lib/", "vendor/") }, ResultCache::HARNESS.inspect
+end
 
   def test_a_copy_that_is_no_checkout_leaves_out_the_other_test_tiers
     Dir.mktmpdir("zr-result-cache-") do |root|

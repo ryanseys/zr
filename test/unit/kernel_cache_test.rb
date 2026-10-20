@@ -16,12 +16,13 @@ class KernelCacheTest < Minitest::Test
     lib = "#{Kernel::LIB}/"
     code = <<~RUBY
       before = $LOADED_FEATURES.dup
-      require #{File.join(lib, "machine/lower.rb").inspect}
+      #{Kernel::ENTRIES.map { |name| "require #{File.join(lib, name).inspect}" }.join("\n")}
       puts ($LOADED_FEATURES - before).select { |f| f.start_with?(#{lib.inspect}) }.map { |f| f.delete_prefix(#{lib.inspect}) }.sort
     RUBY
     out, status = Open3.capture2(Zr::Harness::CleanEnv.env, RbConfig.ruby, "-e", code, unsetenv_others: true)
     assert_predicate status, :success?
-    assert_equal Kernel::LOADS, out.split("\n"), "Cache::Kernel::LOADS must list each file that the kernel lowering loads"
+    assert_equal Kernel.loads, out.split("\n"),
+                 "Cache::Kernel.loads misses a file that the kernel lowering loads; load a file at the top with require_relative"
   end
 
   def test_a_kept_kernel_is_the_same_as_a_new_one

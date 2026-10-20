@@ -43,27 +43,16 @@ module Zr
         wasm32: %w[ir/passes.rb cache/code.rb backend/wasm.rb]
       }.freeze #: Hash[Symbol, Array[String]]
 
-      # A top-level `require_relative`. A require inside a method (such as the
-      # store's, in `dir`) loads later and is not part of the code.
-      REQUIRE = /^require_relative "([^"]+)"$/
-
       LIB = File.expand_path("..", __dir__) #: String
 
-      # Each file, relative to lib/zr, that the entries of `arch` load as they
-      # load: the files whose edit can change the code that a pack holds.
+      # Each file, relative to lib/zr, that the entries of `arch` load: the
+      # files whose edit can change the code that a pack holds. A require
+      # inside a method (such as the store's, in `dir`) loads later, and is
+      # not one of them.
       #: (Symbol arch) -> Array[String]
       def self.files(arch)
-        seen = [] #: Array[String]
-        todo = ENTRIES.fetch(arch).map { |name| File.join(LIB, name) }
-        while (file = todo.shift)
-          next if seen.include?(file)
-
-          seen << file
-          File.foreach(file) do |line|
-            todo << File.expand_path("#{Regexp.last_match(1)}.rb", File.dirname(file)) if line =~ REQUIRE
-          end
-        end
-        seen.map { |file| file.delete_prefix("#{LIB}/") }.sort
+        require_relative "../digests"
+        Digests.required(ENTRIES.fetch(arch))
       end
 
       #: () -> String
