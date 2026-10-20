@@ -131,7 +131,9 @@ module Zr
           # its names its own (`ext_object`).
           target = program.runtime.target
           linked = Ext.bundles(target: target)
-          sources = program.bundles ? linked.values_at(*program.bundles).compact : linked.values
+          # A program with no list of bundles (a test's, from its functions
+          # alone) requires none.
+          sources = linked.values_at(*program.bundles.to_a).compact
           Ext::CApi.check!(sources)
           embeds = [] #: Array[Obj::MachO::Relink]
           if target.object_format == :elf

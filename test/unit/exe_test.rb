@@ -4,6 +4,7 @@ require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/obj/macho/executable"
+require_relative "../../lib/zr/obj/macho/relink"
 require_relative "../../lib/zr/obj/macho/stamps"
 require_relative "../native/fixtures"
 
@@ -240,6 +241,40 @@ class ExeTest < Minitest::Test
       segments = IO.popen(["otool", "-l", bin], &:read).scan(/^ +segname (\S+)/).flatten.uniq
       assert_equal %w[__PAGEZERO __TEXT __PROGRAM __DATA_CONST __DATA __DATA_PROGRAM __LINKEDIT], segments
       assert system("codesign", "-v", bin, out: File::NULL, err: File::NULL), "codesign refused the signature"
+    end
+  end
+
+  # A C extension built as mkmf builds one, for an embed.
+  def tiny_embed(dir)
+    c = File.join(dir, "tiny.c")
+    File.write(c, "int tiny_value = 7;\nint Init_tiny(void) { return tiny_value; }\n")
+    system("cc", "-bundle", "-undefined", "dynamic_lookup", c, "-o", File.join(dir, "tiny.bundle"), exception: true)
+    Zr::Obj::MachO::Relink.new(File.binread(File.join(dir, "tiny.bundle")), init: "Init_tiny")
+  end
+
+  # An embedded C extension goes after the program's data, and each
+  # segment ends below the shared region: macOS 14 and 15 load no image
+  # with a segment there.
+  def test_an_embed_ends_below_the_shared_region
+    Dir.mktmpdir("zr-exe-") do |dir|
+      bin = File.join(dir, "hooked")
+      assert_nil Zr::Obj::MachO::Executable.write(hooked_unit, bin, objects: [calling_object], embeds: [tiny_embed(dir)])
+      segments = Zr::Obj::MachO::Image.read(File.binread(bin)).segments
+      assert_includes segments.map(&:name), "__ZRX0"
+      segments.each do |s|
+        assert_operator s.vmaddr + s.vmsize, :<=, Zr::Obj::MachO::Executable::SHARED_REGION, "#{s.name} reaches the shared region"
+      end
+      assert_equal [0, "hooks\n"], ran(bin)
+    end
+  end
+
+  # Program data past the room below the embeds would push them into the
+  # shared region, so the link refuses it.
+  def test_program_data_past_the_room_below_the_embeds_is_refused
+    unit = hooked_unit.datum("big", :bss, Zr::Obj::MachO::Executable::EMBED_GAP + 1)
+    Dir.mktmpdir("zr-exe-") do |dir|
+      why = Zr::Obj::MachO::Executable.write(unit, File.join(dir, "big"), objects: [calling_object], embeds: [tiny_embed(dir)])
+      assert_match(/bytes of data, past the room below the embedded C extensions/, why)
     end
   end
 

@@ -120,8 +120,16 @@ module Zr
 
         # The bytes of the load commands that are the same in every image.
         OTHER_COMMANDS = [16, 16, 24, 80, 32, 24, 24, 24, 56, 16].sum
-        # Where embedded C extensions start, above the runtime's data.
-        EMBED_GAP = 1 << 30
+        # Where embedded C extensions start, above the runtime's data: the
+        # room for the program's own data. The runtime's data ends near
+        # 0x1_4000_0000 (Prelink::RESERVE), so the embeds stay below
+        # SHARED_REGION.
+        EMBED_GAP = 1 << 28
+        # dyld maps the shared cache at this address and above. macOS 14
+        # and 15 do not load an image with a segment there ("syscall to
+        # map cache into shared region failed"); later releases leave a
+        # gap below the cache and do.
+        SHARED_REGION = 0x1_8000_0000
         # A chained import's ordinal for a flat lookup
         # (BIND_SPECIAL_DYLIB_FLAT_LOOKUP, -2 in 8 bits).
         FLAT_LOOKUP = 0xFE
@@ -211,6 +219,7 @@ module Zr
           @entry_at = entry - BASE
           Timing.phase("link: filling", "link: filled") { fill }
           Timing.phase("link: writing linkedit", "link: linkedit") { linkedit }
+          below_shared_region!
           header
           signed = Timing.phase("link: signing", "link: signed") { signature }
           if @base.empty?
@@ -368,6 +377,18 @@ module Zr
           end
         end
 
+        # Refuses an image that reaches the shared region (SHARED_REGION).
+        #: () -> void
+        def below_shared_region!
+          ends = @segments.to_h { |s| [s.name, s.vm + s.vmsize] }
+          ends["__LINKEDIT"] = @link_vm + Bytes.align(@link_size, PAGE)
+          name, reach = ends.max_by { |_, at| at }
+          return if reach.to_i <= SHARED_REGION
+
+          raise Refused, format("%s ends at 0x%x, in the shared region at 0x%x, where macOS 14 and 15 load no image",
+                                name, reach, SHARED_REGION)
+        end
+
         # --- layout --------------------------------------------------------
 
         # Layout with a base: the base's segments at their link addresses,
@@ -387,6 +408,9 @@ module Zr
           data_filesize = Bytes.align(file_end - data_at, PAGE)
           data_vmsize = Bytes.align(place(:bss, file_end) - data_at, PAGE)
           raise Refused, "a program with no data" if data_vmsize.zero?
+          if data_vmsize > EMBED_GAP && !@embeds.empty?
+            raise Refused, "#{data_vmsize} bytes of data, past the room below the embedded C extensions (#{EMBED_GAP})"
+          end
 
           @top.addresses!
           @header = "\0".b * PAGE
