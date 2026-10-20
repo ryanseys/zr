@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
-# Stops a release unless a full CI run passed for the commit that it
-# publishes: a run of ci.yml for the nightly schedule or a run by hand
-# (a push or a pull request runs no full suite), whose `ci-ok` job
-# passed. The release workflow runs it before it builds anything, and
-# reads the run's id (`ci_run=` on GITHUB_OUTPUT) to fetch that run's gem.
+# Stops a release unless a CI run of main passed for the commit that it
+# publishes: a run of ci.yml for a push, the nightly schedule or a run by
+# hand (not a pull request's), whose `ci-ok` job passed. Each lane of a
+# push runs its target's units and programs; the nightly run adds every
+# program. The release workflow runs it before it builds anything, and
+# reads the run's id (`ci_run=` on GITHUB_OUTPUT) to fetch that run's gem
+# and runtime bundles, which the release publishes.
 #
 #   GITHUB_TOKEN=... ruby .github/scripts/ci_passed.rb OWNER/REPO SHA
 
@@ -13,13 +15,13 @@ require "net/http"
 
 # The choice of the run, apart from GitHub, so that a test can give it runs.
 module CIGate
-  FULL_EVENTS = %w[schedule workflow_dispatch].freeze
+  EVENTS = %w[push schedule workflow_dispatch].freeze
   JOB = "ci-ok"
 
-  # The newest run in `runs` (the API's workflow runs) of a full event
+  # The newest run in `runs` (the API's workflow runs) of one of EVENTS
   # that passed, or nil.
   def self.run(runs)
-    runs.select { |run| FULL_EVENTS.include?(run["event"]) && run["conclusion"] == "success" }
+    runs.select { |run| EVENTS.include?(run["event"]) && run["conclusion"] == "success" }
         .max_by { |run| run["created_at"].to_s }
   end
 
@@ -41,7 +43,7 @@ end
 
 runs = get.call("actions/workflows/ci.yml/runs?head_sha=#{sha}&status=completed&per_page=100").fetch("workflow_runs")
 runs.each { |run| puts format("%-8s %-18s run %s", run["conclusion"], run["event"], run["id"]) }
-run = CIGate.run(runs) or abort "ci_passed: no full CI run passed for #{sha}; run `gh workflow run ci.yml --ref <tag>`"
+run = CIGate.run(runs) or abort "ci_passed: no CI run passed for #{sha}; run `gh workflow run ci.yml --ref <tag>`"
 jobs = get.call("actions/runs/#{run["id"]}/jobs?filter=latest&per_page=100").fetch("jobs")
 abort "ci_passed: run #{run["id"]} has no #{CIGate::JOB} that passed" unless CIGate.ok?(jobs)
 

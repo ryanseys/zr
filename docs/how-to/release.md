@@ -2,7 +2,8 @@
 
 A release publishes the platform-independent gem, `zr-<version>.gem`,
 to rubygems.org and to gem.coop, and makes a GitHub Release with the
-gem and the version's changelog. A tag starts it: the release workflow
+gem, each target's prebuilt runtime (`zr cache fetch` downloads it) and
+the version's changelog. A tag starts it: the release workflow
 (`.github/workflows/release.yml`) does the rest. `rake release` does
 not release: it stops and points here, because a gem that no CI run
 checked must not go out.
@@ -64,9 +65,10 @@ Do these by hand before the first release:
 
 ## Check before a release
 
-- [ ] The last full `ci.yml` run on `main` (the nightly run or a run by
-  hand) passed `ci-ok`. A push runs no full suite. The release workflow
-  checks this again for the tagged commit
+- [ ] The last `ci.yml` run on `main` passed `ci-ok`, and it made the
+  commit's prerelease. The nightly run also runs every program; a push
+  runs each target's units and a slice of its programs. The release
+  workflow checks this again for the tagged commit
   (`.github/scripts/ci_passed.rb`).
 - [ ] `bin/minitest test/unit` passes locally.
 - [ ] `gem build zr.gemspec` makes a gem, and `gem spec zr-*.gem
@@ -86,9 +88,9 @@ Do these by hand before the first release:
    `bin/zr-dev changelog X.Y.Z` prints the notes.
 2. Read the diff. A plan for later versions goes in
    `docs/explanation/roadmap.md`, not in the notes.
-3. Commit, and push to `main`. Run the full suite on that commit
-   (`gh workflow run ci.yml --ref main`), and wait until the run passes
-   `ci-ok`.
+3. Commit, and push to `main`. Wait until the run passes `ci-ok` and
+   makes the commit's prerelease. To run every program on the commit
+   first, run CI by hand (`gh workflow run ci.yml --ref main`).
 4. Tag the commit, and push the tag:
 
    ```console
@@ -101,8 +103,8 @@ The workflow then:
 1. stops unless the tag is `v` and `Zr::VERSION`, and `CHANGELOG.md`
    has a dated section for the version, which becomes the release
    notes (`.github/scripts/release_notes.rb`);
-2. stops unless a full CI run of the tagged commit (the nightly run
-   or a run by hand) passed `ci-ok`
+2. stops unless a CI run of `main` for the tagged commit (a push, the
+   nightly run or a run by hand) passed `ci-ok`
    (`.github/scripts/ci_passed.rb`). The release runs no test tier
    itself;
 3. builds the gem, and stops unless its SHA-256 is the one of the gem
@@ -112,8 +114,15 @@ The workflow then:
 4. installs the gem in a clean `GEM_HOME` and runs it as a user would,
    with a fixed cache and again with the user cache
    (`.github/scripts/smoke.rb`);
-5. in the `release` environment: attests the gem's provenance, makes
-   the GitHub Release as a draft with the gem attached, pushes the gem
+5. takes each target's runtime bundle from that CI run, as
+   `zr-runtime-X.Y.Z-<triple>.zrr`, and, for a target that builds on its
+   runner, imports it into an empty cache, which must build a program
+   and an eval with no runtime build. CI keeps a bundle for 7 days;
+   after that, run CI on the tag again. An experimental target's
+   missing bundle leaves it out;
+6. in the `release` environment: attests the provenance of the gem and
+   of each bundle, makes the GitHub Release as a draft with the gem,
+   the bundles and their `SHA256SUMS`, pushes the gem
    to rubygems.org with trusted publishing (rubygems attests the push
    too; check the attestation on rubygems.org after the first release)
    and to `https://gem.coop/@ryanseys`, and then publishes the draft.

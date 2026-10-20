@@ -102,15 +102,17 @@ class LayoutTest < Minitest::Test
     assert(reports.all? { |step| step["continue-on-error"] })
   end
 
-  # The release takes the newest full run of a commit that passed ci-ok.
-  def test_the_release_takes_a_full_run_that_passed
+  # The release takes the newest run of main of a commit that passed
+  # ci-ok: a pull request's run does not count.
+  def test_the_release_takes_a_run_of_main_that_passed
     load File.join(ROOT, ".github/scripts/ci_passed.rb")
-    runs = [{ "id" => 1, "event" => "pull_request", "conclusion" => "success", "created_at" => "3" },
+    runs = [{ "id" => 1, "event" => "pull_request", "conclusion" => "success", "created_at" => "5" },
             { "id" => 2, "event" => "workflow_dispatch", "conclusion" => "success", "created_at" => "1" },
-            { "id" => 3, "event" => "schedule", "conclusion" => "failure", "created_at" => "2" },
-            { "id" => 4, "event" => "push", "conclusion" => "success", "created_at" => "4" }]
+            { "id" => 3, "event" => "schedule", "conclusion" => "failure", "created_at" => "4" },
+            { "id" => 4, "event" => "push", "conclusion" => "success", "created_at" => "2" }]
 
-    assert_equal 2, CIGate.run(runs)["id"]
+    assert_equal 4, CIGate.run(runs)["id"]
+    assert_equal 2, CIGate.run(runs.reject { |run| run["id"] == 4 })["id"]
     assert_nil CIGate.run(runs.first(1))
     assert CIGate.ok?([{ "name" => "ci-ok", "conclusion" => "success" }])
     refute CIGate.ok?([{ "name" => "ci-ok", "conclusion" => "failure" }, { "name" => "docs", "conclusion" => "success" }])

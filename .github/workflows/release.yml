@@ -50,6 +50,7 @@ jobs:
       version: ${{ steps.notes.outputs.version }}
       sha256: ${{ steps.gem.outputs.sha256 }}
       lanes: ${{ steps.lanes.outputs.lanes }}
+      ci_run: ${{ steps.ci.outputs.ci_run }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -78,11 +79,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: ruby .github/scripts/ci_passed.rb "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)"
 
-      # The targets of CI's lanes that build on their runner, not in a
-      # container (.github/scripts/lanes.rb).
+      # Each target of CI's lanes (.github/scripts/lanes.rb).
       - id: lanes
         name: The targets whose runtimes the release carries
-        run: echo "lanes=$(ruby .github/scripts/lanes.rb matrix | jq -c 'map(select(.container | not))')" >> "$GITHUB_OUTPUT"
+        run: echo "lanes=$(ruby .github/scripts/lanes.rb matrix | jq -c .)" >> "$GITHUB_OUTPUT"
 
       - id: gem
         name: Build the gem
@@ -114,23 +114,31 @@ jobs:
             zr-*.gem
             notes.md
 
-  # Each tested target's built runtime (`zr cache export`), from the gem
-  # that the check built, on a host that runs the target. `zr cache fetch`
-  # downloads them from the release, so a user's first build takes
-  # seconds, not minutes.
+  # Each target's runtime bundle from the CI run that passed: the bundle
+  # that its lane built, exported and tested, renamed to what `zr cache
+  # fetch` downloads, so a user's first build takes seconds, not minutes.
+  # CI keeps a bundle for 7 days; after that, run CI again on the tag. A
+  # bundle of a target that builds on its runner is imported into an
+  # empty cache, which must then build a program and an eval with no
+  # build of the runtime. A musl bundle's lane imported and tested it in
+  # its Alpine container. An experimental target's missing bundle leaves
+  # it out of the release.
   bundles:
     name: bundle (${{ matrix.lane.triple }})
     needs: check
     runs-on: ${{ matrix.lane.os }}
-    timeout-minutes: ${{ matrix.lane.timeout }}
+    timeout-minutes: 30
+    continue-on-error: ${{ matrix.lane.experimental }}
+    permissions:
+      contents: read
+      actions: read # the CI run's runtime bundle
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         lane: ${{ fromJSON(needs.check.outputs.lanes) }}
     env:
       VERSION: ${{ needs.check.outputs.version }}
       TRIPLE: ${{ matrix.lane.triple }}
-      ZR_JOBS: ${{ matrix.lane.jobs }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -143,16 +151,18 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release
-      # The export builds the runtime and eval support first.
-      - name: Build the runtime from the gem, and export it
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: runtime-${{ matrix.lane.triple }}
+          path: ci
+          run-id: ${{ needs.check.outputs.ci_run }}
+          github-token: ${{ github.token }}
+      - name: Take the bundle that CI built and tested
+        run: mv "ci/runtime-$TRIPLE.zrr" "zr-runtime-$VERSION-$TRIPLE.zrr"
+      - name: Import the bundle into an empty cache, and build from it alone
+        if: ${{ !matrix.lane.container }}
         run: |
           gem install --local --no-document --install-dir "$RUNNER_TEMP/gems" "zr-$VERSION.gem"
-          ZR_CACHE="$RUNNER_TEMP/cache" ruby "$RUNNER_TEMP/gems/gems/zr-$VERSION/exe/zr" cache export --target "$TRIPLE" \
-            -o "zr-runtime-$VERSION-$TRIPLE.zrr"
-      # A cache that has only the bundle builds a program and an eval with
-      # no build of the runtime: the bundle holds all that a build reads.
-      - name: Import the bundle into an empty cache, and build from it alone
-        run: |
           zr="$RUNNER_TEMP/gems/gems/zr-$VERSION/exe/zr"
           export ZR_CACHE="$RUNNER_TEMP/fresh"
           ruby "$zr" cache import "zr-runtime-$VERSION-$TRIPLE.zrr"
