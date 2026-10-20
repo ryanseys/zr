@@ -143,6 +143,17 @@ jobs:
           gem install --local --no-document --install-dir "$RUNNER_TEMP/gems" "zr-$VERSION.gem"
           ZR_CACHE="$RUNNER_TEMP/cache" ruby "$RUNNER_TEMP/gems/gems/zr-$VERSION/exe/zr" cache export --target "$TRIPLE" \
             -o "zr-runtime-$VERSION-$TRIPLE.zrr"
+      # A cache that has only the bundle builds a program and an eval with
+      # no build of the runtime: the bundle holds all that a build reads.
+      - name: Import the bundle into an empty cache, and build from it alone
+        run: |
+          zr="$RUNNER_TEMP/gems/gems/zr-$VERSION/exe/zr"
+          export ZR_CACHE="$RUNNER_TEMP/fresh"
+          ruby "$zr" cache import "zr-runtime-$VERSION-$TRIPLE.zrr"
+          cd "$RUNNER_TEMP"
+          echo 'puts eval("1 + 1")' > check.rb
+          ruby "$zr" build --target "$TRIPLE" check.rb -o check 2> build.log || { cat build.log; exit 1; }
+          if grep -q "zr: building" build.log; then cat build.log; echo "the bundle did not hold the whole runtime"; exit 1; fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: bundle-${{ matrix.triple }}

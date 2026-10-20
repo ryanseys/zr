@@ -23,8 +23,9 @@ module Zr
   # SHA-256, and the text of each root), then each file's bytes in the
   # manifest's order. It holds the entries that the link and built roots
   # of the target name (`ROOTS`): what a build reads when nothing has
-  # changed. The lowerings, which only speed up a build after a change,
-  # stay out.
+  # changed. The lowerings and the packs of machine code (`LEFT_OUT`),
+  # which only speed up a build after a change, stay out: half of a
+  # runtime's bytes.
   #
   # An import trusts the bundle as zr trusts its cache (SECURITY.md): the
   # cache holds Marshal data and code that zr runs. So it takes only a
@@ -41,6 +42,13 @@ module Zr
     # A file of the store: `<kind>/<2>/<key>`, or a file in a directory
     # entry (`code/9f/9fe0…/eval.pack`).
     ENTRY = %r{\A[a-z]+/[0-9a-f]{2}/[0-9A-Za-z][\w.-]*(?:/[0-9A-Za-z][\w.-]*)?\z}
+
+    # A line of a root: an entry of the store, a file or a directory.
+    ROOT_LINE = %r{\A[a-z]+/[0-9a-f]{2}/[0-9A-Za-z][\w.-]*\z}
+
+    # The kinds of entry that a root names and a bundle leaves out: a
+    # build from the runtime's object and images reads none of them.
+    LEFT_OUT = %w[code].freeze
 
     # A bundle that zr cannot take.
     class Invalid < StandardError
@@ -143,7 +151,8 @@ module Zr
       roots = roots_of(target).select { |name, _| File.mtime(File.join(Cache::Store.dir, "roots", name)) >= started - 1 }
       raise Invalid, "the cache has no built runtime for #{target.triple}: build a program for it first" if roots.empty?
 
-      files = roots.values.flat_map { |text| text.lines(chomp: true) }.uniq.sort.flat_map { |rel| files_of(rel) }
+      entries = roots.values.flat_map { |text| text.lines(chomp: true) }.uniq.sort
+      files = entries.reject { |rel| LEFT_OUT.include?(rel.split("/").first) }.flat_map { |rel| files_of(rel) }
       raise Invalid, "the roots of #{target.triple} name no entry in the cache; build a program for it again" if files.empty?
 
       manifest = { "format" => FORMAT, "zr" => VERSION, "target" => target.triple, "roots" => roots,
@@ -169,7 +178,9 @@ module Zr
       end
 
       store = Cache::Store.dir
-      staging = File.join(store, ".import-#{Process.pid}-#{rand(1 << 32).to_s(16)}")
+      # Beside the store, not in it, where no listing of the store's kinds
+      # meets it; on the same file system, so each file renames into place.
+      staging = File.join(Paths.cache, ".import-#{Process.pid}-#{rand(1 << 32).to_s(16)}")
       Zlib::GzipReader.open(file) do |gz|
         manifest = header(gz)
         Paths.mkdir_p(staging, 0o700)
@@ -178,7 +189,7 @@ module Zr
         manifest.fetch("roots").each { |name, text| Paths.write_atomic(File.join(store, "roots", name), text) }
         manifest
       end
-    rescue Zlib::Error, JSON::ParserError, KeyError, TypeError, NoMethodError => e
+    rescue Zlib::Error, JSON::ParserError, KeyError, TypeError, ArgumentError => e
       raise Invalid, "#{file} is not a runtime bundle: #{e.message}"
     ensure
       FileUtils.rm_rf(staging) if staging
@@ -245,14 +256,24 @@ module Zr
       raise Invalid, "not a runtime bundle (no #{FORMAT} line)" unless gz.gets == "#{FORMAT}\n"
 
       manifest = JSON.parse(gz.gets.to_s)
+      raise Invalid, "the manifest is no object" unless manifest.is_a?(Hash)
       raise Invalid, "the bundle is of zr #{manifest["zr"]}; this is zr #{VERSION}" unless manifest["zr"] == VERSION
 
-      manifest.fetch("files").each do |row|
+      files = manifest.fetch("files")
+      raise Invalid, "the manifest's files are no list of objects" unless files.is_a?(Array) && files.all?(Hash)
+
+      files.each do |row|
         path = row.fetch("path")
         raise Invalid, "the bundle names #{path.inspect}, which is no entry of the store" unless path.is_a?(String) && path.match?(ENTRY)
       end
-      manifest.fetch("roots").each_key do |name|
+      roots = manifest.fetch("roots")
+      raise Invalid, "the manifest's roots are no object of texts" unless roots.is_a?(Hash) && roots.values.all?(String)
+
+      roots.each do |name, text|
         raise Invalid, "the bundle has a root #{name.inspect} of no target" unless root?(name)
+        # A later export reads the entries that a root names.
+        bad = text.lines(chomp: true).find { |line| !line.match?(ROOT_LINE) }
+        raise Invalid, "the root #{name} names #{bad.inspect}, which is no entry of the store" if bad
       end
       manifest
     end

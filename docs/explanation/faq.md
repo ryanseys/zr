@@ -75,6 +75,17 @@ Linux binary is static and cannot open OpenSSL, so its
 `require "openssl"` raises `LoadError`.
 A WASI module needs an engine such as [wasmtime](https://wasmtime.dev).
 
+## Why do some paths in a backtrace start with /zr?
+
+A binary names the files of ruby's library and of zr's runtime below
+`/zr` (for example `/zr/vendor/ruby/lib/ruby/4.1.0+5/set.rb`), not
+below the directory where you installed zr. Then the runtime that one
+install builds is the same for every install, and `zr cache fetch` can
+download it. `/zr` is no real directory. A program finds those files
+in the binary, and a file that it loads from disk comes from the zr
+that built it, or from the zr that runs it (`ZR_HOME`). Your own
+program's files keep their real paths.
+
 ## Can I distribute the binaries that zr builds?
 
 Yes. zr is MIT-licensed, and a binary contains parts under other

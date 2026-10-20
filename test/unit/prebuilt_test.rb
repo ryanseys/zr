@@ -61,12 +61,12 @@ class PrebuiltTest < Minitest::Test
     Prebuilt.import(@bundle)
 
     assert_equal "object bytes", File.binread(built[:object].sub(@from, to))
-    assert_equal "pack bytes", File.binread(File.join(built[:code].sub(@from, to), "runtime.pack"))
+    refute_path_exists built[:code].sub(@from, to), "a bundle leaves out the packs of machine code"
     assert_path_exists built[:mark].sub(@from, to)
     refute_path_exists built[:lowering].sub(@from, to), "a bundle leaves out the lowerings"
     assert_equal File.read(File.join(@from, "store/roots/#{TARGET.triple}-link-plain")),
                  File.read(File.join(to, "store/roots/#{TARGET.triple}-link-plain"))
-    assert_empty Dir.glob(File.join(to, "store/.import-*")), "the import leaves no staging directory"
+    assert_empty Dir.glob(File.join(to, ".import-*")), "the import leaves no staging directory"
   end
 
   def test_two_exports_of_one_cache_are_the_same_bytes
@@ -127,6 +127,27 @@ class PrebuiltTest < Minitest::Test
       assert_match "no entry of the store", error.message
       assert_empty store_files(to), bad
     end
+  end
+
+  # A later export reads what a root names, so a root must name entries.
+  def test_an_import_refuses_a_root_that_names_a_path_outside_the_store
+    built_runtime
+    Prebuilt.export(TARGET, @bundle)
+    rewrite { |manifest, files| (manifest["roots"]["#{TARGET.triple}-link-plain"] = "../../../etc/passwd\n") && files }
+    to = cache
+
+    error = assert_raises(Prebuilt::Invalid) { Prebuilt.import(@bundle) }
+    assert_match "no entry of the store", error.message
+    refute_path_exists File.join(to, "store/roots/#{TARGET.triple}-link-plain")
+  end
+
+  def test_an_import_refuses_a_manifest_of_another_shape
+    built_runtime
+    Prebuilt.export(TARGET, @bundle)
+    rewrite { |manifest, files| (manifest["roots"] = ["x"]) && files }
+    cache
+
+    assert_raises(Prebuilt::Invalid) { Prebuilt.import(@bundle) }
   end
 
   def test_an_import_refuses_a_bundle_of_another_zr

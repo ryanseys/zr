@@ -465,6 +465,31 @@ jobs:
           done
           test "$(cat gem-macos.sha256)" = "$LINUX_GEM"
 
+  # A runtime has no path of its install, so the bundle that a release
+  # builds (`zr cache export`) serves every install: two installs of the
+  # gem at two paths build the same files. Two runtime builds, so a full
+  # run only.
+  portable:
+    name: a runtime does not depend on the install's path
+    needs: [changes, gem]
+    if: needs.changes.outputs.full == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            .ruby-version
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
+        with:
+          ruby-version: .ruby-version
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: gem
+      - run: ruby .github/scripts/portable.rb zr-*.gem
+
   # ---- the test tiers --------------------------------------------------
 
   # A pull request: the unit tier. A full run covers it.
@@ -597,7 +622,7 @@ jobs:
   # An experimental row's failure does not count (continue-on-error).
   ci-ok:
     if: always()
-    needs: [changes, docs, gem, target, wasm, musl, smoke, smoke-ruby-floor, smoke-alpine, same-bytes, unit, full, stage1]
+    needs: [changes, docs, gem, target, wasm, musl, smoke, smoke-ruby-floor, smoke-alpine, same-bytes, portable, unit, full, stage1]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -610,7 +635,7 @@ jobs:
           required="changes docs"
           [ "$CODE" = true ] && required="$required gem target wasm musl smoke smoke-ruby-floor smoke-alpine same-bytes"
           [ "$CODE" = true ] && [ "$FULL" != true ] && required="$required unit"
-          [ "$FULL" = true ] && required="$required full stage1"
+          [ "$FULL" = true ] && required="$required full stage1 portable"
           for job in $required; do
             result="$(echo "$NEEDS" | jq -r --arg job "$job" '.[$job].result')"
             [ "$result" = success ] || { echo "::error::$job: $result"; exit 1; }
