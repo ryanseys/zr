@@ -1,8 +1,8 @@
 name: Release
 
 # A tag vX.Y.Z publishes zr X.Y.Z. A run by hand checks a tag and
-# publishes nothing, unless `publish` is set; `only: gem-coop` pushes
-# an already published version to gem.coop again.
+# publishes nothing, unless `publish` is set; `only` runs one publish
+# step again after a failure (docs/how-to/release.md).
 on:
   push:
     tags: ["v*"]
@@ -12,36 +12,42 @@ on:
         description: "The tag to release, vX.Y.Z"
         required: true
       publish:
-        description: "Publish (off: run every check, and publish nothing)"
+        description: "Publish (off: run every check, and publish nothing). Run it from the tag."
         type: boolean
         default: false
       only:
         description: "Which publish steps run"
         type: choice
-        options: [all, gem-coop]
+        options: [all, github-release, rubygems, gem-coop]
         default: all
 
 permissions:
   contents: read
+
+# Two releases of one tag never run at once.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 # The wasmtime of the release checks (test/support/harness/wasmtime.rb, VERSION).
 env:
   WASMTIME_VERSION: 49.0.2
 
 jobs:
-  release:
-    runs-on: macos-15
-    environment: release
-    timeout-minutes: 90
+  # Every check, with no environment, so a dry run works from any ref.
+  # It builds the gem on the OS of CI's gem job, and the bytes must be
+  # the ones that CI built and checked for the commit.
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     permissions:
-      contents: write # the GitHub Release
-      id-token: write # trusted publishing to rubygems.org, and the attestation
-      attestations: write
-      checks: read # the CI result of the tagged commit
+      contents: read
+      actions: read # the CI run of the tagged commit, and its gem
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
-      PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
-      ONLY: ${{ inputs.only || 'all' }}
+    outputs:
+      version: ${{ steps.notes.outputs.version }}
+      sha256: ${{ steps.gem.outputs.sha256 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -50,65 +56,125 @@ jobs:
       - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
         with:
           ruby-version: .ruby-version
-          bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
         with:
           version: ${{ env.WASMTIME_VERSION }}
 
       # The tag names the version in lib/zr/version.rb, and CHANGELOG.md
       # has a dated section for it, which becomes the release notes.
-      - name: Check the tag, the version and the changelog
-        run: ruby .github/scripts/release_notes.rb "$TAG"
+      - id: notes
+        name: Check the tag, the version and the changelog
+        run: |
+          ruby .github/scripts/release_notes.rb "$TAG"
+          ruby -r ./lib/zr/version -e 'puts "version=#{Zr::VERSION}"' >> "$GITHUB_OUTPUT"
 
-      # Publish only a commit whose every CI job passed.
-      - name: Check that CI passed for this commit
+      # The release runs no test tier: it requires a full CI run of this
+      # commit whose ci-ok passed.
+      - id: ci
+        name: Check that a full CI run passed for this commit
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ruby .github/scripts/ci_passed.rb "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)"
 
-      # The release's own check is the gem as a user installs and runs it.
-      # It runs no test tier: ci_passed.rb above requires that CI ran every
-      # tier on this commit.
-      # rubygems stamps a gem's files with SOURCE_DATE_EPOCH, so the same
-      # commit builds the same .gem as CI did.
-      - name: Build the gem
-        run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec --output "zr-$VERSION.gem"
+      - id: gem
+        name: Build the gem
+        run: |
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec --output "zr-$VERSION.gem"
+          echo "sha256=$(sha256sum "zr-$VERSION.gem" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      # CI keeps its gem for 90 days. After that, run CI again on the tag:
+      # gh workflow run ci.yml --ref vX.Y.Z
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: gem
+          path: ci
+          run-id: ${{ steps.ci.outputs.ci_run }}
+          github-token: ${{ github.token }}
+      - name: The gem is the one that CI built and checked
+        run: |
+          sha256sum "zr-$VERSION.gem" ci/zr-*.gem
+          test "$(sha256sum < "zr-$VERSION.gem")" = "$(sha256sum < ci/zr-"$VERSION".gem)"
+
       - name: Install the gem and run it as a user would
         run: ruby .github/scripts/smoke.rb "zr-$VERSION.gem"
-      # Again as a user with no ZR_CACHE gets it: the user cache under
-      # HOME. The stock-ruby jobs of CI, which ci_passed.rb requires, ran
-      # the same on a ruby with no bundle, on macOS and on Linux.
       - name: Run the gem with the user cache
         run: ruby .github/scripts/smoke.rb --user-cache "zr-$VERSION.gem"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release
+          path: |
+            zr-*.gem
+            notes.md
+
+  # The publish steps, in the release environment, which only v* tags may
+  # use. A draft GitHub Release comes first and is published last, so a
+  # failure in between leaves a draft and the `only` choice to finish.
+  publish:
+    needs: check
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 30
+    permissions:
+      contents: write # the GitHub Release
+      id-token: write # trusted publishing to rubygems.org, and the attestation
+      attestations: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      VERSION: ${{ needs.check.outputs.version }}
+      ONLY: ${{ inputs.only || 'all' }}
+    steps:
+      - name: Run from the tag
+        run: test "$GITHUB_REF_TYPE" = tag && test "$GITHUB_REF_NAME" = "$TAG"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+      - name: The gem is the one that the check built
+        env:
+          SHA256: ${{ needs.check.outputs.sha256 }}
+        run: test "$(sha256sum "zr-$VERSION.gem" | cut -d' ' -f1)" = "$SHA256"
 
       # The attestation names this repository, this workflow and this
       # commit, for the exact file that the next steps publish.
       - name: Attest the gem's provenance
-        if: env.PUBLISH == 'true' && env.ONLY == 'all'
+        if: env.ONLY == 'all'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: zr-${{ env.VERSION }}.gem
-      # Trusted publishing: no API key. rubygems 4 attests the push with
-      # sigstore on its own under GitHub Actions.
+
+      - name: Create the GitHub Release as a draft
+        if: env.ONLY == 'all' || env.ONLY == 'github-release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 ||
+            gh release create "$TAG" "zr-$VERSION.gem" -R "$GITHUB_REPOSITORY" --draft --title "zr $VERSION" --notes-file notes.md --verify-tag
+
+      # Trusted publishing: no API key. rubygems attests the push with
+      # sigstore on its own under GitHub Actions; check the attestation on
+      # rubygems.org after the first release (docs/how-to/release.md).
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
+        if: env.ONLY == 'all' || env.ONLY == 'rubygems' || env.ONLY == 'gem-coop'
+        with:
+          ruby-version: "4.0"
       - name: Configure trusted publishing to rubygems.org
-        if: env.PUBLISH == 'true' && env.ONLY == 'all'
+        if: env.ONLY == 'all' || env.ONLY == 'rubygems'
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
       - name: Push to rubygems.org
-        if: env.PUBLISH == 'true' && env.ONLY == 'all'
+        if: env.ONLY == 'all' || env.ONLY == 'rubygems'
         run: gem push "zr-$VERSION.gem"
 
       # gem.coop's own index mirrors rubygems.org; a direct push goes to a
       # namespace. The key is a push-only key for it, in the release
-      # environment. If this step fails, run the workflow by hand with
-      # `only: gem-coop` and `publish` set.
+      # environment.
       - name: Push to gem.coop (@ryanseys)
-        if: env.PUBLISH == 'true'
+        if: env.ONLY == 'all' || env.ONLY == 'gem-coop'
         env:
           GEM_HOST_API_KEY: ${{ secrets.GEM_COOP_API_KEY }}
         run: gem push --host https://gem.coop/@ryanseys "zr-$VERSION.gem"
 
-      - name: Create the GitHub Release
-        if: env.PUBLISH == 'true' && env.ONLY == 'all'
+      - name: Publish the GitHub Release
+        if: env.ONLY == 'all' || env.ONLY == 'github-release'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$TAG" "zr-$VERSION.gem" --title "zr $VERSION" --notes-file notes.md --verify-tag
+        run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false

@@ -20,6 +20,7 @@ module Zr
       "expect" => ["Write the expected output of program tests and benchmarks from the pinned ruby",
                    -> { require_relative "expect"; Commands::Expect }],
       "test" => ["Run zr's tests: all, or the test files, lines and programs given", -> { require_relative "test"; Commands::Test }],
+      "bump" => ["Set the version: version.rb, Gemfile.lock, the README's links and CHANGELOG.md", -> { require_relative "bump"; Commands::Bump }],
       "changelog" => ["Print the CHANGELOG.md section of a version: its release notes",
                       -> { require_relative "changelog"; Commands::Changelog }],
       "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Commands::Bench }],

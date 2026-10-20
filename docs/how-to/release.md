@@ -27,12 +27,19 @@ Do these by hand before the first release:
 4. In the repository settings, make the environment `release`, and add
    the gem.coop key to it as the secret `GEM_COOP_API_KEY`. Limit the
    environment to tags `v*`.
+5. Add a ruleset for the tags `v*`: no deletion, no update and no force
+   push, and only admins create one. Add a ruleset for `main`: no
+   deletion and no force push, and the status check `ci-ok` is
+   required (an admin can bypass it to push directly).
+6. Turn on private vulnerability reporting (Security), which
+   `SECURITY.md` names, and Dependabot alerts, secret scanning and push
+   protection.
 
 ## Check before a release
 
-- [ ] The last `ci.yml` run on `main` passed every job, also the
-  stock-ruby jobs (`stock ruby, user cache`). The release workflow
-  checks this again for the tagged commit (`.github/scripts/ci_passed.rb`).
+- [ ] The last full `ci.yml` run on `main` (a push or the nightly run)
+  passed `ci-ok`. The release workflow checks this again for the tagged
+  commit (`.github/scripts/ci_passed.rb`).
 - [ ] `bin/minitest test/unit` passes locally.
 - [ ] `gem build zr.gemspec` makes a gem, and `gem spec zr-*.gem
   dependencies` lists none.
@@ -42,24 +49,17 @@ Do these by hand before the first release:
 
 ## Release a version
 
-1. Change `VERSION` in `lib/zr/version.rb`. Run `bundle install`, and
-   commit `Gemfile.lock` with it: the lock records zr's own version.
-   For the first release, `VERSION` is already 0.1.0.
-2. In `CHANGELOG.md`, change `## [Unreleased]` to
-   `## [X.Y.Z] - YYYY-MM-DD`, and add a new empty `## [Unreleased]`
-   section above it: the version's section becomes the release notes,
-   and a plan for later versions goes in
-   `docs/explanation/roadmap.md`. At the end of the file, make the link
-   references:
-
-   ```
-   [Unreleased]: https://github.com/ryanseys/zr/compare/vX.Y.Z...HEAD
-   [X.Y.Z]: https://github.com/ryanseys/zr/releases/tag/vX.Y.Z
-   ```
-
-   `bin/zr-dev changelog X.Y.Z` prints the notes; it fails when the
-   section is missing, has no date, or is empty.
-3. Commit, and push to `main`. Wait until every CI job passes.
+1. Run `bin/zr-dev bump X.Y.Z` (`--dry-run` first to see the files).
+   It sets `VERSION` in `lib/zr/version.rb` and `zr (X.Y.Z)` in
+   `Gemfile.lock`, points the README's links at the `vX.Y.Z` tag, dates
+   the `[Unreleased]` section of `CHANGELOG.md` as X.Y.Z with a new
+   empty one above it, and writes the link references. For the first
+   release, `VERSION` is already 0.1.0, and only the changelog changes.
+   `bin/zr-dev changelog X.Y.Z` prints the notes.
+2. Read the diff. A plan for later versions goes in
+   `docs/explanation/roadmap.md`, not in the notes.
+3. Commit, and push to `main`. Wait until the full CI run of that push
+   passes `ci-ok`.
 4. Tag the commit, and push the tag:
 
    ```console
@@ -72,23 +72,34 @@ The workflow then:
 1. stops unless the tag is `v` and `Zr::VERSION`, and `CHANGELOG.md`
    has a dated section for the version, which becomes the release
    notes (`.github/scripts/release_notes.rb`);
-2. stops unless every job of `ci.yml` passed for the tagged commit
-   (`.github/scripts/ci_passed.rb`);
-3. runs the unit tier, builds the gem, installs it in a clean
-   `GEM_HOME` and runs it as a user would, with a fixed cache and
-   again with the user cache (`.github/scripts/smoke.rb`);
-4. attests the gem's provenance, pushes it to rubygems.org with trusted
-   publishing (rubygems attests the push too), and to
-   `https://gem.coop/@ryanseys`;
-5. makes the GitHub Release, with the gem attached.
+2. stops unless a full CI run of the tagged commit (a push, the
+   nightly run or a run by hand) passed `ci-ok`
+   (`.github/scripts/ci_passed.rb`). The release runs no test tier
+   itself;
+3. builds the gem, and stops unless its SHA-256 is the one of the gem
+   that that CI run built and checked. CI keeps its gem for 90 days;
+   after that, run CI on the tag again
+   (`gh workflow run ci.yml --ref vX.Y.Z`);
+4. installs the gem in a clean `GEM_HOME` and runs it as a user would,
+   with a fixed cache and again with the user cache
+   (`.github/scripts/smoke.rb`);
+5. in the `release` environment: attests the gem's provenance, makes
+   the GitHub Release as a draft with the gem attached, pushes the gem
+   to rubygems.org with trusted publishing (rubygems attests the push
+   too; check the attestation on rubygems.org after the first release)
+   and to `https://gem.coop/@ryanseys`, and then publishes the draft.
 
 ## Check a release without publishing
 
 Run the workflow by hand (Actions, then Release, then "Run workflow")
 with the tag, and `publish` off. It runs every check and publishes
-nothing. With `publish` on and `only: gem-coop`, it pushes an already
-published version to gem.coop again, for example after a gem.coop
-failure.
+nothing, from any ref. To publish by hand, choose the tag in "Use
+workflow from": the `release` environment takes only a `v*` tag.
+
+When a publish step fails, the draft GitHub Release stays. Run the
+workflow from the tag with `publish` on and `only` set to the step that
+failed: `rubygems`, `gem-coop`, or `github-release` (which makes the
+draft if there is none, and publishes it).
 
 ## Release by hand
 
