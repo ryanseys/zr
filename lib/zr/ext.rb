@@ -133,9 +133,10 @@ module Zr
       args = config.ext_config[name]
       sources = args || !target.native? ? built(spec, args || [], target) : Source.installed(dir, spec.extension_dir)
       sources = Source.archdir(spec.files, spec.extensions) if sources.empty? && !args && target.native? && spec.default_gem?
-      # A static binary loads no library, so only objects link into one
-      # (`Native::Build.ext_object`).
-      sources = sources.select { |source| source.mode == :static } if target.link == :static
+      # An ELF binary, static or dynamic, links only objects
+      # (`Native::Build.ext_object`); zr's linker relinks a compiled
+      # library into a Mach-O binary alone.
+      sources = sources.select { |source| source.mode == :static } if target.object_format == :elf
       sources = built(spec, [], target) if sources.empty?
       return sources unless sources.empty?
 
