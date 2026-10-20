@@ -52,7 +52,7 @@ module Zr
           File.binwrite(obj, Obj::Elf::ObjectFile.write(image, arch: target.arch, versions: versions(target)))
           list = File.join(work, "exports.list")
           File.write(list, exports)
-          flags = FLAGS + ["-Wl,--dynamic-list=#{list}"] + (strip ? STRIP_FLAGS : []) + link + LIBRARIES
+          flags = FLAGS + Toolchain.elf_linker_flags + ["-Wl,--dynamic-list=#{list}"] + (strip ? STRIP_FLAGS : []) + link + LIBRARIES
           Link.run(objects + [obj], out, flags: flags, target: target)
         end
 

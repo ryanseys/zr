@@ -29,6 +29,18 @@ module Zr
       #: (Target target, String name) -> String
       def command(target, name) = target.tool(name) || name
 
+      # `-fuse-ld=mold` when mold is on PATH, else nothing. An ELF link
+      # reads the whole runtime object, tens of thousands of sections
+      # (one for each function and datum), and GNU ld took most of a
+      # program test's time on Linux; mold reads them in parallel.
+      #: () -> Array[String]
+      def elf_linker_flags
+        Session.current.memo(:elf_linker_flags) do
+          found = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).any? { |dir| File.executable?(File.join(dir, "mold")) }
+          found ? ["-fuse-ld=mold"] : []
+        end
+      end
+
       # Runs `argv` under `env`. Returns `[output, success]`; the output
       # contains stdout and stderr together.
       #: (Array[String] argv) -> [String, bool]

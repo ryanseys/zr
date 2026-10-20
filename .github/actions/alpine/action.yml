@@ -22,7 +22,7 @@ runs:
         RUBY_PIN: ${{ inputs.ruby }}
       run: |
         docker run -d --name alpine -e BUNDLE_WITHOUT=development -v "$PWD:$PWD" -w "$PWD" "ruby:$RUBY_PIN-alpine" sleep infinity
-        docker exec alpine apk add --no-cache build-base git binutils
+        docker exec alpine apk add --no-cache build-base git binutils mold
         docker exec alpine git config --global --add safe.directory "$PWD"
         docker exec alpine bundle install
         if [ -d tmp ]; then docker exec alpine chown -R 0:0 tmp; fi

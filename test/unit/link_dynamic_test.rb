@@ -26,4 +26,21 @@ class LinkDynamicTest < Minitest::Test
     refute_includes Dynamic::FLAGS, "-static"
     assert_equal ["-lm", "-lcrypt"], Dynamic::LIBRARIES
   end
+
+  # mold when it is on PATH (CI installs it), else the cc's own ld.
+  def test_an_elf_link_takes_mold_when_path_has_it
+    Dir.mktmpdir("zr-mold-") do |dir|
+      mold = File.join(dir, "mold")
+      File.write(mold, "#!/bin/sh\n")
+      File.chmod(0o755, mold)
+      [[dir, ["-fuse-ld=mold"]], [File.join(dir, "none"), []]].each do |path, flags|
+        with_env("PATH" => path) do
+          Zr::Session.current.forget(:elf_linker_flags)
+          assert_equal flags, Zr::Native::Toolchain.elf_linker_flags, path
+        end
+      end
+    ensure
+      Zr::Session.current.forget(:elf_linker_flags)
+    end
+  end
 end

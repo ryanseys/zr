@@ -38,7 +38,7 @@ module Zr
 
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::Elf::ObjectFile.write(image, arch: target.arch))
-          Link.run(objects + [obj], out, flags: FLAGS + (strip ? STRIP_FLAGS : []) + link, target: target)
+          Link.run(objects + [obj], out, flags: FLAGS + Toolchain.elf_linker_flags + (strip ? STRIP_FLAGS : []) + link, target: target)
         end
 
         # The byte ranges of a linked binary that do not depend on the

@@ -32,6 +32,13 @@ runs:
       uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
       with:
         version: ${{ env.WASMTIME_VERSION }}
+    # mold links an ELF binary (Toolchain.elf_linker_flags): GNU ld took
+    # most of a program test's time, as each link reads the whole runtime
+    # object.
+    - if: runner.os == 'Linux'
+      name: Install mold
+      shell: bash
+      run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends mold
     - if: inputs.runtimes != ''
       name: Import this run's runtimes
       shell: bash
