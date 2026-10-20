@@ -191,6 +191,24 @@ class PrebuiltTest < Minitest::Test
     assert_equal "object bytes", File.binread(built[:object].sub(@from, to))
   end
 
+  # A platform gem leaves out the roots that Prebuilt::GEM_LEFT_OUT names,
+  # and each file that only they name; what is left still imports.
+  def test_an_unpack_leaves_out_a_root_and_the_files_that_only_it_names
+    built = built_runtime
+    walk = Store.path(:object, Store.key("walk"))
+    Paths.write_atomic(walk, "walk bytes")
+    Store.root("#{TARGET.triple}-link-eval-walk", [walk, built[:object]])
+    Prebuilt.export(TARGET, @bundle)
+    tree = Dir.mktmpdir("zr-unpacked-").tap { |dir| @dirs << dir }
+    manifest = Prebuilt.unpack(@bundle, tree, without: Prebuilt::GEM_LEFT_OUT)
+
+    assert_equal %W[#{TARGET.triple}-built-plain #{TARGET.triple}-link-plain], manifest.fetch("roots").keys
+    refute_includes store_files(tree), walk.delete_prefix("#{Store.dir}/")
+    assert_includes store_files(tree), built[:object].delete_prefix("#{Store.dir}/")
+    cache
+    assert_equal manifest.fetch("files").size, Prebuilt.import(tree).fetch("files").size
+  end
+
   # A platform gem carries its host's bundle unpacked (zr.gemspec); the
   # first runtime of a cache takes it in, and later ones read the mark.
   def test_a_carried_bundle_imports_once_for_each_cache

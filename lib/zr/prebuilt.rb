@@ -244,6 +244,49 @@ module Zr
       FileUtils.rm_rf(staging) if staging
     end
 
+    # The roots that a platform gem leaves out of its runtime: eval
+    # support for ZR_EVAL=walk, which a build of the gem's host makes only
+    # on request, and which was 21 MB of a darwin gem's 64.
+    GEM_LEFT_OUT = /-eval-walk\z/
+
+    # Unpacks the bundle `file` into `dir` as `tar -xzf` does, without the
+    # roots whose names match `without` and each file that no other root
+    # names; the manifest lists what is left. A platform gem carries the
+    # result (zr.gemspec, ZR_GEM_RUNTIME). Returns the manifest.
+    #: (String file, String dir, ?without: Regexp?) -> Hash[String, untyped]
+    def unpack(file, dir, without: nil)
+      Paths.mkdir_p(File.join(dir, STORE))
+      manifest = {} #: Hash[String, untyped]
+      kept = nil #: Hash[String, bool]?
+      Zlib::GzipReader.open(file) do |gz|
+        Tar.each(gz) do |name, size|
+          if name == MANIFEST
+            manifest = header(gz.read(size).to_s)
+            manifest["roots"] = manifest.fetch("roots").reject { |root, _| without&.match?(root) }
+            named = manifest["roots"].values.flat_map { |text| text.lines(chomp: true) }
+            kept = manifest.fetch("files").to_h { |row| [row.fetch("path"), named?(row.fetch("path"), named)] }
+            manifest["files"] = manifest["files"].select { |row| kept.fetch(row["path"]) }
+            next
+          end
+          rel = name.delete_prefix(STORE)
+          raise Invalid, "the bundle holds #{name} before its manifest" if kept.nil?
+          raise Invalid, "the bundle names #{name.inspect}, which is no entry of the store" unless rel.match?(ENTRY)
+          next unless kept[rel]
+
+          path = File.join(dir, STORE, rel)
+          Paths.mkdir_p(File.dirname(path))
+          File.open(path, "wb") { |out| IO.copy_stream(gz, out, size) }
+        end
+      end
+      Paths.write_atomic(File.join(dir, MANIFEST), JSON.generate(manifest))
+      manifest
+    end
+
+    # Whether a root's line in `entries` names the store file `rel`: the
+    # file itself, or the directory entry that holds it.
+    #: (String rel, Array[String] entries) -> bool
+    def named?(rel, entries) = entries.any? { |entry| rel == entry || rel.start_with?("#{entry}/") }
+
     # Stages each file of the unpacked bundle in `dir`. Returns its
     # manifest.
     #: (String dir, String staging) -> Hash[String, untyped]

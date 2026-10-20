@@ -296,7 +296,10 @@ jobs:
               mv "lane-$triple/runtime-$triple.tar.gz" "$bundle"
               platform="$(echo "$LANES" | jq -r --arg t "$triple" '.[] | select(.triple == $t) | .gem_platform // empty')"
               if [ -n "$platform" ]; then
-                rm -rf data/runtime && mkdir -p "data/runtime/$triple" && tar -xzf "$bundle" -C "data/runtime/$triple"
+                # The gem leaves out the walked eval support (Prebuilt::GEM_LEFT_OUT).
+                rm -rf data/runtime
+                ruby -Ilib -rzr/prebuilt -e 'Zr::Prebuilt.unpack(ARGV[0], ARGV[1], without: Zr::Prebuilt::GEM_LEFT_OUT)' \
+                  "$bundle" "data/runtime/$triple"
                 SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" ZR_GEM_PLATFORM="$platform" ZR_GEM_RUNTIME="data/runtime/$triple" \
                   gem build zr.gemspec --output "dist/zr-$version-$platform.gem"
                 size="$(wc -c < "dist/zr-$version-$platform.gem")"
