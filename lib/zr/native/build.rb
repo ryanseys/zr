@@ -638,11 +638,13 @@ module Zr
       # a module that the directory has is the same bytes.
       #: (Backend::Wasm::Codegen::Prelude pre, String key, String dir) -> String
       def wasm_runtime_module(pre, key, dir)
-        path = File.join(dir, "zr-runtime-#{key[0, 32]}.wasm")
+        path = File.join(dir, wasm_runtime_name(key))
         written = Session.current.memo(:wasm_runtime_modules) { {} } #: Hash[String, bool]
         written[path] ||= begin
           unless File.exist?(path)
-            bytes = Timing.phase("writing the wasm runtime module", "wasm runtime module written") { Backend::Wasm.runtime_module(pre) }
+            bytes = Timing.phase("writing the wasm runtime module", "wasm runtime module written") do
+              Backend::Wasm.runtime_module(pre, link: wasm_link_text(key))
+            end
             Paths.mkdir_p(dir)
             Paths.write_atomic(path, bytes)
           end
@@ -650,6 +652,14 @@ module Zr
         end
         path
       end
+
+      # The file name of the runtime module of the prelude of `key`.
+      #: (String key) -> String
+      def wasm_runtime_name(key) = "zr-runtime-#{key[0, 32]}.wasm"
+
+      # The text of a runtime module's link section (LINK_SECTION).
+      #: (String key) -> String
+      def wasm_link_text(key) = JSON.generate({ "zr" => VERSION, "target" => Target::WASM32_WASI.triple, "prelude" => key })
 
       # Names the store entries that a wasm program reads, so no eviction
       # removes them: its prelude, and the body packs that the next prelude

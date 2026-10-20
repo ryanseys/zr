@@ -42,6 +42,11 @@ module Zr
     # The manifest's name in a bundle, and the directory of its files.
     MANIFEST = "manifest.json"
     STORE = "store/"
+    # The directory of a wasm32-wasi bundle's runtime modules: standard
+    # core modules that `wasmtime run --preload zr=<module>` links a
+    # program module (`zr build --wasm-split`) against.
+    MODULES = "modules/"
+    MODULE = /\Azr-runtime-[0-9a-f]{32}\.wasm\z/
 
     # The roots of a target that a bundle holds, by their names after the
     # target's triple.
@@ -199,8 +204,10 @@ module Zr
       files = entries.reject { |rel| LEFT_OUT.include?(rel.split("/").first) }.flat_map { |rel| files_of(rel) }
       raise Invalid, "the roots of #{target.triple} name no entry in the cache; build a program for it again" if files.empty?
 
+      modules = target.object_format == :wasm ? runtime_modules(files) : {}
       manifest = { "format" => FORMAT, "zr" => VERSION, "target" => target.triple, "roots" => roots,
-                   "files" => files.map { |rel| entry(rel) } }
+                   "files" => files.map { |rel| entry(rel) },
+                   "modules" => modules.map { |name, path| { "path" => name, "size" => File.size(path), "sha256" => Digest::SHA256.file(path).hexdigest } } }
       Paths.publish(out) do |draft|
         Zlib::GzipWriter.open(draft) do |gz|
           gz.mtime = 0
@@ -209,6 +216,9 @@ module Zr
           files.each do |rel|
             path = File.join(Cache::Store.dir, rel)
             Tar.add(gz, STORE + rel, File.size(path)) { |io| File.open(path, "rb") { |src| IO.copy_stream(src, io) } }
+          end
+          modules.each do |name, path|
+            Tar.add(gz, MODULES + name, File.size(path)) { |io| File.open(path, "rb") { |src| IO.copy_stream(src, io) } }
           end
           Tar.finish(gz)
         end
@@ -236,6 +246,7 @@ module Zr
       Paths.mkdir_p(staging, 0o700)
       manifest = File.directory?(file) ? stage_tree(file, staging) : stage_archive(file, staging)
       manifest.fetch("files").each { |row| place(File.join(staging, row.fetch("path")), File.join(store, row.fetch("path"))) }
+      modules(manifest).each { |row| place(File.join(staging, MODULES, row.fetch("path")), File.join(modules_dir, row.fetch("path"))) }
       manifest.fetch("roots").each { |name, text| Paths.write_atomic(File.join(store, "roots", name), text) }
       manifest
     rescue Zlib::Error, JSON::ParserError, KeyError, TypeError, ArgumentError => e
@@ -268,8 +279,11 @@ module Zr
             manifest["files"] = manifest["files"].select { |row| kept.fetch(row["path"]) }
             next
           end
-          rel = name.delete_prefix(STORE)
           raise Invalid, "the bundle holds #{name} before its manifest" if kept.nil?
+          # A platform gem's host is no wasm target.
+          next if name.start_with?(MODULES)
+
+          rel = name.delete_prefix(STORE)
           raise Invalid, "the bundle names #{name.inspect}, which is no entry of the store" unless rel.match?(ENTRY)
           next unless kept[rel]
 
@@ -295,6 +309,9 @@ module Zr
       manifest.fetch("files").each do |row|
         File.open(File.join(dir, STORE, row.fetch("path")), "rb") { |io| stage(io, row, staging) }
       end
+      modules(manifest).each do |row|
+        File.open(File.join(dir, MODULES, row.fetch("path")), "rb") { |io| stage(io, row.merge("path" => MODULES + row["path"]), staging) }
+      end
       manifest
     end
 
@@ -315,21 +332,55 @@ module Zr
             raise Invalid, "the bundle does not begin with #{MANIFEST}" unless name == MANIFEST
 
             manifest = header(gz.read(size).to_s)
-            rows = manifest.fetch("files").dup
+            rows = manifest.fetch("files").map { |row| row.merge("path" => STORE + row.fetch("path")) }
+            rows += modules(manifest).map { |row| row.merge("path" => MODULES + row.fetch("path")) }
             next
           end
           row = rows.shift or raise Invalid, "the bundle holds #{name}, which its manifest does not list"
-          unless name == STORE + row.fetch("path") && size == Integer(row.fetch("size"))
+          unless name == row.fetch("path") && size == Integer(row.fetch("size"))
             raise Invalid, "the bundle holds #{name} (#{size} bytes) where its manifest lists #{row["path"]}"
           end
 
-          stage(gz, row, staging)
+          stage(gz, row.merge("path" => name.delete_prefix(STORE)), staging)
         end
       end
       raise Invalid, "the bundle holds no #{MANIFEST}" if manifest.nil?
       raise Invalid, "the bundle lacks #{rows.first&.fetch("path")}, which its manifest lists" unless rows.empty?
 
       manifest
+    end
+
+    # The manifest's runtime modules (a wasm32-wasi bundle's), each a row
+    # of a file name, a size and a SHA-256; none for a bundle of another
+    # target.
+    #: (Hash[String, untyped] manifest) -> Array[Hash[String, untyped]]
+    def modules(manifest) = manifest.fetch("modules", [])
+
+    # Where a split build keeps its runtime modules in this cache
+    # (Native::Build#wasm_runtime_module), and an import puts a bundle's.
+    #: () -> String
+    def modules_dir = File.join(Paths.cache, "wasm-split")
+
+    # The runtime module of each wasm prelude in `files`, by its file
+    # name: the module in `modules_dir`, written there from the prelude
+    # when it is not there yet. One prelude at a time is loaded: one with
+    # eval support is 250 MB of Marshal.
+    #: (Array[String] files) -> Hash[String, String]
+    def runtime_modules(files)
+      require_relative "native/build"
+      files.filter_map do |rel|
+        next unless rel.start_with?("wasm/") && rel.end_with?(".marshal") && !File.basename(rel).start_with?("prelude-")
+
+        key = File.basename(rel, ".marshal")
+        name = Native::Build.wasm_runtime_name(key)
+        path = File.join(modules_dir, name)
+        unless File.exist?(path)
+          prelude = Marshal.load(File.binread(File.join(Cache::Store.dir, rel)))
+          Paths.mkdir_p(modules_dir)
+          Paths.write_atomic(path, Backend::Wasm.runtime_module(prelude, link: Native::Build.wasm_link_text(key)))
+        end
+        [name, path]
+      end.sort.to_h
     end
 
     # Builds a plain program and one with eval for `target` into this
@@ -427,6 +478,15 @@ module Zr
       files.each do |row|
         path = row.fetch("path")
         raise Invalid, "the bundle names #{path.inspect}, which is no entry of the store" unless path.is_a?(String) && path.match?(ENTRY)
+      end
+      rows = modules(manifest)
+      raise Invalid, "the manifest's modules are no list of objects" unless rows.is_a?(Array) && rows.all?(Hash)
+
+      rows.each do |row|
+        path = row.fetch("path")
+        next if path.is_a?(String) && path.match?(MODULE)
+
+        raise Invalid, "the bundle names the module #{path.inspect}, which is no runtime module's name"
       end
       roots = manifest.fetch("roots")
       raise Invalid, "the manifest's roots are no object of texts" unless roots.is_a?(Hash) && roots.values.all?(String)

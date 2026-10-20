@@ -191,6 +191,29 @@ class PrebuiltTest < Minitest::Test
     assert_equal "object bytes", File.binread(built[:object].sub(@from, to))
   end
 
+  # A wasm32-wasi bundle carries the runtime module of each of its
+  # preludes, a standard module that `wasmtime run --preload` links a
+  # program module against, with its link section; an import puts it
+  # where a split build looks (Prebuilt.modules_dir).
+  def test_a_wasm_bundle_carries_the_runtime_module_of_each_prelude
+    require_relative "../../lib/zr/backend/wasm"
+    wasm = Zr::Target::WASM32_WASI
+    key = Store.key("prelude of a test")
+    prelude = Store.path(:wasm, key)
+    Paths.write_atomic(prelude, Marshal.dump(Zr::Backend::Wasm.prelude([], [], pending: { functions: [], data: [] })))
+    Store.root("#{wasm.triple}-prelude-plain", [prelude])
+    manifest = Prebuilt.export(wasm, @bundle)
+    name = Zr::Native::Build.wasm_runtime_name(key)
+
+    assert_equal [name], manifest.fetch("modules").map { |row| row["path"] }
+    assert_includes IO.popen(["tar", "-tzf", @bundle], &:read).lines(chomp: true), "#{Prebuilt::MODULES}#{name}"
+    cache
+    Prebuilt.import(@bundle)
+    bytes = File.binread(File.join(Prebuilt.modules_dir, name))
+    assert_equal "\0asm".b, bytes[0, 4]
+    assert_includes bytes, JSON.generate({ "zr" => Zr::VERSION, "target" => wasm.triple, "prelude" => key })
+  end
+
   # A platform gem leaves out the roots that Prebuilt::GEM_LEFT_OUT names,
   # and each file that only they name; what is left still imports.
   def test_an_unpack_leaves_out_a_root_and_the_files_that_only_it_names

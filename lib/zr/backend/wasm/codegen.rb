@@ -73,6 +73,10 @@ module Zr
         # The custom section of a program module that names its runtime
         # module's file.
         RUNTIME_SECTION = "zr.runtime"
+        # The custom section of a runtime module that names what zr links
+        # a program against: zr's version, the target and the prelude's
+        # key, as JSON (`runtime_module`). wasmtime skips it.
+        LINK_SECTION = "zr.link"
 
         TYPE = { "i8" => 0x7F, "i32" => 0x7F, "i64" => 0x7E, "f64" => 0x7C }.freeze #: Hash[String, Integer]
         OP = {
@@ -242,8 +246,8 @@ module Zr
         # until a program module's `_start` calls in. It exports its memory,
         # its table (with PROGRAM_SLOTS after its own entries), its globals
         # and each function; a program module imports them all.
-        #: () -> String
-        def runtime_module
+        #: (?link: String?) -> String
+        def runtime_module(link: nil)
           pre = @prelude or raise ArgumentError, "a runtime module is the prelude's"
           @imports = pre.imports
           @shims = pre.shims
@@ -277,6 +281,7 @@ module Zr
           out << section(9, vec(runs)) unless runs.empty?
           out << section(10, vec(@shims.map { |name| shim(name) } + pre.bodies))
           out << section(11, vec(segments(pre.segments).map { |at, bytes| "\0".b + "\x41".b + sleb(at) + "\x0B".b + vec_bytes(bytes) }))
+          out << section(0, name(LINK_SECTION) + link.b) if link
           out << names_section if Config.current.wasm_names?
           out
         end

@@ -17,7 +17,9 @@ are one name in several variants, as nokogiri ships:
   `ruby` gem.
 
 wasm32-wasi is a target, not a host, so it has no platform gem: its
-runtime is only a release file. A tag starts it: the release workflow
+runtime is only a release file. That bundle also holds each runtime as
+a standard module (`modules/zr-runtime-<key>.wasm`), which wasmtime
+preloads for a program module that `zr build --wasm-split` writes. A tag starts it: the release workflow
 (`.github/workflows/release.yml`) does the rest. `rake release` does
 not release: it stops and points here, because a gem that no CI run
 checked must not go out.

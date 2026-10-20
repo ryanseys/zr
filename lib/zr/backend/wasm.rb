@@ -17,8 +17,9 @@ module Zr
 
       # The runtime module of `prelude`: the bytes that a program module of
       # it preloads (`wasmtime run --preload zr=<file>`).
-      #: (Codegen::Prelude prelude) -> String
-      def runtime_module(prelude) = Codegen.new([], [], prelude: prelude).runtime_module
+      # `link` is the text of its LINK_SECTION.
+      #: (Codegen::Prelude prelude, ?link: String?) -> String
+      def runtime_module(prelude, link: nil) = Codegen.new([], [], prelude: prelude).runtime_module(link: link)
 
       # The file name of the runtime module that the program module `bytes`
       # imports, or nil for a whole module.
