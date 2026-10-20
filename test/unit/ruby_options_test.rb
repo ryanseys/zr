@@ -422,6 +422,12 @@ class RubyModeDispatchTest < Minitest::Test
     refute CLI.compiles?(%w[help])
   end
 
+  def test_a_bundle_export_tunes_at_once_and_no_other_cache_command_tunes
+    assert CLI.exports?(%w[cache export --target wasm32-wasi -o b.zrr])
+    refute CLI.exports?(%w[cache clean --days 1])
+    refute CLI.compiles?(%w[cache export])
+  end
+
   def test_a_switch_that_ruby_rejects_ends_as_ruby_ends
     _, err = capture_io do
       error = assert_raises(SystemExit) { CLI.start(%w[--frob]) }

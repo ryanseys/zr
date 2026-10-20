@@ -165,6 +165,14 @@ module Zr
       false
     end
 
+    # Whether the command line exports a runtime bundle, which builds each
+    # runtime that the bundle holds (`Prebuilt.warm`): a cold one is tens
+    # of millions of objects. `exe/zr` tunes such a process at once, not
+    # `later`: the builds run in forked processes, and a start again in
+    # one of them would run the whole export again.
+    #: (Array[String] argv) -> bool
+    def exports?(argv) = argv.first(2) == %w[cache export]
+
     # The command for `verb`. The process keeps it, so a compile command
     # keeps what `kept!` gives it.
     #: (String verb) -> Command

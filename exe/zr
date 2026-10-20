@@ -22,6 +22,10 @@ Zr::CLI.guard do
   Zr::Config.current
   Zr::CLI.kept!(argv)
 
-  Zr::CLI.tune!(__FILE__, later: true) if Zr::CLI.compiles?(argv)
+  if Zr::CLI.exports?(argv)
+    Zr::CLI.tune!(__FILE__)
+  elsif Zr::CLI.compiles?(argv)
+    Zr::CLI.tune!(__FILE__, later: true)
+  end
   Zr::CLI.start(argv)
 end
