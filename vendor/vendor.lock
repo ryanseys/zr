@@ -3,7 +3,7 @@
 # `zr-dev vendor --check` checks vendor/ against it.
 #
 # A source: kind name version sha256-of-its-.gem url
-inputs af2e6f0cf6823a61ce8810d0d5774b4c42f78b6d0bd570c1f6ad4f3b6ea4e6ff
+inputs 9fb6cb0447239945eaa241c80f8eba0d4a91584124a324e1260b3bdc17b8074e
 
 ruby ruby 4.1.0 - https://github.com/ruby/ruby@2d08b5f42f2cbed4a4e6ecf8d62987a4f21f98c1
 source prism 1.9.0 - https://github.com/ruby/prism@0a5f9c956cb62b371ab680868d08c82ae0d49201
