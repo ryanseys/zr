@@ -3,6 +3,7 @@
 require "rbconfig"
 require_relative "binary"
 require_relative "session"
+require_relative "error"
 
 module Zr
   # The settings that steer zr, read once. Each one (`SETTINGS`) has a
@@ -40,7 +41,9 @@ module Zr
     # A `ZR_*` value or a setting's flag that zr cannot use. The message
     # names the variable or the flag, its value, and a value that works.
     # The CLI prints it and exits 2.
-    class Invalid < ArgumentError; end
+    class Invalid < ArgumentError
+      include Error
+    end
 
     # @rbs skip -- typed in sig/zr/config.rbs
     Setting = Data.define(:env, :flag, :kind, :values, :about, :steers)

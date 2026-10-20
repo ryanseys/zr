@@ -59,7 +59,9 @@ module Zr
 
     # The set cannot be resolved: a gem is not installed, a flag names no
     # directory, or the Gemfile does not parse.
-    class Unresolved < StandardError; end
+    class Unresolved < StandardError
+      include Error
+    end
 
     RESOLVE = File.expand_path("gem_set/resolve.rb", __dir__) #: String
     # The source of a gem from rubygems' path (gem_set/resolve.rb).

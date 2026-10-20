@@ -35,6 +35,7 @@ Facts about commands, formats and layouts.
 - [What zr supports](reference/support.md): the syntax and the
   libraries that zr refuses, and what each target may fail
 - [The `zr` command](reference/cli.md)
+- [The Ruby API](reference/ruby-api.md): `Zr.build`, its result and its errors
 - [Tools](reference/tools.md): `bin/setup`, `bin/minitest`, `bin/console`,
   the rake tasks and the `zr-dev` commands
 - [Environment variables](reference/environment-variables.md)

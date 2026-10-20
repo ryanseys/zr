@@ -18,6 +18,10 @@ The first public release.
   pinned ruby, 4.1.0-preview1. The gem has no dependencies: it carries the pinned ruby's
   standard library (`vendor/ruby`), so the install downloads only zr, and
   compiles nothing.
+- `Zr.build` (`require "zr"`) builds a program from Ruby, as `zr build`
+  does, and returns a `Zr::Result`. An error that the caller can fix
+  includes `Zr::Error`. This, `Zr::Result` and the error classes are the
+  public API; every other constant under `Zr::` is internal.
 - A compiled program gives the pinned ruby's output byte for byte, or zr
   refuses it at build time with exit status 3. A refusal gives the
   file, the line and the column, the form, the source line with a

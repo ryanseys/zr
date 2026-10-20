@@ -39,6 +39,10 @@ module Zr
       @memos[key] = value
     end
 
+    # The value of `key`, or nil when no `memo` or `set` gave one.
+    #: (Symbol | Array[untyped] key) -> untyped
+    def peek(key) = @memos[key]
+
     # Drops the value of `key`, so the next `memo` makes it again.
     #: (Symbol | Array[untyped] key) -> untyped
     def forget(key)

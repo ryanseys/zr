@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "../../error"
 require_relative "../../paths"
 require_relative "../../config"
 require_relative "../../target"
@@ -352,31 +353,47 @@ module Zr
         # ruby mode gives for a program with no file.
         #: (String input, BuildOptions options, ?source: String, ?assemble: bool) -> Program
         def lower(input, options, source: File.read(input), assemble: false)
+          lower!(input, options, source: source, assemble: assemble, invalid: :program)
+        rescue Refused => e
+          warn Refusals.refusal_report(e)
+          exit REFUSED
+        rescue InvalidProgram => e
+          warn "zr: #{e.message}"
+          exit REFUSED
+        rescue BuildError => e
+          abort "zr: #{e.message}"
+        end
+
+        # The program of `input`, as `lower` gives it, for `Zr.build` too.
+        # A form that zr refuses raises Refused. A program that ruby's
+        # compiler rejects or that does not parse, with `invalid: :program`,
+        # lowers to one that prints ruby's error, as ruby would run it;
+        # with `invalid: :raise`, it raises InvalidProgram. A backend that
+        # cannot compile the code raises BuildError.
+        #: (String input, BuildOptions options, source: String, assemble: bool, ?invalid: :program | :raise) -> Program
+        def lower!(input, options, source:, assemble:, invalid: :raise)
           built(source, input, options, source: source, assemble: assemble)
         rescue Refused => e
           # A form of the program that ruby's compiler refuses (`Hir::Invalid`)
           # ends as ruby's SyntaxError does, before any of the program runs.
-          if (invalid = Refusals.invalid_program(input, e))
-            warn "zr: warning: #{input} does not compile in ruby. The output prints ruby's SyntaxError and exits with status 1" if name == "build"
-            return built(invalid, input, options.with(gate: false, trace: false), source: source, assemble: assemble)
-          end
-          warn Refusals.refusal_report(e)
-          exit REFUSED
+          raise unless (text = Refusals.invalid_program(input, e))
+          raise InvalidProgram.new(e.message, file: e.file, line: e.line) if invalid == :raise
+
+          warn "zr: warning: #{input} does not compile in ruby. The output prints ruby's SyntaxError and exits with status 1" if name == "build"
+          built(text, input, options.with(gate: false, trace: false), source: source, assemble: assemble)
         rescue Backend::Refused => e
           # A backend refuses code that the front end let through: a limit or
           # a defect in zr, not a form of Ruby that the program must avoid.
-          abort "zr: zr cannot compile this program: #{e.message}. This is a limit or a defect in zr. " \
-                "Report it at #{ISSUES_URL}."
+          raise BuildError, "zr cannot compile this program: #{e.message}. This is a limit or a defect in zr. Report it at #{ISSUES_URL}."
         rescue SyntaxError => e
           # For a program that does not parse, ruby prints the parse's
           # warnings and a report, and exits 1. The binary does the same
           # (`Refusals.syntax_error_program`). A required file that does not
           # parse raises when the require runs (`Loader#parsed_unit`).
           warned = Refusals.syntax_warnings(input, source, options.switches)
-          unless warned
-            warn "zr: a required file does not parse: #{e.message.lines.first.chomp}"
-            exit REFUSED
-          end
+          raise InvalidProgram, "a required file does not parse: #{e.message.lines.first.chomp}" unless warned
+          raise InvalidProgram.new(e.message.lines.first.chomp, file: input) if invalid == :raise
+
           warn "zr: warning: #{input} does not parse. The output prints ruby's syntax error and exits with status 1" if name == "build"
           # The -r requires still run before it, and their exit handlers after.
           built(Refusals.syntax_error_program(input, e, warned), input, options.with(gate: false, trace: false), source: source,

@@ -73,7 +73,7 @@ module Zr
     # on it. `compiler_digest_test.rb` checks that a build and a link load
     # none of them, and that it lists each compiler file that they do not
     # load.
-    DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb diff.rb doctor.rb ext/target_rbconfig.rb
+    DRIVER_ONLY = (%w[api.rb cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb diff.rb doctor.rb ext/target_rbconfig.rb
                       lock_plan.rb machine/host.rb]
                      .map { |name| File.join(__dir__, name) } +
                    Dir[File.join(__dir__, "machine/host/**/*.rb")]).sort.freeze

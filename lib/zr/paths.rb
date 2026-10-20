@@ -3,6 +3,7 @@
 require_relative "config"
 require_relative "binary"
 require_relative "version"
+require_relative "error"
 
 module Zr
   # Where zr reads its sources and writes what it builds. ROOT is the
@@ -78,12 +79,16 @@ module Zr
     end
 
     # A directory that zr needs and that this environment does not give.
-    class Missing < StandardError; end
+    class Missing < StandardError
+      include Error
+    end
 
     # A cache that is not this user's alone. zr loads code from the files
     # of its cache and runs the binaries in it, so a user who can write
     # there can run code as each user of that cache.
-    class Untrusted < StandardError; end
+    class Untrusted < StandardError
+      include Error
+    end
 
     # The cache directory for the runtime's build output (`ZR_CACHE`). A
     # checkout uses its own tmp/. An installed gem writes nothing under

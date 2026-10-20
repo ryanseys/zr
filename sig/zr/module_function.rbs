@@ -91,6 +91,10 @@ module Zr::Notice
   extend Zr::Notice
 end
 
+module Zr::API
+  extend Zr::API
+end
+
 module ZrGemSet
   extend ZrGemSet
 end

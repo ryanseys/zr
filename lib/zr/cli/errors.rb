@@ -9,7 +9,8 @@ module Zr
       # The errors that say what the user must change, not a defect in zr.
       # They print their message only. Named as strings: not every command
       # loads the file that defines each one.
-      EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing Zr::Paths::Untrusted].freeze
+      EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing Zr::Paths::Untrusted
+                    Zr::TargetRefused Zr::InvalidProgram Zr::BuildError].freeze
       # The expected errors of a setting or a cache that the user must
       # change before any build: status 2, as a usage error.
       SETUP = %w[Zr::Config::Invalid Zr::Paths::Untrusted].freeze

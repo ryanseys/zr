@@ -81,6 +81,19 @@ New to zr? Start with the tutorial
 [Compile your first program](https://github.com/ryanseys/zr/blob/v0.1.0/docs/tutorials/compile-your-first-program.md),
 and read [Questions and answers](https://github.com/ryanseys/zr/blob/v0.1.0/docs/explanation/faq.md).
 
+## Use from Ruby
+
+```ruby
+require "zr"
+
+result = Zr.build("app.rb", out: "app", settings: { jobs: 2 })
+result.path  # => "/abs/app"
+```
+
+A program that zr refuses raises `Zr::Refused`, with its file and line,
+and each error that the caller can fix includes `Zr::Error`. See
+[The Ruby API](https://github.com/ryanseys/zr/blob/v0.1.0/docs/reference/ruby-api.md).
+
 ## What it builds
 
 <!-- targets: written by `zr-dev gen targets`. Do not edit. -->

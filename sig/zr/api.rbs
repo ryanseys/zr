@@ -1,0 +1,12 @@
+# The record of lib/zr/api.rb.
+module Zr
+  class Result < Data
+    attr_reader path: String
+    attr_reader target: String
+    attr_reader emit: Symbol
+    attr_reader warnings: Array[String]
+    attr_reader gems: untyped
+
+    def self.new: (path: String, target: String, emit: Symbol, warnings: Array[String], gems: untyped) -> instance
+  end
+end
