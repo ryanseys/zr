@@ -35,32 +35,36 @@ module Zr
       # The newest packs of one kind that a build keeps.
       KEPT = 3
 
-      # The files that `IR::Passes.prepare` and each backend load, relative
-      # to lib/zr: the files of the passes, then the backend's own.
-      # `code_cache_test.rb` checks that a new process that requires them
-      # loads no other file of zr.
-      PASSES = %w[
-        backend.rb binary.rb bytes.rb config.rb ir/analysis.rb ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb
-        ir/inst.rb ir/licm.rb ir/passes.rb ir/passes/blocks.rb ir/passes/chains.rb ir/passes/dce.rb
-        ir/passes/fold.rb ir/passes/forward.rb ir/passes/inline.rb ir/passes/renaming.rb ir/promotion.rb
-        ir/regions.rb ir/statics.rb ir/switches.rb ir/threads.rb ir/types.rb ir/verify.rb obj/model.rb
-        refused.rb cache/code.rb session.rb timing.rb
-      ].freeze
-      BACKENDS = {
-        aarch64: %w[
-          backend/aarch64.rb backend/aarch64/assembler.rb backend/aarch64/codegen.rb
-          backend/aarch64/codegen/layout.rb backend/aarch64/registers.rb
-          backend/aarch64/stub.rb backend/native/emitter.rb backend/native/moves.rb backend/native/planner.rb backend/native/pools.rb backend/native/regalloc.rb
-        ],
-        x86_64: %w[
-          backend/x86_64.rb backend/x86_64/assembler.rb backend/x86_64/codegen.rb backend/x86_64/registers.rb
-          backend/x86_64/stub.rb backend/native/emitter.rb backend/native/moves.rb backend/native/planner.rb
-          backend/native/pools.rb backend/native/regalloc.rb
-        ],
-        wasm32: %w[backend/wasm.rb backend/wasm/codegen.rb backend/wasm/codegen/body.rb backend/wasm/locals.rb backend/wasm/shims.rb]
-      }.transform_values { |own| (PASSES + own).freeze }.freeze #: Hash[Symbol, Array[String]]
+      # The files that start each backend's code, relative to lib/zr: the
+      # passes (`IR::Passes.prepare`), the cache, and the backend's emitter.
+      ENTRIES = {
+        aarch64: %w[ir/passes.rb cache/code.rb backend/aarch64.rb],
+        x86_64: %w[ir/passes.rb cache/code.rb backend/x86_64.rb],
+        wasm32: %w[ir/passes.rb cache/code.rb backend/wasm.rb]
+      }.freeze #: Hash[Symbol, Array[String]]
+
+      # A top-level `require_relative`. A require inside a method (such as the
+      # store's, in `dir`) loads later and is not part of the code.
+      REQUIRE = /^require_relative "([^"]+)"$/
 
       LIB = File.expand_path("..", __dir__) #: String
+
+      # Each file, relative to lib/zr, that the entries of `arch` load as they
+      # load: the files whose edit can change the code that a pack holds.
+      #: (Symbol arch) -> Array[String]
+      def self.files(arch)
+        seen = [] #: Array[String]
+        todo = ENTRIES.fetch(arch).map { |name| File.join(LIB, name) }
+        while (file = todo.shift)
+          next if seen.include?(file)
+
+          seen << file
+          File.foreach(file) do |line|
+            todo << File.expand_path("#{Regexp.last_match(1)}.rb", File.dirname(file)) if line =~ REQUIRE
+          end
+        end
+        seen.map { |file| file.delete_prefix("#{LIB}/") }.sort
+      end
 
       #: () -> String
       def self.mode = Config.current.code_cache
@@ -86,13 +90,13 @@ module Zr
           require_relative "../digests"
           Digest::SHA256.new.tap do |d|
             d << VERSION.to_s << "\0"
-            BACKENDS.fetch(arch).each { |name| d << name << "\0" << Digests.file(File.join(LIB, name)) << "\0" }
+            files(arch).each { |name| d << name << "\0" << Digests.file(File.join(LIB, name)) << "\0" }
           end.hexdigest
         end
       end
 
       # The store (and `Paths`, which `keep` uses) loads here, not with
-      # this file: a file that the backend loads is in BACKENDS, and an edit
+      # this file: a file that the backend loads is in `files`, and an edit
       # to the store must not make every pack a miss.
       #: (?Symbol arch) -> String
       def self.dir(arch = :aarch64)
