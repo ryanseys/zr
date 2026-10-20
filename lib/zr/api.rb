@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "stringio"
 require_relative "error"
 require_relative "config"
 require_relative "paths"
@@ -153,14 +154,16 @@ module Zr
     # rubocop:enable Metrics/ParameterLists
 
     # The `$stderr` of a build from Ruby: each line goes to the caller's
-    # diagnostics, and to the build's own list.
-    class Sink
+    # diagnostics, and to the build's own list. StringIO's puts, print and
+    # the rest of IO's methods all write through `write`.
+    class Sink < StringIO
       # @rbs @to: untyped
       # @rbs @lines: Array[String]
       # @rbs @part: String
 
       #: (untyped to, Array[String] lines) -> void
       def initialize(to, lines)
+        super()
         @to = to
         @lines = lines
         @part = +""
@@ -176,34 +179,6 @@ module Zr
         end
         text.bytesize
       end
-
-      #: (*untyped parts) -> nil
-      def print(*parts)
-        write(*parts)
-        nil
-      end
-
-      #: (*untyped lines) -> nil
-      def puts(*lines)
-        write("\n") if lines.empty?
-        lines.each do |line|
-          text = line.to_s
-          write(text.end_with?("\n") ? text : "#{text}\n")
-        end
-        nil
-      end
-
-      #: () -> self
-      def flush = self
-
-      #: () -> bool
-      def tty? = false
-
-      #: () -> bool
-      def isatty = false # rubocop:disable Naming/PredicateMethod -- IO's own name
-
-      #: () -> bool
-      def sync = true # rubocop:disable Naming/PredicateMethod -- IO's own name
     end
   end
 end

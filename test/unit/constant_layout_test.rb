@@ -23,6 +23,7 @@ class ConstantLayoutTest < Minitest::Test
   # become a constant name by capitalizing each `_` part.
   INFLECT = {
     "aarch64" => "Aarch64",
+    "api" => "API",
     "x86_64" => "X86_64",
     "cli" => "CLI",
     "dce" => "DCE",
