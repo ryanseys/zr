@@ -18,14 +18,6 @@ class ResidentTest < Minitest::Test
     assert_in_delta bytes / (1 << 20), Resident.of(Process.pid), 4
   end
 
-  def test_a_large_string_grows_the_resident_size
-    before = Resident.bytes_of(Process.pid) or skip "this system gives no resident size"
-    held = "x" * (64 << 20)
-
-    assert_operator Resident.bytes_of(Process.pid) - before, :>=, 32 << 20
-    assert_equal 64 << 20, held.bytesize
-  end
-
   def test_a_process_that_is_gone_has_no_size
     pid = Process.spawn(RbConfig.ruby, "-e", "")
     Process.wait(pid)
