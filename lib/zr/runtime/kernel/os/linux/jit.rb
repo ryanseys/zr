@@ -130,6 +130,10 @@ module Zr::Kern
 
   # Fills the slot's index. A binary that evals has about 330,000
   # symbols, so a scan for each lookup is too slow for the JIT's loader.
+  # The global and weak names go in first, then the local functions and
+  # data: mold binds each symbol of an executable that exports nothing
+  # LOCAL. A lookup takes the first entry of its name, so a global name
+  # comes before a local one of the same name.
   #: (ptr) -> void
   def zr_linux_symtab_index(cell)
     rows = Machine.load64(cell, 8)
@@ -142,31 +146,44 @@ module Zr::Kern
     index = zr_xmalloc(bins * 8)
     Libc.memset(index, Machine.i32(0), bins * 8)
     mask = bins - 1
-    i = 0
-    while i < rows
-      row = table + (i * SYM_LEN)
-      if zr_linux_symbol_defined(row)
-        name = strings + Machine.u32(Machine.load32(row, 0))
-        bin = zr_bytes_hash(name, zr_linux_cstr_len(name)) & mask
-        while Machine.load64(index + (bin * 8), 0) != 0
-          bin = (bin + 1) & mask
+    pass = 0
+    while pass < 2
+      i = 0
+      while i < rows
+        row = table + (i * SYM_LEN)
+        if zr_linux_symbol_defined(row, pass)
+          name = strings + Machine.u32(Machine.load32(row, 0))
+          bin = zr_bytes_hash(name, zr_linux_cstr_len(name)) & mask
+          while Machine.load64(index + (bin * 8), 0) != 0
+            bin = (bin + 1) & mask
+          end
+          Machine.store64(index + (bin * 8), 0, i + 1)
         end
-        Machine.store64(index + (bin * 8), 0, i + 1)
+        i += 1
       end
-      i += 1
+      pass += 1
     end
     Machine.store64(cell, 24, Machine.word(index))
     Machine.store64(cell, 32, mask)
   end
 
-  # Whether a symbol entry defines a global or weak name. st_info has the
-  # binding in its high nibble. Then come st_other and the section index,
-  # which is 0 for a name defined in a different object.
-  #: (ptr) -> bool
-  def zr_linux_symbol_defined(row)
+  # Whether a symbol entry defines a name of the index's pass: on pass 0,
+  # a global or weak name; on pass 1, a local function or datum. st_info
+  # has the binding in its high nibble and the type in its low nibble.
+  # Then come st_other and the section index, which is 0 for a name
+  # defined in a different object.
+  #: (ptr, word) -> bool
+  def zr_linux_symbol_defined(row, pass)
     info = Machine.u32(Machine.load32(row, 4))
     bind = (info & 255) >> 4
-    (bind == 1 || bind == 2) && (info >> 16) != 0
+    kind = info & 15
+    if (info >> 16) == 0
+      return false
+    end
+    if pass == 0
+      return bind == 1 || bind == 2
+    end
+    bind == 0 && (kind == 1 || kind == 2)
   end
 
   #: (ptr) -> word

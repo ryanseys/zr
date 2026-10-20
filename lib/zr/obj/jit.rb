@@ -80,7 +80,7 @@ module Zr
 
         code[:at].each { |f, off| @symbols[f.name] = code_base + off }
         data[:at].each { |d, off| @symbols[d.name] = data_base + off }
-        addresses = imports.to_h { |name| [name, @syscalls.symbol(name)] }
+        addresses = imports.to_h { |name| [name, @syscalls.symbol(name) || raise("this process has no symbol #{name}")] }
         stubs.each { |name, off| @symbols[name] = code_base + off }
 
         text = +"".b
