@@ -30,7 +30,7 @@ module Zr
 
     def ruby(version = RUBY_VERSION)
       return Check.new(:ok, "ruby", version) if Zr.tested_ruby?(version)
-      return Check.new(:warn, "ruby", "#{version}; zr is tested with #{RUBY_PIN}") if Zr.supported_ruby?(version)
+      return Check.new(:warn, "ruby", "#{version}; zr is tested with ruby #{RUBY_TESTED.join(" and ")}") if Zr.supported_ruby?(version)
 
       Check.new(:fail, "ruby", "#{version}; zr needs ruby #{RUBY_MINIMUM} or later. See #{DOCS_URL}/how-to/install.md")
     end
@@ -89,14 +89,13 @@ module Zr
     end
 
     # The real C extensions that `--native-ext` can put in a binary here:
-    # the host must be aarch64 darwin or aarch64-linux-musl, with cc to
+    # the host must build binaries (`Target#native_ext?`), with cc to
     # link an extension's objects or to build one, and make for an
     # extconf.rb with rules of its own. Names each installed gem whose
     # extensions import nothing that zr's C API lacks yet.
     #: (?String triple, ?Array[Gem::Specification] specs, ?cc: String?, ?make: String?) -> Check
     def extensions(triple = Target.host_triple, specs = Gem::Specification.latest_specs(true), cc: which("cc"), make: which("make"))
-      hosts = [Target::AARCH64_DARWIN, Target::AARCH64_LINUX_MUSL].map(&:triple)
-      return Check.new(:ok, "C extensions", "not on #{triple}; zr's ports stand in for them") unless hosts.include?(triple)
+      return Check.new(:ok, "C extensions", "not on #{triple}; zr's ports stand in for them") unless Target.fetch(triple)&.native_ext?
       return Check.new(:warn, "C extensions", "no cc, which --native-ext needs (#{Target.cc_hint})") unless cc
 
       require_relative "ext"

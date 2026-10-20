@@ -58,9 +58,12 @@ second, and a large one (all of bundler) in about six seconds.
 
 Any host with ruby 4.0 or later can build a macOS arm64 binary, a WASI module
 and an object file. Only an Apple Silicon Mac runs the macOS binary.
-An `aarch64-linux-musl` binary needs a musl cross toolchain, or an
-aarch64 Linux host with musl. zr does not build x86_64 or Windows
-binaries yet. `zr doctor` shows what this host can build. See
+A Linux binary (aarch64 or x86_64, static with musl or dynamic with
+glibc) needs a Linux host of that machine with `cc`, or a cross
+toolchain. The x86_64 and glibc targets are experimental: CI runs only
+a slice of the program tests on them. zr builds no binary for an Intel
+Mac or for Windows, and does not run on Windows; use WSL 2 there.
+`zr doctor` shows what this host can build. See
 [Targets](../reference/targets.md).
 
 ## Does a binary need anything to run?

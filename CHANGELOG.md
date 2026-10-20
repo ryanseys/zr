@@ -13,8 +13,9 @@ The first public release.
 
 - `gem install zr` installs the `zr` command on ruby 4.0 or later: `run`,
   `build`, `gems`, `inspect`, `diff`, `doctor`, `cache`, `version` and
-  `help`. On a ruby of another series than the pinned one, zr gives a
-  warning. The gem has no dependencies: it carries the pinned ruby's
+  `help`. CI runs zr on ruby 4.0 and 4.1; on another series, zr gives a
+  warning. Whatever ruby runs zr, a program gives the output of the
+  pinned ruby, 4.1.0-preview1. The gem has no dependencies: it carries the pinned ruby's
   standard library (`vendor/ruby`), so the install downloads only zr, and
   compiles nothing.
 - A compiled program gives the pinned ruby's output byte for byte, or zr
@@ -26,7 +27,8 @@ The first public release.
   any host, static `aarch64-linux-musl` binaries with a musl toolchain,
   and object files. zr links a macOS binary itself, so it needs no C
   compiler and no linker.
-- Linux targets: static `x86_64-linux-musl`, and dynamic
+- Experimental Linux targets (CI runs a slice of the program tests on
+  them): static `x86_64-linux-musl`, and dynamic
   `x86_64-linux-gnu` and `aarch64-linux-gnu`, which load on glibc 2.35
   and later (Ubuntu 22.04, Debian 12). An x86-64 backend emits
   x86-64-v2 code. A glibc binary links through the host's `cc`,

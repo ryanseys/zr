@@ -4,6 +4,7 @@ require_relative "../version"
 require_relative "../config"
 require_relative "../refused"
 require_relative "../paths"
+require_relative "../target"
 
 module Zr
   module CLI
@@ -24,6 +25,7 @@ module Zr
       # when it runs there.
       #: (?String version) -> String?
       def host_refusal(version = RUBY_VERSION)
+        return "zr does not run on Windows. Use WSL 2, where zr builds x86_64-linux-gnu binaries." if Target.windows?
         return if Zr.supported_ruby?(version)
 
         "zr #{VERSION} runs on ruby #{RUBY_MINIMUM} or later. Install ruby #{RUBY_PIN}: #{DOCS_URL}/how-to/install.md"
@@ -35,7 +37,7 @@ module Zr
       def host_note(version = RUBY_VERSION)
         return if Zr.tested_ruby?(version) || !Zr.supported_ruby?(version)
 
-        "zr #{VERSION} is tested with ruby #{RUBY_PIN}; this is ruby #{version}"
+        "zr #{VERSION} is tested with ruby #{RUBY_TESTED.join(" and ")}; this is ruby #{version}"
       end
 
       # Stops a build on a ruby that zr does not run on, before it reads
@@ -77,6 +79,9 @@ module Zr
       #: (Target target, bool chosen) -> String
       def foreign(target, chosen)
         what = "this computer cannot run #{target.triple} binaries."
+        if Target.host_triple == "x86_64-apple-darwin"
+          what = "this Mac has an Intel CPU, and zr builds macOS binaries for Apple Silicon only."
+        end
         return what if chosen
 
         "#{what} zr builds one for #{TARGET_NAMES.fetch(target.triple, target.triple)}."

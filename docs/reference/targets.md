@@ -25,12 +25,27 @@ ruby 4.0 or later. `Zr::Target` (`lib/zr/target.rb`) defines each target.
 | Mach-O or ELF object file | any host |
 
 `zr run` runs a binary only on a host that can run it: an Apple Silicon
-Mac for `aarch64-apple-darwin`, and any aarch64 Linux (musl or glibc)
-for the static `aarch64-linux-musl` binary. On another host (x86_64
-Linux, an Intel Mac), `zr run` stops, and says to use `zr run --emit
-wasm`. `zr build` without `--target` then builds an
+Mac for `aarch64-apple-darwin`, a Linux of the same machine for a
+Linux target (a static musl binary also runs on a glibc Linux). On a
+host that runs no target (an Intel Mac), `zr run` stops, and says to
+use `zr run --emit wasm`; `zr build` without `--target` then builds an
 `aarch64-apple-darwin` binary, and says so. On a host that cannot link
-a binary, `zr build` without `--emit` exits with status 3.
+a binary, `zr build` without `--emit` exits with status 3. An x86_64
+ruby that Rosetta runs on an Apple Silicon Mac builds and runs
+`aarch64-apple-darwin` binaries. zr does not run on Windows.
+
+## How well each target is tested
+
+<!-- targets: written by `zr-dev gen targets`. Do not edit. -->
+| Target | Status | What CI checks |
+|---|---|---|
+| `aarch64-apple-darwin` | tested | its program tests run in CI |
+| `aarch64-linux-musl` | tested | its program tests run in CI |
+| `x86_64-linux-musl` | experimental | CI builds it and runs a slice of the program tests |
+| `x86_64-linux-gnu` | experimental | CI builds it and runs a slice of the program tests |
+| `aarch64-linux-gnu` | experimental | CI builds it and runs a slice of the program tests |
+| `wasm32-wasi` | tested | its program tests run in CI |
+<!-- /targets -->
 
 ## Platform and minimum OS
 

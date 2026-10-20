@@ -232,6 +232,7 @@ in `tool/gen/`.
 | `zr-dev gen capi` | `docs/reference/c-api.md`: the functions and data of ruby's C API that the kernel gives C extensions, from `lib/zr/runtime/kernel/capi/*.rb` |
 | `zr-dev gen support` | `docs/reference/support.md`: what zr refuses, from the compiler, and the baseline of each target |
 | `zr-dev gen perf` | `docs/explanation/performance.md`: the run and build times, from the newest reports in `benchmark/results/` |
+| `zr-dev gen targets` | The table of targets in `README.md`, and the table of how far CI checks each target in `docs/reference/targets.md`, from `Zr::Target::ALL` and `Zr::Target::SUPPORT`: the lines between the two `targets` markers of each file |
 | `zr-dev gen redefinitions` | `lib/zr/runtime/core/redefinitions.rb`: the core methods whose redefinition makes ruby warn. It runs ruby for each core method, in parallel. |
 
 #### Generated files that the unit tier tests

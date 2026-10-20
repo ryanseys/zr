@@ -26,7 +26,7 @@ class DoctorTest < Minitest::Test
     check = Zr::Doctor.ruby(next_series)
 
     assert_equal :warn, check.status
-    assert_equal "#{next_series}; zr is tested with #{Zr::RUBY_PIN}", check.detail
+    assert_equal "#{next_series}; zr is tested with ruby 4.0 and 4.1", check.detail
   end
 
   def test_the_pinned_series_is_ok
@@ -152,11 +152,14 @@ class DoctorTest < Minitest::Test
 
   DARWIN = Zr::Target::AARCH64_DARWIN.triple
 
-  def test_c_extensions_are_for_aarch64_darwin_and_musl_only
-    check = Zr::Doctor.extensions("x86_64-linux-gnu", [])
+  # Every target that builds a binary links C extensions; WASI does not.
+  def test_c_extensions_are_for_each_target_that_builds_a_binary
+    check = Zr::Doctor.extensions("wasm32-wasi", [])
 
-    assert_equal [:ok, "not on x86_64-linux-gnu; zr's ports stand in for them"], [check.status, check.detail]
-    assert_match(/\A0 of 0 installed gems/, Zr::Doctor.extensions("aarch64-linux-musl", [], cc: "/usr/bin/cc", make: "/usr/bin/make").detail)
+    assert_equal [:ok, "not on wasm32-wasi; zr's ports stand in for them"], [check.status, check.detail]
+    %w[aarch64-linux-musl x86_64-linux-gnu].each do |triple|
+      assert_match(/\A0 of 0 installed gems/, Zr::Doctor.extensions(triple, [], cc: "/usr/bin/cc", make: "/usr/bin/make").detail)
+    end
   end
 
   def test_c_extensions_without_cc_or_make_warn

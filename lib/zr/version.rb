@@ -16,9 +16,12 @@ module Zr
   # Where to report a defect.
   ISSUES_URL = "https://github.com/ryanseys/zr/issues"
 
-  # The oldest ruby that runs zr: Ruby 4. A ruby of another series than
-  # RUBY's runs it with a warning, as zr is tested with RUBY only.
+  # The oldest ruby that runs zr: Ruby 4. The host ruby runs only the
+  # compiler: a program's output is RUBY's whatever ruby runs zr.
   RUBY_MINIMUM = "4.0"
+  # The series of ruby that CI runs zr on (test/unit/ci_rubies_test.rb).
+  # A ruby of another series runs zr with a warning.
+  RUBY_TESTED = %w[4.0 4.1].freeze
 
   # RUBY_DESCRIPTION of a program built for `platform`, which `zr -v`
   # prints as ruby does (lib/zr/runtime/core/ruby_version.rb).
@@ -33,10 +36,10 @@ module Zr
   # sees.
   def self.supported_ruby?(version) = (segments(version) <=> segments(RUBY_MINIMUM)) >= 0
 
-  # Whether `version` is of RUBY's series (4.1.x for 4.1.0), which zr is
-  # tested with: it runs zr with no warning.
+  # Whether `version` is of a series that zr is tested with
+  # (RUBY_TESTED): it runs zr with no warning.
   #: (String version) -> bool
-  def self.tested_ruby?(version) = segments(version).first(2) == segments(RUBY).first(2)
+  def self.tested_ruby?(version) = RUBY_TESTED.include?(segments(version).first(2).join("."))
 
   # Whether the running ruby is the pinned one itself, the only ruby that
   # writes zr's tables and expected outputs: the same version, patch level

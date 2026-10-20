@@ -66,7 +66,8 @@ $ zr doctor                                  # check this host, and what it can 
 $ zr help build                              # the options of a command
 ```
 
-On a host that cannot run a macOS arm64 binary (Linux, an Intel Mac),
+On a Linux host, `zr run` and `zr build` make a Linux binary for that
+host. On a host that runs no binary that zr builds (an Intel Mac),
 add `--emit wasm` and run the module with wasmtime:
 `zr run --emit wasm hello.rb Ruby`.
 
@@ -82,21 +83,30 @@ and read [Questions and answers](https://github.com/ryanseys/zr/blob/v0.1.0/docs
 
 ## What it builds
 
-| Target | Output | Built on |
-|---|---|---|
-| `aarch64-apple-darwin` | native binary for macOS 14 or later | any host |
-| `aarch64-linux-musl` | static binary for any aarch64 Linux | aarch64 Linux with musl's `cc` (Alpine's, or `musl-gcc`), or a host with a musl cross toolchain |
-| `wasm32-wasi` | WASI module | any host |
+<!-- targets: written by `zr-dev gen targets`. Do not edit. -->
+| Target | Output | Built on | Status |
+|---|---|---|---|
+| `aarch64-apple-darwin` | native binary for macOS 14 or later (Apple Silicon) | any host | tested |
+| `aarch64-linux-musl` | static binary for any aarch64 Linux | aarch64 Linux with musl's `cc`, or a host with a musl cross toolchain | tested |
+| `x86_64-linux-musl` | static binary for any x86_64 Linux | x86_64 Linux with musl's `cc`, or a host with a musl cross toolchain | experimental |
+| `x86_64-linux-gnu` | dynamic binary for x86_64 Linux with glibc 2.35 or later | x86_64 glibc Linux with `cc`, or a host with `x86_64-linux-gnu-gcc` | experimental |
+| `aarch64-linux-gnu` | dynamic binary for aarch64 Linux with glibc 2.35 or later | aarch64 glibc Linux with `cc`, or a host with `aarch64-linux-gnu-gcc` | experimental |
+| `wasm32-wasi` | WASI module | any host | tested |
+<!-- /targets -->
+
+An experimental target builds and passes a slice of the program tests
+in CI; a tested one passes all of them.
 
 Some features depend on the target. For example, a WASI module has no
 fibers, threads or ractors. See [Targets](https://github.com/ryanseys/zr/blob/v0.1.0/docs/reference/targets.md).
 
 ## Limits
 
-- **Hosts.** zr builds binaries for arm64 only: an Apple Silicon Mac,
-  and aarch64 Linux (a static musl binary, which also runs on a glibc
-  Linux). It builds no x86_64 or Windows binary. Any host builds macOS
-  binaries, WASI modules and objects.
+- **Hosts.** zr builds binaries for macOS on Apple Silicon, and for
+  aarch64 and x86_64 Linux (static with musl, or dynamic with glibc).
+  It builds no binary for an Intel Mac or for Windows, and does not run
+  on Windows (use WSL 2). Any host builds macOS binaries, WASI modules
+  and objects.
 - **Size.** A binary contains the whole runtime, so even "hello
   world" is tens of megabytes; a program that calls `eval` also
   carries the compiler. [Performance](https://github.com/ryanseys/zr/blob/v0.1.0/docs/explanation/performance.md) gives the size of the

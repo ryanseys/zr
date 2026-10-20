@@ -42,11 +42,11 @@ module Zr
       # The output of one run: stdout, then stderr, then the exit status.
       Output = Data.define(:stdout, :stderr, :status)
 
-      # The hosts where zr runs C extensions: aarch64 darwin, and aarch64
-      # linux with musl, where each one links into a static binary. A test
-      # runs on the host's own target, as ruby there gives each answer.
-      HOSTS = [Target::AARCH64_DARWIN, Target::AARCH64_LINUX_MUSL].freeze
-      UNSUPPORTED = "needs an aarch64-apple-darwin or aarch64-linux-musl host"
+      # The hosts where zr runs C extensions: each target that builds a
+      # binary (`Target#native_ext?`). A test runs on the host's own
+      # target, as ruby there gives each answer.
+      HOSTS = Target.all.select(&:native_ext?).freeze
+      UNSUPPORTED = "needs a host of #{HOSTS.map(&:triple).join(", ")}"
 
       module_function
 

@@ -34,6 +34,11 @@ module Zr
               $stderr.print built.stderr
               exit(built.status == REFUSED ? REFUSED : 2)
             end
+            # zr gives the pinned ruby's output, whatever ruby runs zr.
+            unless RUBY_VERSION.start_with?(RUBY.split(".").first(2).join("."))
+              warn "zr: note: zr diff compares with ruby #{RUBY_VERSION}, and zr gives ruby #{RUBY_PIN}'s output; " \
+                   "some differences are ruby's own"
+            end
             ruby = Zr::Diff.run([RbConfig.ruby, input, *opts[:args]], env: ruby_env)
             zr = Zr::Diff.run([out, *opts[:args]])
             kind = Zr::Diff.kind(ruby, zr)

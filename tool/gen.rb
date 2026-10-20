@@ -57,7 +57,8 @@ module Zr
           "capi" => ["docs/reference/c-api.md: the C API that zr gives C extensions", -> { require_relative "gen/capi"; CApi }],
           "gem-compat" => ["docs/reference/gem-compat.md: how far each gem gets, from log/gems/compat.tsv",
                            -> { require_relative "gen/gem_compat"; GemCompat }],
-          "perf" => ["docs/explanation/performance.md: the newest benchmark reports", -> { require_relative "gen/perf"; Perf }]
+          "perf" => ["docs/explanation/performance.md: the newest benchmark reports", -> { require_relative "gen/perf"; Perf }],
+          "targets" => ["README.md and docs/reference/targets.md: the tables of targets", -> { require_relative "gen/targets"; Targets }]
         })
 
         # Runs every generator that this host can run, and warns for each

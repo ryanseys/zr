@@ -10,9 +10,9 @@ Gem::Specification.new do |spec|
 
   spec.summary = "A Ruby compiler, written in Ruby: its programs print what ruby prints, or zr refuses them by name"
   spec.description = <<~TEXT
-    zr compiles Ruby programs to native aarch64-apple-darwin binaries and
-    WASI modules on any host, and to static aarch64-linux-musl binaries
-    with a musl toolchain. A compiled program gives the output of ruby
+    zr compiles Ruby programs to native binaries for macOS (Apple Silicon)
+    and WASI modules on any host, and to Linux (aarch64 and x86_64)
+    binaries with a C toolchain. A compiled program gives the output of ruby
     #{Zr::RUBY_PIN}, the Ruby 4 release that zr targets, or zr refuses it at
     build time. The compiler and the runtime are Ruby, with no C. zr
     carries ruby's standard library itself, so the gem depends on nothing.

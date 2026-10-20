@@ -81,9 +81,10 @@ Each `warn` line says what zr cannot do here, and what to do. Only a
 - **OpenSSL 3** is needed only by a macOS program that requires
   `openssl`: `brew install openssl@3`. For another location, set
   `OPENSSL_DIR` to its prefix.
-- **A C compiler** is needed only for an `aarch64-linux-musl` binary,
-  and for `--link`. On macOS, `xcode-select --install`. On Alpine,
-  `apk add build-base`. On Debian or Ubuntu, `apt install musl-tools`.
+- **A C compiler** is needed only for a Linux binary, and for `--link`.
+  On macOS, `xcode-select --install`. On Alpine, `apk add build-base`.
+  On Debian or Ubuntu, `apt install build-essential` (and `musl-tools`
+  for a static musl binary).
 
 ## 5. Build a program
 
@@ -145,8 +146,8 @@ has `-rbundler/setup`, remove it for the `zr` command.
 ### `this computer cannot run aarch64-apple-darwin binaries`
 
 zr builds native binaries for an Apple Silicon Mac and for aarch64
-Linux. On another host (x86_64 Linux, an Intel Mac), build a
-WebAssembly module and run it with wasmtime:
+and x86_64 Linux. On another host (an Intel Mac), build a WebAssembly
+module and run it with wasmtime:
 
 ```console
 $ zr run --emit wasm hello.rb
@@ -157,8 +158,7 @@ can copy to an Apple Silicon Mac.
 
 ### `a native binary needs cc on the PATH`
 
-Only an `aarch64-linux-musl` binary, and a build with `--link`, need a C
-compiler. Install one as `zr doctor` says (step 4), or build with
+Only a Linux binary, and a build with `--link`, need a C compiler. Install one as `zr doctor` says (step 4), or build with
 `--emit wasm`.
 
 ### `zr: internal error: ...`

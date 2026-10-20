@@ -18,6 +18,23 @@ class TargetTest < Minitest::Test
     assert_equal digests.uniq.size, digests.size
   end
 
+  # Each target says how far CI checks it, and only WASI takes no C
+  # extension.
+  def test_each_target_has_a_support_level
+    assert_equal Zr::Target.all.map(&:triple).sort, Zr::Target::SUPPORT.keys.sort
+    assert_equal [Zr::Target::WASM32_WASI], Zr::Target.all.reject(&:native_ext?)
+  end
+
+  # An x86_64 ruby that Rosetta runs on an Apple Silicon Mac is on an
+  # aarch64 host; one on an Intel Mac is not.
+  def test_rosetta_runs_on_an_aarch64_host
+    config = RbConfig::CONFIG.merge("host_cpu" => "x86_64", "host_os" => "darwin23")
+    stub_const_config(config) do
+      stub_method(Zr::Target, :rosetta?, true) { assert_equal "aarch64-apple-darwin", Zr::Target.host_triple }
+      stub_method(Zr::Target, :rosetta?, false) { assert_equal "x86_64-apple-darwin", Zr::Target.host_triple }
+    end
+  end
+
   def test_the_default_is_the_host_or_darwin
     assert_equal Zr::Target.host || Zr::Target::AARCH64_DARWIN, Zr::Target.default
   end
@@ -104,5 +121,18 @@ class TargetTest < Minitest::Test
         assert_equal "xcode-select --install", Zr::Target.cc_hint(os_release: release)
       end
     end
+  end
+
+  private
+
+  # Runs the block while RbConfig::CONFIG is `config`.
+  def stub_const_config(config)
+    was = RbConfig::CONFIG
+    RbConfig.send(:remove_const, :CONFIG)
+    RbConfig.const_set(:CONFIG, config)
+    yield
+  ensure
+    RbConfig.send(:remove_const, :CONFIG)
+    RbConfig.const_set(:CONFIG, was)
   end
 end

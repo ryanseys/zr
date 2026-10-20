@@ -96,6 +96,22 @@ module Zr
     # Every target, by triple.
     BY_TRIPLE = ALL.to_h { |target| [target.triple, target] }.freeze #: Hash[String, Target]
 
+    # How far CI checks each target: `:tested` runs its program tests in
+    # CI, `:experimental` builds and runs only a slice there.
+    # tool/gen/targets.rb writes the tables of the README and of
+    # docs/reference/targets.md from it.
+    SUPPORT = { "aarch64-apple-darwin" => :tested, "aarch64-linux-musl" => :tested, "wasm32-wasi" => :tested,
+                "x86_64-linux-musl" => :experimental, "x86_64-linux-gnu" => :experimental,
+                "aarch64-linux-gnu" => :experimental }.freeze #: Hash[String, :tested | :experimental]
+
+    #: () -> (:tested | :experimental)
+    def support = SUPPORT.fetch(triple)
+
+    # Whether a binary for this target can link a gem's own C extension
+    # (`--native-ext`): every target that builds a binary.
+    #: () -> bool
+    def native_ext? = outputs.include?(:native)
+
     # The target with this `triple`, or nil.
     #: (String triple) -> Target?
     def self.fetch(triple) = BY_TRIPLE[triple]
@@ -104,17 +120,35 @@ module Zr
     def self.all = ALL
 
     # This host as a triple: `aarch64-apple-darwin`, `aarch64-linux-musl`,
-    # or what ruby says.
+    # or what ruby says. An x86_64 ruby that Rosetta runs on an Apple
+    # Silicon Mac is on an aarch64 host, which runs zr's binaries.
     #: () -> String
     def self.host_triple
       require "rbconfig"
       cpu = RbConfig::CONFIG.fetch("host_cpu")
       os = RbConfig::CONFIG.fetch("host_os")
-      cpu = "aarch64" if cpu == "arm64"
+      cpu = "aarch64" if cpu == "arm64" || (cpu == "x86_64" && os.start_with?("darwin") && rosetta?)
       return "#{cpu}-apple-darwin" if os.start_with?("darwin")
       return "#{cpu}-linux-musl" if os.start_with?("linux-musl")
 
       "#{cpu}-#{os}"
+    end
+
+    # Whether Rosetta translates this process (`sysctl.proc_translated`).
+    #: () -> bool
+    def self.rosetta?
+      Session.current.memo(:rosetta) do
+        IO.popen(%w[sysctl -n sysctl.proc_translated], err: File::NULL, &:read).strip == "1"
+      rescue SystemCallError
+        false
+      end
+    end
+
+    # Whether this host is Windows, where zr does not run.
+    #: () -> bool
+    def self.windows?
+      require "rbconfig"
+      RbConfig::CONFIG.fetch("host_os").match?(/mswin|mingw|cygwin/)
     end
 
     # The target whose binaries this host runs, or nil.

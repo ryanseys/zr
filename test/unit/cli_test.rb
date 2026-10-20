@@ -25,9 +25,14 @@ class CliTest < Minitest::Test
     end
   end
 
+  # CI runs zr on ruby 4.0 too: a 4.0 host gets no note.
+  def test_each_tested_series_builds_with_no_note
+    %w[4.0.9 4.1.2].each { |version| assert_nil Zr::CLI::Refusals.host_note(version), version }
+  end
+
   def test_another_series_builds_with_a_note
     assert_nil Zr::CLI::Refusals.host_refusal(next_series)
-    assert_equal "zr #{Zr::VERSION} is tested with ruby #{Zr::RUBY_PIN}; this is ruby #{next_series}",
+    assert_equal "zr #{Zr::VERSION} is tested with ruby 4.0 and 4.1; this is ruby #{next_series}",
                  Zr::CLI::Refusals.host_note(next_series)
     assert_output(nil, "zr: warning: #{Zr::CLI::Refusals.host_note(next_series)}\n") { Zr::CLI::Refusals.pinned!(next_series) }
   end
