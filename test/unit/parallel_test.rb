@@ -134,6 +134,18 @@ class ParallelTest < Minitest::Test
     assert GC.config[:rgengc_allow_full_mark]
   end
 
+  # A worker that grew too much stops after its item, and a new worker,
+  # forked from the parent, takes the rest: here each one retires after
+  # one item.
+  def test_a_retired_worker_gives_its_place_to_a_new_one
+    pids = stub_method(Parallel, :retire?, true) do
+      Parallel.map((1..6).to_a, jobs: 2, weight: ->(x) { x }) { |x| [x * x, Process.pid] }
+    end
+
+    assert_equal [1, 4, 9, 16, 25, 36], pids.map(&:first)
+    assert_equal 6, pids.map(&:last).uniq.size
+  end
+
   def test_a_worker_that_ends_with_no_answer_raises
     error = assert_raises(RuntimeError) do
       Parallel.map((1..4).to_a, jobs: 2, weight: ->(x) { x }) { |x| x == 4 ? exit!(3) : x }

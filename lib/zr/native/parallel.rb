@@ -49,9 +49,10 @@ module Zr
         queue, feed = IO.pipe
         feeder = fed(feed, weights)
         inbox = Thread::Queue.new
-        workers = Array.new(jobs) { started(items, queue, feed, work, inbox) }
+        start = -> { started(items, queue, feed, work, inbox) }
+        workers = Array.new(jobs) { start.call }
+        failures = without_collections { collected(workers, inbox, answers, progress, start) }
         queue.close
-        failures = without_collections { collected(workers, inbox, answers, progress) }
         feeder.join
         progress&.finish(items, label)
         raise_first(failures) unless failures.empty?
@@ -65,6 +66,7 @@ module Zr
       ITEM = 0
       RAISED = 1
       DONE = 2
+      RETIRED = 3
 
       # Runs the block with the collector off. While it collects, this
       # process makes only the answers, which it keeps, so a collection
@@ -202,7 +204,7 @@ module Zr
       def started(items, queue, feed, work, inbox)
         r, w = IO.pipe
         pid = fork do
-          feed.close
+          feed.close unless feed.closed?
           queue.binmode
           r.close
           w.binmode
@@ -244,12 +246,32 @@ module Zr
         inbox << [pid]
       end
 
+      # A worker stops taking items when it has grown by this much since
+      # its fork, and the parent forks a new one for the rest (`collected`).
+      # A worker's collections are minor (`minor_only`), so each object
+      # that it promotes stays until it ends: three workers that each made
+      # 158 of eval support's pieces swapped on the 7 GB macOS runner, and
+      # took 607 s where four on a 16 GB Linux runner took 28 s.
+      RETIRE_BYTES = 1 << 30
+
+      # Whether this worker, which had `began` bytes at its fork, has
+      # grown past RETIRE_BYTES. False where the system does not give the
+      # resident size.
+      #: (Integer? began) -> bool
+      def retire?(began)
+        now = began && Resident.bytes_of(Process.pid)
+        !now.nil? && !began.nil? && now - began > RETIRE_BYTES
+      end
+
       # Yields `ITEM, index, seconds, result` for each item, then `DONE`
       # with the worker's `Timing.tallies`. For the first item that raises,
       # it yields `RAISED, index` with the error's class name and message
-      # instead and stops; the other workers take the rest.
+      # instead and stops; the other workers take the rest. A worker that
+      # has grown too much (`retire?`) stops after its item, and a new one
+      # takes the rest.
       #: [Item] (Array[Item] items, IO queue, ^(Item) -> untyped work) { (Integer, Integer, Float, untyped) -> void } -> void
       def answered(items, queue, work)
+        grown_from = Resident.bytes_of(Process.pid)
         while (word = queue.read(4))
           i = word.unpack1("L") #: Integer
           began = Timing.now
@@ -259,6 +281,10 @@ module Zr
             return yield RAISED, i, 0.0, [e.class.name, e.message]
           end
           yield ITEM, i, Timing.now - began, answer
+          next unless retire?(grown_from)
+
+          yield RETIRED, 0, 0.0, nil
+          break
         end
         yield DONE, 0, 0.0, Timing.tallies
       end
@@ -267,27 +293,42 @@ module Zr
       # answer's bytes at its index, adds each worker's tallies to this
       # process's, and returns the failures as `[index, class name,
       # message]`. Only the header is read here, so a worker's write never
-      # waits on a Marshal.load.
-      #: (Array[[Integer, Thread]] workers, Thread::Queue inbox, Array[untyped] answers, Progress? progress) -> Array[Array[untyped]]
-      def collected(workers, inbox, answers, progress)
+      # waits on a Marshal.load. When a worker that retired (`retire?`)
+      # ends with items left and none failed, `start` forks one in its
+      # place.
+      # @rbs workers: Array[[Integer, Thread]]
+      # @rbs inbox: Thread::Queue
+      # @rbs answers: Array[untyped]
+      # @rbs progress: Progress?
+      # @rbs start: ^() -> [Integer, Thread]
+      # @rbs return: Array[Array[untyped]]
+      def collected(workers, inbox, answers, progress, start)
         failures = [] #: Array[Array[untyped]]
         ended = {} #: Hash[Integer, bool]
+        retired = {} #: Hash[Integer, bool]
         open = workers.size
+        done = 0
         while open.positive?
           pid, kind, i, seconds, bytes = inbox.pop
           if kind.nil?
             open -= 1
+            if done < answers.size && failures.empty? && retired[pid]
+              workers << start.call
+              open += 1
+            end
             next
           end
 
           case kind
           when ITEM
             answers[i] = bytes
+            done += 1
             progress&.done(i, seconds)
           when RAISED then failures << [i, *Marshal.load(bytes)]
           when DONE then Timing.add(Marshal.load(bytes))
+          when RETIRED then retired[pid] = true
           end
-          ended[pid] = true unless kind == ITEM
+          ended[pid] = true if kind == RAISED || kind == DONE
         end
         workers.each do |pid, reader|
           reader.join
