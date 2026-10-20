@@ -82,9 +82,15 @@ module Zr
       def self.rubygems_files = %w[rubygems bundled_gems].map { |name| File.join(Library::Roots.pure, "#{name}.rb") }
       #: () -> Array[String]
       def self.ahead = [File.join(Library::Roots.pure, "rubygems"), *rubygems_files]
-      # The files of rubygems' autoloads that its boot reads.
+      # The files of rubygems' autoloads that its boot reads. Each list of
+      # the installed gems (SpecificationRecord#map_stubs, which `gem`, the
+      # gem manifest and the activation of a require read) also reads
+      # content_address. The program must carry it: on wasm32-wasi, and on
+      # a machine with no zr, the program cannot read the file at run time.
       #: () -> Array[String]
-      def self.booted = %w[dependency path_support requirement util version].map { |name| File.join(Library::Roots.pure, "rubygems/#{name}.rb") }
+      def self.booted
+        %w[content_address dependency path_support requirement util version].map { |name| File.join(Library::Roots.pure, "rubygems/#{name}.rb") }
+      end
 
       # The file that loads rubygems, bundled_gems and the gem manifest as
       # the prelude does. Eval support carries it and the files it requires.

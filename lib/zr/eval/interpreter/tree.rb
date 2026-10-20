@@ -709,6 +709,7 @@ module Zr
         # @rbs self_: value
         # @rbs return: value
         def run_block(node, ctx, args, kwargs, blk, lambda:, home: nil, here: nil, self_: nil)
+          World.walk_enter
           ctx = ctx.with(self_: self_, cref: here, name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
           tag = node.__id__
           scope = Scope.new(node.locals)
@@ -728,6 +729,8 @@ module Zr
 
             retry
           end
+        ensure
+          World.walk_leave
         end
 
         # Method definition. Each call walks the body, in the lexical scope
@@ -754,7 +757,14 @@ module Zr
           end
         end
 
+        # A method or a block that the walk made can run after the eval
+        # that made it returned, when compiled code calls it (rubygems'
+        # Kernel#require, which rubygems evals). While it runs, the program
+        # is the caller of the runtime, as in `Interpreter.evaluate`
+        # (`World.walk_enter`): a constant that it defines on Object and a
+        # file that it requires are the program's, not hidden.
         def run_method(node, self_, owner, cref, args, kwargs, blk)
+          World.walk_enter
           tag = node.__id__
           scope = Scope.new(node.locals)
           ctx = Ctx.new(self_: self_, cref: cref, chain: [scope], block: blk,
@@ -767,6 +777,8 @@ module Zr
 
             e.value
           end
+        ensure
+          World.walk_leave
         end
 
         def module_def(node, ctx)

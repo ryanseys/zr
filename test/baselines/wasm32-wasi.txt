@@ -23,7 +23,6 @@ cli/core/thread/thread_queue_handoff.rb	can't allocate fiber stack: Function not
 # These programs use eval, but eval support does not cause their
 # failure.
 cli/stdlib/ffi/ffi_libc_call.rb	dlopen has no wasm form
-cli/stdlib/rubygems/require_rubygems.rb	rubygems reads a gem's own source by absolute path, and a WASI guest is given no such directory
 
 # A build of these programs for wasm needs more memory than the limit.
 
