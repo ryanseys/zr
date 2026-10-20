@@ -17,7 +17,9 @@ for name in ZR_TARGET ZR_JOBS ZR_VERIFY ZR_TIMING ZR_PROGRAMS ZR_TEST_SHARD ZR_T
   if [ -n "${!name:-}" ]; then passed+=(-e "$name=${!name}"); fi
 done
 summary=tmp/step-summary.md
-rm -f "$summary"
+# The container's root owns tmp (the cache must be its user's), so the
+# container removes the summary of the step before.
+docker exec alpine rm -f "$PWD/$summary"
 passed+=(-e "GITHUB_STEP_SUMMARY=$PWD/$summary")
 
 docker exec "${passed[@]}" alpine "$@"
