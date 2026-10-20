@@ -100,21 +100,28 @@ jobs:
     needs: checks
     if: needs.checks.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 90
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - triple: aarch64-apple-darwin
             os: macos-15
-          # Two runner shutdowns in the build with 4 workers.
+            experimental: false
+          # Experimental: on an x86_64 Linux runner the build uses all of
+          # its 16 GB and stops the runner, with 2 workers or 4. Only the
+          # experimental rows import its bundle.
           - triple: x86_64-linux-gnu
             os: ubuntu-24.04
+            experimental: true
             jobs: "2"
           - triple: aarch64-linux-gnu
             os: ubuntu-24.04-arm
+            experimental: false
           - triple: wasm32-wasi
             os: ubuntu-24.04
+            experimental: false
     # Each IR function is checked once, as the runtime builds: the bundle
     # is the same with or without the check (Config#verify?).
     env:
@@ -188,9 +195,9 @@ jobs:
           # The dispatch, Array and Hash tests as modules under Winch: the
           # whole tier is hours of wasmtime.
           - triple: wasm32-wasi
-            os: ubuntu-24.04
+            os: ubuntu-24.04-arm
             experimental: false
-            runtimes: x86_64-linux-gnu wasm32-wasi
+            runtimes: aarch64-linux-gnu wasm32-wasi
             slice: lang/methods,core/array,core/hash
             units: >-
               test/unit/wasm_test.rb test/unit/wasm_locals_test.rb test/unit/os_api_test.rb
@@ -251,10 +258,12 @@ jobs:
             os: ubuntu-24.04-arm
             experimental: false
             vendor: true
+          # Eval support's build with 4 workers stopped the runner twice.
           - triple: x86_64-linux-musl
             os: ubuntu-24.04
             experimental: true
             vendor: false
+            jobs: "2"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -262,10 +271,10 @@ jobs:
       - uses: ./.github/actions/runtime-cache
         with:
           flavor: ${{ matrix.triple }}
-      # BUNDLE_WITHOUT and ZR_TARGET hold for each `docker exec`.
+      # BUNDLE_WITHOUT, ZR_TARGET and ZR_JOBS hold for each `docker exec`.
       - name: Start the pinned ruby on Alpine
         run: |
-          docker run -d --name alpine -e BUNDLE_WITHOUT=development -e ZR_TARGET=${{ matrix.triple }} \
+          docker run -d --name alpine -e BUNDLE_WITHOUT=development -e ZR_TARGET=${{ matrix.triple }} -e ZR_JOBS=${{ matrix.jobs }} \
             -v "$PWD:/zr" -w /zr "ruby:${{ needs.checks.outputs.ruby }}-alpine" sleep infinity
           docker exec alpine apk add --no-cache build-base git
           docker exec alpine git config --global --add safe.directory /zr
@@ -319,15 +328,17 @@ jobs:
         include:
           - host: macOS arm64
             os: macos-15
-            triple: aarch64-apple-darwin
+            runtimes: aarch64-apple-darwin wasm32-wasi
             outputs: outputs-macos
+          # The x86_64 glibc runtime is experimental (`runtime`), so this
+          # host builds its own.
           - host: x86_64 Linux
             os: ubuntu-24.04
-            triple: x86_64-linux-gnu
+            runtimes: wasm32-wasi
             outputs: outputs-linux-x86_64
           - host: arm64 Linux
             os: ubuntu-24.04-arm
-            triple: aarch64-linux-gnu
+            runtimes: aarch64-linux-gnu wasm32-wasi
             outputs: outputs-linux-aarch64
     steps:
       # Only the smoke script: the gem under test comes from `checks`.
@@ -344,9 +355,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh run download "$GITHUB_RUN_ID" -n gem
-          for triple in ${{ matrix.triple }} wasm32-wasi; do gh run download "$GITHUB_RUN_ID" -n "runtime-$triple"; done
+          for triple in ${{ matrix.runtimes }}; do gh run download "$GITHUB_RUN_ID" -n "runtime-$triple"; done
       - name: Install the gem with this run's runtimes
-        run: ruby .github/scripts/smoke.rb --import runtime-${{ matrix.triple }}.zrr --import runtime-wasm32-wasi.zrr zr-*.gem
+        run: |
+          imports=()
+          for triple in ${{ matrix.runtimes }}; do imports+=(--import "runtime-$triple.zrr"); done
+          ruby .github/scripts/smoke.rb "${imports[@]}" zr-*.gem
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.outputs }}

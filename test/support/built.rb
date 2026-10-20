@@ -193,8 +193,21 @@ module Zr
       # holds gigabytes.
       def build_binary(target, evals: true)
         link(target, evals ? EVALS : PLAIN)
-        Config.with(ZR_EVAL: "walk") { link(target, EVALS) } if evals
+        walked(target) if evals
         finish(target, evals: evals)
+      end
+
+      # The walking eval support, built as a test's `zr build` builds it
+      # (ProgramBuild#cli), in a process of its own: this one holds the
+      # other eval support (`EvalSupport.for` keeps one for each target).
+      def walked(target)
+        Dir.mktmpdir("zr-build-") do |work|
+          source = File.join(work, "walked.rb")
+          File.write(source, EVALS)
+          argv = [RbConfig.ruby, "--disable-gems", File.join(Zr::Paths::ROOT, "exe/zr"), "build", source, "-o", File.join(work, "walked"),
+                  "--target", target.triple]
+          system(GcTuning::GC_ENV.merge("ZR_EVAL" => "walk"), *argv, exception: true)
+        end
       end
 
       def link(target, source)

@@ -104,7 +104,8 @@ module Zr
       uri = URI(from)
       raise Invalid, "zr fetches over https only, not #{from}" unless uri.is_a?(URI::HTTPS)
 
-      Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 30, read_timeout: 120) do |http|
+      host = uri.host or raise Invalid, "#{from} names no host"
+      Net::HTTP.start(host, uri.port, use_ssl: true, open_timeout: 30, read_timeout: 120) do |http|
         http.request(Net::HTTP::Get.new(uri)) do |response|
           case response
           when Net::HTTPRedirection
@@ -173,6 +174,7 @@ module Zr
     # zr, a changed file, or a path that is no entry of the store.
     #: (String file, ?sha256: String?) -> Hash[String, untyped]
     def import(file, sha256: nil)
+      # @type var staging: String
       if sha256 && (got = Digest::SHA256.file(file).hexdigest) != sha256.downcase
         raise Invalid, "#{file} has SHA-256 #{got}, not #{sha256}"
       end
@@ -181,14 +183,15 @@ module Zr
       # Beside the store, not in it, where no listing of the store's kinds
       # meets it; on the same file system, so each file renames into place.
       staging = File.join(Paths.cache, ".import-#{Process.pid}-#{rand(1 << 32).to_s(16)}")
+      manifest = {} #: Hash[String, untyped]
       Zlib::GzipReader.open(file) do |gz|
         manifest = header(gz)
         Paths.mkdir_p(staging, 0o700)
         manifest.fetch("files").each { |row| stage(gz, row, staging) }
         manifest.fetch("files").each { |row| place(File.join(staging, row.fetch("path")), File.join(store, row.fetch("path"))) }
         manifest.fetch("roots").each { |name, text| Paths.write_atomic(File.join(store, "roots", name), text) }
-        manifest
       end
+      manifest
     rescue Zlib::Error, JSON::ParserError, KeyError, TypeError, ArgumentError => e
       raise Invalid, "#{file} is not a runtime bundle: #{e.message}"
     ensure
@@ -205,12 +208,22 @@ module Zr
       require "tmpdir"
       require_relative "api"
       evals = "puts eval(\"1 + 1\")\n"
-      builds = { "plain" => ["puts 1 + 1\n", {}], "evals" => [evals, {}] }
+      builds = { "plain" => ["puts 1 + 1\n", {}], "evals" => [evals, {}] } #: Hash[String, [String, Hash[Symbol, String]]]
       builds["walked"] = [evals, { eval_mode: "walk" }] if target.link
       Dir.mktmpdir("zr-warm-") do |dir|
         builds.each do |name, (source, settings)|
-          Zr.build(File.join(dir, "#{name}.rb"), source: source, out: File.join(dir, name), target: target.triple,
-                                                 settings: { cache_dir: Paths.cache, **settings })
+          # Each in a process of its own: a process keeps one eval support
+          # for each target (`EvalSupport.for`), which a second kind of
+          # eval support would reuse.
+          pid = Process.fork do
+            Zr.build(File.join(dir, "#{name}.rb"), source: source, out: File.join(dir, name), target: target.triple,
+                                                   settings: { cache_dir: Paths.cache, **settings })
+            exit!(0)
+          rescue StandardError, ScriptError => e
+            warn "zr: #{e.message}"
+            exit!(1)
+          end
+          raise Invalid, "the #{name} build for #{target.triple} did not finish" unless Process.wait2(pid).last.success?
         end
       end
     end
