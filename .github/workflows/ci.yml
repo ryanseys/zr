@@ -322,6 +322,10 @@ jobs:
           docker exec alpine apk add --no-cache build-base git
           docker exec alpine git config --global --add safe.directory /zr
           docker exec alpine bundle install
+          # The restored cache is the runner's; zr refuses a cache that
+          # another user owns, so it is the container's root's until the
+          # last step gives it back.
+          if [ -d tmp ]; then docker exec alpine chown -R 0:0 tmp; fi
       # Each file of vendor/ hashes to its line of vendor/vendor.lock, which
       # `zr-dev vendor` writes from upstream: ruby's own library at
       # RUBY_REVISION, the .gem files that the lock names, prism's
