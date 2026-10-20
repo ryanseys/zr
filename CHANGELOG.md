@@ -18,6 +18,9 @@ The first public release.
   pinned ruby, 4.1.0-preview1. The gem has no dependencies: it carries the pinned ruby's
   standard library (`vendor/ruby`), so the install downloads only zr, and
   compiles nothing.
+- Each commit on `main` that CI passes has a snapshot: a GitHub
+  prerelease with the gem, of version `X.Y.Z.g<sha>` (the first 7
+  characters of the commit's SHA), and its attestation.
 - `zr cache fetch` downloads the runtime that the release built for a
   target, so the first build takes seconds, not minutes. `zr cache
   export` and `zr cache import` move a built runtime between machines.

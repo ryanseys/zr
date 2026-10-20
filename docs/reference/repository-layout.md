@@ -128,7 +128,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `vendor/targets/` | the pinned ruby's C headers and `rbconfig.rb` for each target that zr builds C extensions for from another host (`aarch64-linux-musl`) |
 | `lib/zr/prism_shim/` | makes `require "prism/prism"` load the port on the host |
 | `docs/` | this documentation |
-| `.github/workflows/` | CI (`ci.yml`) and the release (`release.yml`) |
+| `.github/workflows/` | CI (`ci.yml`), the snapshot of each green commit on main (`snapshot.yml`) and the release (`release.yml`) |
 | `.github/actions/runtime-cache/` | the CI step that keeps the built runtime between runs |
 | `.github/scripts/` | the scripts of CI and the release: the smoke test of a built gem, the type check, and the check that CI passed for a tag |
 | `test/test_helper.rb` | what every test file requires |

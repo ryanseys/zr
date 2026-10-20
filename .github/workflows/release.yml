@@ -1,11 +1,12 @@
 name: Release
 
-# A tag vX.Y.Z publishes zr X.Y.Z. A run by hand checks a tag and
+# A tag vX.Y.Z publishes zr X.Y.Z. The tag of a snapshot
+# (snapshot.yml, vX.Y.Z.g<sha>) does not match. A run by hand checks a tag and
 # publishes nothing, unless `publish` is set; `only` runs one publish
 # step again after a failure (docs/how-to/release.md).
 on:
   push:
-    tags: ["v*"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
     inputs:
       tag:
