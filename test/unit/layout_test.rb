@@ -87,15 +87,20 @@ class LayoutTest < Minitest::Test
     end
   end
 
-  # ci-ok is the one check that branch protection and the release
-  # (ci_passed.rb) require, so it needs every job but the prerelease,
-  # which comes after it, and RuboCop and Steep only report.
+  # ci-ok is the one check that branch protection requires, so it needs
+  # every job but the prerelease, and RuboCop and Steep only report. The
+  # prerelease does not wait for ci-ok: it takes each lane that passed,
+  # and its own step stops it when a tier 1 lane did not
+  # (docs/how-to/release.md).
   def test_ci_ok_needs_every_job_that_can_fail_the_run
     require "yaml"
     jobs = YAML.load_file(File.join(ROOT, ".github/workflows/ci.yml")).fetch("jobs")
 
     assert_equal (jobs.keys - %w[ci-ok release]).sort, jobs.fetch("ci-ok").fetch("needs").sort
-    assert_includes jobs.fetch("release").fetch("needs"), "ci-ok"
+    release = jobs.fetch("release")
+    assert_equal %w[checks lane smoke units], release.fetch("needs").sort
+    assert_includes release.fetch("if"), "!cancelled()"
+    assert_includes release.fetch("steps").first.fetch("run"), "passed-$triple"
     assert_equal "always()", jobs.fetch("ci-ok").fetch("if")
     reports = jobs.fetch("checks").fetch("steps").select { |step| step["run"].to_s.match?(/rubocop|steep/) }
     assert_equal 2, reports.size

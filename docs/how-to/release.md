@@ -10,18 +10,29 @@ checked must not go out.
 
 ## Prereleases
 
-Each CI run on `main` whose `ci-ok` passes makes a GitHub prerelease of
-the commit that it tested: the last job of CI, "release: prerelease of
-this commit" (`.github/workflows/ci.yml`, `release`). Its tag is the
+Each CI run on `main` makes a GitHub prerelease of the commit that it
+tested: the last job of CI, "release: prerelease of this commit"
+(`.github/workflows/ci.yml`, `release`). It does not wait for `ci-ok`.
+Each target's lane has a tier (`.github/scripts/lanes.rb`):
+
+| Tier | Targets | When its lane does not pass |
+|---|---|---|
+| 1 | aarch64-apple-darwin, x86_64-linux-gnu | no prerelease |
+| 2 | aarch64-linux-gnu, aarch64-linux-musl, x86_64-linux-musl | its bundle is left out |
+| 3 | wasm32-wasi | its bundle is left out |
+
+A failed `checks`, `units` or gem smoke test also stops it. A lane
+passed when its test job uploaded the `passed-<triple>` marker. The
+job summary and the release notes name each target that was left out.
+`ci-ok` stays red for any failure, so `main` still shows it. Its tag is the
 version in `lib/zr/version.rb`, then `.g` and the first 7 characters of
 the commit's SHA: `v0.1.0.geebf308`. It holds the files that the run
 tested, with no build of its own:
 
 - the gem of the `checks` job, `zr-<version>.gem`;
-- the runtime bundle of each target's lane,
+- the runtime bundle of each target whose lane passed,
   `zr-runtime-<version>-<triple>.zrr`, by the name that `zr cache fetch`
-  reads (an experimental target whose lane did not pass has none, and
-  the job summary names it);
+  reads;
 - their `SHA256SUMS`, and an attestation of each (`gh attestation verify`).
 
 The gem's version is the release's, so a bundle of the run imports into

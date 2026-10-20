@@ -38,18 +38,22 @@ module Zr
       # absolute. A program outside test/programs runs in a directory of its
       # own, as `ruby prog.rb` would run in the program's directory. A named
       # program is always a test; a directory gives the programs that have
-      # an expected output, or, in any of the `MODES`, every program.
+      # an expected output, or, in any of the `MODES`, every program. A
+      # directory with `/*` after it gives its own programs and none of its
+      # subdirectories' (`core/array/*`).
       def cases(selection = ENV.fetch("ZR_PROGRAMS", ""), mode: self.mode, base: Dir.pwd)
         paths = selection.split(",").map(&:strip).reject(&:empty?)
         paths = [""] if paths.empty?
         paths.flat_map do |path|
+          shallow = path.end_with?("/*")
+          path = path.delete_suffix("/*")
           full = locate(path, base) or raise ArgumentError, "ZR_PROGRAMS: no program or directory #{path} below test/programs or here"
           inside = full == ROOT || full.start_with?(File.join(ROOT, ""))
           root = if inside then ROOT
                  elsif File.file?(full) then File.dirname(full)
                  else full
                  end
-          Case.under(full, root, every: File.file?(full) || !mode.nil?)
+          Case.under(full, root, every: File.file?(full) || !mode.nil?, shallow: shallow)
         end.uniq
       end
 

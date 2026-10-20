@@ -154,6 +154,14 @@ class ProgramTestsTest < Minitest::Test
     end
   end
 
+  def test_a_directory_with_a_star_gives_its_own_programs_and_not_its_subdirectories
+    with_test("area/top.rb" => "p 1\n", "area/top.rb.expected" => "1\n", "area/sub/low.rb" => "p 2\n",
+              "area/sub/low.rb.expected" => "2\n") do |root, _|
+      assert_equal %w[sub/low.rb top.rb], Selection.cases("area", mode: nil, base: root).map(&:rel)
+      assert_equal ["top.rb"], Selection.cases("area/*", mode: nil, base: root).map(&:rel)
+    end
+  end
+
   def test_a_test_is_named_below_test_programs_or_by_its_path
     inside = Case.new(Selection::ROOT, "core/gc/x.rb")
     outside = Case.new("/elsewhere", "try.rb")

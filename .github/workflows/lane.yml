@@ -202,6 +202,15 @@ jobs:
         run: |
           .github/scripts/in_lane.sh ruby tool/zr-dev.rb vendor --check
           .github/scripts/in_lane.sh ruby tool/zr-dev.rb gen tables --check
+      # The release takes this lane only when this marker exists: one
+      # result for the whole lane matrix cannot say which lane passed.
+      - name: The lane passed
+        run: echo "${{ fromJSON(inputs.lane).triple }}" > passed.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: passed-${{ fromJSON(inputs.lane).triple }}
+          path: passed.txt
+          retention-days: 7
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

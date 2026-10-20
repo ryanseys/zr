@@ -33,8 +33,8 @@ module Zr
       # expected output, or with `every` all of them, as Cases whose root is
       # `root`. The files that a program's run directory holds
       # (foo.rb.files/) are no programs.
-      def self.under(dir, root, every: false)
-        paths = File.file?(dir) ? [dir] : Dir[File.join(dir, "**/*.rb")].sort.reject { |path| path.include?(".rb.files/") }
+      def self.under(dir, root, every: false, shallow: false)
+        paths = File.file?(dir) ? [dir] : Dir[File.join(dir, shallow ? "*.rb" : "**/*.rb")].sort.reject { |path| path.include?(".rb.files/") }
         paths.filter_map do |path|
           new(root, File.expand_path(path).delete_prefix(File.join(File.expand_path(root), ""))) if every || File.file?("#{path}.expected")
         end

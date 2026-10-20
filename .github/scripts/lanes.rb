@@ -41,20 +41,26 @@ module Lanes
   #   each.
   # - seconds: ZR_TEST_SECONDS, the bound of one program's build and run,
   #   for a runner or a container that builds slowly.
+  # - tier: what the lane's failure stops (docs/how-to/release.md). A
+  #   release takes each lane whose tests passed; a tier 1 lane that did
+  #   not pass stops it. A tier 2 lane (the default) or a tier 3 one that
+  #   did not pass is left out of it.
   RUNNERS = {
-    "aarch64-apple-darwin" => { os: "macos-26", verify: "0", timeout: 150, shards: 6, stage1: true },
+    "aarch64-apple-darwin" => { os: "macos-26", verify: "0", timeout: 150, shards: 6, stage1: true, tier: 1 },
     "aarch64-linux-gnu" => { os: "ubuntu-24.04-arm", shards: 4 },
     "aarch64-linux-musl" => { os: "ubuntu-24.04-arm", container: true, vendor: true, shards: 4, seconds: "180" },
-    "x86_64-linux-gnu" => { os: "ubuntu-24.04", shards: 4, seconds: "180" },
+    "x86_64-linux-gnu" => { os: "ubuntu-24.04", shards: 4, seconds: "180", tier: 1 },
     "x86_64-linux-musl" => { os: "ubuntu-24.04", container: true, shards: 2, seconds: "180" },
-    "wasm32-wasi" => { os: "ubuntu-24.04-arm", host: "aarch64-linux-gnu", shards: 4 },
+    "wasm32-wasi" => { os: "ubuntu-24.04-arm", host: "aarch64-linux-gnu", shards: 4, tier: 3 },
   }.freeze
 
   # The programs of a push: the cli tier and a slice where a libc, an ISA
   # or a link difference shows. Under wasmtime, the dispatch, Array and
-  # Hash tests: the whole tier is hours.
+  # Hash tests of those directories alone, not of their subdirectories:
+  # each module carries the whole runtime, which wasmtime compiles again
+  # for each test, so all 1,196 took 47 minutes and these 280 about 12.
   SLICE = "lang/methods,core/string"
-  WASM_SLICE = "lang/methods,core/array,core/hash"
+  WASM_SLICE = "lang/methods/*,core/array/*,core/hash/*"
 
   module_function
 
@@ -68,7 +74,7 @@ module Lanes
         timeout: runner.fetch(:timeout, 90), builds: [target.triple, *runner[:host]],
         slice: target.object_format == :wasm ? WASM_SLICE : SLICE, shards: (1..shards).to_a, of: shards,
         test_seconds: runner.fetch(:seconds, "60"), vendor: runner.fetch(:vendor, false), stage1: runner.fetch(:stage1, false),
-        glibc: target.libc == :glibc }
+        glibc: target.libc == :glibc, tier: runner.fetch(:tier, 2) }
     end
   end
 

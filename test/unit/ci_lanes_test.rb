@@ -25,6 +25,17 @@ class CiLanesTest < Minitest::Test
     end
   end
 
+  # A release stops when a tier 1 lane fails (docs/how-to/release.md):
+  # macOS and x86_64 glibc, the hosts of most users. wasm32-wasi is a
+  # cross target, so its failure never stops a host's gem.
+  def test_tier_1_is_darwin_and_x86_64_glibc_and_wasm_is_tier_3
+    tiers = Lanes.matrix.to_h { |lane| [lane[:triple], lane[:tier]] }
+
+    assert_equal %w[aarch64-apple-darwin x86_64-linux-gnu], tiers.select { |_, tier| tier == 1 }.keys.sort
+    assert_equal 3, tiers.fetch(Zr::Target::WASM32_WASI.triple)
+    assert(tiers.values.all? { |tier| [1, 2, 3].include?(tier) })
+  end
+
   # A lane's tests build its host's runtime too (test/support/built.rb),
   # so a lane that runs on another target's host builds that runtime.
   def test_a_lane_builds_each_runtime_that_its_tests_read

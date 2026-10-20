@@ -233,18 +233,21 @@ jobs:
           cmp outputs-macos/sum.darwin.o outputs-linux-aarch64/sum.darwin.o
           test "$(cat gem-macos-sha256/gem-macos.sha256)" = "$LINUX_GEM"
 
-  # Release: after a run on main whose ci-ok passed, a GitHub prerelease
-  # of the commit, v<version>.g<sha7>, with the files that this run
-  # tested: the gem of `checks` and each target's runtime bundle of its
-  # lane, by the name that `zr cache fetch` reads, and SHA256SUMS. A
-  # lane that is experimental and did not pass ships no bundle, and the
-  # job summary names it. A tagged release (release.yml) publishes the
-  # same files to rubygems.org.
+  # Release: after a run on main, a GitHub prerelease of the commit,
+  # v<version>.g<sha7>, with the files that this run tested: the gem of
+  # `checks`, and the runtime bundle of each lane whose tests passed (its
+  # `passed-<triple>` marker), by the name that `zr cache fetch` reads,
+  # and SHA256SUMS. It needs no ci-ok, which stays the strict check: a
+  # tier 1 lane (lanes.rb) that did not pass, or a failed `units` or
+  # `smoke`, stops it; a tier 2 or 3 lane that did not pass is left out,
+  # and the summary and the notes name it. A tagged release (release.yml)
+  # publishes the same files to rubygems.org.
   release:
     name: "release: prerelease of this commit"
-    needs: [checks, ci-ok]
+    needs: [checks, units, lane, smoke]
     if: >-
-      needs.ci-ok.result == 'success' && needs.checks.outputs.code == 'true' &&
+      !cancelled() && needs.checks.result == 'success' && needs.checks.outputs.code == 'true' &&
+      needs.units.result == 'success' &&
       github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -261,10 +264,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       LANES: ${{ needs.checks.outputs.lanes }}
+      SMOKE: ${{ needs.smoke.result }}
     steps:
-      - name: "Release: download the gem and each target's runtime"
+      - name: "Release: download the gem and each passed target's runtime"
         id: files
         run: |
+          [ "$SMOKE" = success ] || { echo "::error::the gem's smoke test did not pass ($SMOKE)"; exit 1; }
           mkdir dist
           gh run download "$GITHUB_RUN_ID" -n gem -D dist
           gem="$(cd dist && ls zr-*.gem)"
@@ -272,30 +277,33 @@ jobs:
           tag="v$version.g${GITHUB_SHA:0:7}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          left=()
+          for triple in $(echo "$LANES" | jq -r '.[].triple'); do
+            tier="$(echo "$LANES" | jq -r --arg t "$triple" '.[] | select(.triple == $t) | .tier')"
+            if gh run download "$GITHUB_RUN_ID" -n "passed-$triple" -D "passed-$triple" 2> /dev/null &&
+               gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "lane-$triple" 2> /dev/null &&
+               [ -f "lane-$triple/runtime-$triple.zrr" ]; then
+              mv "lane-$triple/runtime-$triple.zrr" "dist/zr-runtime-$version-$triple.zrr"
+            elif [ "$tier" = 1 ]; then
+              echo "::error::$triple, a tier 1 target, did not pass: no release"; exit 1
+            else
+              left+=("$triple (tier $tier)")
+            fi
+          done
+          (cd dist && sha256sum -- * > SHA256SUMS)
           {
             echo "## Release: prerelease $tag"
             echo
             echo "| File | Size | SHA-256 |"
             echo "|---|---|---|"
+            (cd dist && for f in *; do
+              printf '| %s | %s | %s |\n' "$f" "$(du -h "$f" | cut -f1)" "\`$(sha256sum "$f" | cut -c1-16)…\`"
+            done)
           } >> "$GITHUB_STEP_SUMMARY"
-          missing=()
-          for triple in $(echo "$LANES" | jq -r '.[].triple'); do
-            if gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "lane-$triple" 2> /dev/null &&
-               [ -f "lane-$triple/runtime-$triple.zrr" ]; then
-              mv "lane-$triple/runtime-$triple.zrr" "dist/zr-runtime-$version-$triple.zrr"
-            elif [ "$(echo "$LANES" | jq -r --arg t "$triple" '.[] | select(.triple == $t) | .experimental')" = true ]; then
-              missing+=("$triple")
-            else
-              echo "::error::no runtime bundle for $triple, a tested target"; exit 1
-            fi
-          done
-          (cd dist && sha256sum -- * > SHA256SUMS)
-          (cd dist && for f in *; do
-            printf '| %s | %s | %s |\n' "$f" "$(du -h "$f" | cut -f1)" "\`$(sha256sum "$f" | cut -c1-16)…\`"
-          done) >> "$GITHUB_STEP_SUMMARY"
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo >> "$GITHUB_STEP_SUMMARY"
-            echo "No bundle for the experimental targets that did not pass: ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+          : > left.md
+          if [ ${#left[@]} -gt 0 ]; then
+            { echo; echo "Not in this release: their lanes did not pass."; echo
+              for t in "${left[@]}"; do echo "- $t"; done; } | tee -a "$GITHUB_STEP_SUMMARY" > left.md
           fi
       - id: exists
         name: "Release: look for the prerelease"
@@ -321,11 +329,12 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           cat > notes.md <<NOTES
-          A prerelease of $GITHUB_SHA, after [CI]($RUN_URL) passed: the gem and the runtime bundles that this run tested. It is not a release, and no gem server has it.
+          A prerelease of $GITHUB_SHA, from [CI]($RUN_URL): the gem and the runtime bundles of each target that this run tested and passed. It is not a release, and no gem server has it.
 
               gem install ./zr-$VERSION.gem
               ZR_PREBUILT_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG zr cache fetch
               gh attestation verify zr-$VERSION.gem -R $GITHUB_REPOSITORY
           NOTES
+          cat left.md >> notes.md
           gh release create "$TAG" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
             --title "zr $VERSION ($GITHUB_SHA)" --notes-file notes.md
