@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Regexp::Onig: Onigmo, the regular expression engine of CRuby,
 # in Ruby. The parser, the tree setup, the optimizer and the compiler
 # live here in plain Ruby; the matcher is the kernel's (lib/zr/runtime/kernel/onig_*.rb).

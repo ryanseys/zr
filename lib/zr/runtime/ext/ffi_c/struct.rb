@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # StructLayout.c and Struct.c: the position of each field of a C struct
 # and its type, a struct over memory, and the array that a struct
 # contains inline.

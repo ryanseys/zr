@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Onigmo's Unicode encodings: UTF-8 (enc/utf_8.c), CESU-8 (cesu_8.c),
 # UTF-16LE/BE (utf_16le.c, utf_16be.c) and UTF-32LE/BE (utf_32le.c,
 # utf_32be.c), over the tables and folds of enc/unicode.c with Unicode

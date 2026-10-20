@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 # shareable_constant_value: literal
 
+# Derived from prism's C (MIT); see THIRD_PARTY_NOTICES.md.
+
 module Prism
   module Ruby
     # constant_pool.c: every name the parser interns, numbered from 1 in

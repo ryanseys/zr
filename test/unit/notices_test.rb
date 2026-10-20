@@ -47,6 +47,19 @@ class NoticesTest < Minitest::Test
     assert_equal [], missing
   end
 
+  # Each runtime file that the notices name says so in its first lines,
+  # so the notice stays with the file: a generated file through its
+  # generator's header.
+  def test_every_named_runtime_file_names_the_notices
+    files = tracked("lib/zr/runtime").select do |file|
+      paths.grep(%r{\Alib/zr/runtime/.+\.rb\z}).any? { |path| File.fnmatch(path, file, File::FNM_PATHNAME) }
+    end
+    bare = files.reject { |file| File.foreach(File.join(ROOT, file)).first(15).join.include?("THIRD_PARTY_NOTICES.md") }
+
+    refute_empty files
+    assert_equal [], bare, "add '# Derived from <part> (<license>); see THIRD_PARTY_NOTICES.md.' after the magic comments"
+  end
+
   # A port's version changes in lib/zr/library/ports.rb and `zr-dev vendor`; its
   # row must change with it. Each vendored port has a row, and so has each
   # other port that the table names (psych, openssl, digest).

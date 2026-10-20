@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_x509revoked.c: OpenSSL::X509::Revoked over X509_REVOKED.
 module OpenSSL
   Lib.attach_all(

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 # shareable_constant_value: literal
 
+# Derived from prism's C (MIT); see THIRD_PARTY_NOTICES.md.
+
 module Prism
   module Ruby
     # parser_lex: the next token, moved into @current_* with the one before

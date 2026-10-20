@@ -1,3 +1,6 @@
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # The Linux part of the process environment, as musl supplies it: the
   # platform name, the location of the environment, the source of random

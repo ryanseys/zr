@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Onigmo's error codes and messages (onigmo.h, regerror.c), and the
 # warnings its parser gives. A port under the BSD-2-Clause license
 # reproduced in regexp.rb.

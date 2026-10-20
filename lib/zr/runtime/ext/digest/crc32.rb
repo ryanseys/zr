@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from CRuby's ext/digest (each algorithm's own license, and Ruby or
+# BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # crc32init.c, in ruby: Digest::CRC32, the CRC-32 of zlib (reflected,
 # polynomial 0xedb88320), its digest the four bytes big-endian.
 require "digest"

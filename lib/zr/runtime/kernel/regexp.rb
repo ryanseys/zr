@@ -1,3 +1,5 @@
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Regexp on the Onigmo matcher of the kernel (lib/zr/runtime/kernel/onig_*.rb).
 # A T_REGEXP cell contains the program that the core compiled. A search
 # returns the byte offsets of all groups. The last match (`$~`) is in

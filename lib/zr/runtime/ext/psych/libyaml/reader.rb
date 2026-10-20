@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from libyaml 0.2.5 (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # The input reader of libyaml 0.2.5 (src/reader.c).
 #
 # The read handler fills a raw buffer of at most RAW_BUFFER_SIZE bytes.

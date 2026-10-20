@@ -1,3 +1,5 @@
+# Derived from Ryu (Apache-2.0 or Boost-1.0); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # Float: a double, stored as a flonum (CRuby's rotation, when the
   # exponent fits) or in a heap cell. This file has the shortest

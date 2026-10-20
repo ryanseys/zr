@@ -1,4 +1,9 @@
 # Splay tree benchmark (from yjit-bench / V8 Octane)
+#
+# Copyright 2009 the V8 project authors. All rights reserved.
+# Copyright (C) 2015 Apple Inc. All rights reserved.
+# Under the BSD-3-Clause license of V8; the full notice is in
+# benchmark/LICENSE.txt.
 
 class SplayNode
   attr_accessor :key, :value, :left, :right

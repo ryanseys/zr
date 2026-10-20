@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 # shareable_constant_value: literal
 
+# Derived from prism's C (MIT); see THIRD_PARTY_NOTICES.md.
+
 require_relative "ruby"
 
 # Init_prism (extension.c): the Prism constant and the singleton methods

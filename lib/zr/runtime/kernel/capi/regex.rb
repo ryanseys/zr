@@ -1,3 +1,5 @@
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # Onigmo's regex API, for C that matches a Regexp itself (strscan). A
   # regex_t is an address in a Regexp cell: RREGEXP_PTR gives the address

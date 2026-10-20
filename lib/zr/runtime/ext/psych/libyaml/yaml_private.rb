@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from libyaml 0.2.5 (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # The character tests of libyaml 0.2.5 (src/yaml_private.h). Each one
 # looks at the UTF-8 bytes of `string` at byte offset `at`, the way the
 # C macros look at `string.pointer[offset]`.

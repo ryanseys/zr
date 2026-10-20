@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ARGF: one stream over the files ARGV names, and over standard input
 # when it names none. This follows io.c's ARGF: argf_next_argv opens
 # each file as the walk reaches it, a read that ends a file closes it

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_cipher.c: OpenSSL::Cipher over EVP_CIPHER_CTX.
 module OpenSSL
   Lib.attach_all(

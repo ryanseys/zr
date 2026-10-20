@@ -3,7 +3,8 @@
 # uses this routine, so it sets the order of equal elements. Each
 # comparison and each move is the same as musl's, in the same order.
 # It works on the elements of a Sort (see lib/zr/runtime/kernel/sort.rb) by
-# index, not by address.
+# index, not by address. See THIRD_PARTY_NOTICES.md and
+# licenses/musl.txt for the license.
 #
 # The two-word bit vector `p` is in a 16-byte slot. musl reads its
 # trailing zeros with rbit and clz, so a zero word has 64 of them.

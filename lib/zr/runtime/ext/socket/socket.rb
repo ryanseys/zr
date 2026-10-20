@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # socket.c: Socket itself, a descriptor of any family and kind, and the
 # resolver's and the address packer's class methods.
 class Socket < BasicSocket

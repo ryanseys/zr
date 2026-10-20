@@ -1,3 +1,6 @@
+# Derived from CRuby's ext/digest (each algorithm's own license, and Ruby or
+# BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # The compression functions of the digests that ruby implements in C:
   # MD5, SHA-1, SHA-256, SHA-512 (also used for SHA-384) and RIPEMD-160.

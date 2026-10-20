@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # One conversion, kept open between the pieces of text it is given, as
 # transcode.c's rb_econv_t: a chain of steps, one per transcoder, from the
 # source through the encodings between to the destination. Each step

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_provider.c: OpenSSL::Provider, the OpenSSL 3 providers a program
 # loads.
 module OpenSSL

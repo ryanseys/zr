@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # socket.so: ext/socket's C part, in ruby over the kernel's calls
 # (lib/zr/runtime/kernel/socket.rb). lib/socket.rb, as the gem ships it, requires
 # this first and then reopens what it defines. Each file here represents

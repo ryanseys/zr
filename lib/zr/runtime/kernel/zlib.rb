@@ -1,3 +1,6 @@
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # zlib, through the kernel's own port (lib/zr/runtime/kernel/zlib_*.rb). A stream
 # is a malloc'd ZStream. The extension keeps its address as a Fixnum.
 # Each call here sets the fields that one zlib call reads, makes that

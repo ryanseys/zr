@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from CRuby's enc/trans tables (Ruby or BSD-2-Clause, and the
+# mapping data's own notices); see THIRD_PARTY_NOTICES.md.
+#
 # The ISO-2022-JP family: stateful encodings, whose two-byte characters
 # are between escapes. Ruby converts one through a multibyte encoding
 # that has the same characters without a state: ISO-2022-JP through

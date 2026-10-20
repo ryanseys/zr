@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # raddrinfo.c's Addrinfo: an address's bytes with its protocol family,
 # socket kind and protocol, the canonical name that the resolver gave,
 # and the requested name as an inspect shows it.

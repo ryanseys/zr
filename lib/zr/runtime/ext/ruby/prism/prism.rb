@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from prism's C (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # Init_prism of ruby's own prism (prism/extension.c, built for the
 # Ruby::Prism namespace): Ruby::Prism's singleton methods and constants,
 # over zr's Ruby port of prism's C. The port makes the prism gem's objects

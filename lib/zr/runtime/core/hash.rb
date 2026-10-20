@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Hash over the kernel's table: each, [], []=, fetch, delete, keys and
 # values come from the kernel; the rest is written over them. A walk of
 # a Hash's own table is Primitive.zr_hash_foreach, which a subclass's

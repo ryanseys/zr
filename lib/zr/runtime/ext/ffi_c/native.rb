@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # What every file of the C part shares: ruby's C conversions (NUM2INT and
 # the related macros) with the words their errors use, native memory that
 # the collector frees with the object that owns it, and libffi's ffi_type.

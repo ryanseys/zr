@@ -1,3 +1,5 @@
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # The match cache (USE_MATCH_CACHE, regexec.c:234-880 and 2118-2310).
   # When the backtrack count of a match gets to the subject length, the

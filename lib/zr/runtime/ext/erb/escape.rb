@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # erb's escape.c, in ruby: ERB::Escape.html_escape, the one escape that
 # ERB ships as a C extension. Rails is not expected to override this one,
 # which is why ERB keeps it apart from `ERB::Util#html_escape`. The C

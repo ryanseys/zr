@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from CRuby's ext/digest (each algorithm's own license, and Ruby or
+# BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # rmd160init.c, in ruby: Digest::RMD160 over the kernel's compression.
 require "digest"
 

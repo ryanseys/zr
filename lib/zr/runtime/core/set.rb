@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # set.c, in ruby: ruby's core Set. Its table is a Hash from each
 # member to true, in insertion order, kept in a hidden slot as the C
 # struct keeps its set_table, so a program sees no instance variable on

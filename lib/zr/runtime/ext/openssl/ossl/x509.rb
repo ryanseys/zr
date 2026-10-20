@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_x509.c: the OpenSSL::X509 module, its default paths, and the
 # conversions of certificate stacks and times the X509 files share.
 module OpenSSL

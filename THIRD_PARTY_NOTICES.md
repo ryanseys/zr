@@ -34,12 +34,14 @@ library version of the ruby that `.ruby-version` names (RbConfig's
   BSD-2-Clause, and test-unit is Ruby, BSD-2-Clause or PSFL.
 - `vendor/src/prism-1.9.0` holds prism's `config.yml` and templates, from
   the commit that ruby bundles, which only `zr-dev gen prism` reads (MIT).
-- `vendor/targets/aarch64-linux-musl` holds the pinned ruby's C headers
-  (`include/ruby-<ruby_version>`) and its `rbconfig.rb` for that target, from a build of the
-  pinned ruby's release tarball (with the configure of the official ruby
-  image) in the `alpine` image: `vendor/vendor.lock` names the tarball
-  and the image. zr builds a C extension for that target with them. They are
-  under Ruby or BSD-2-Clause (`vendor/LICENSES/ruby`).
+- Each directory of `vendor/targets` (`aarch64-linux-musl`,
+  `aarch64-linux-gnu` and `x86_64-linux-gnu`) holds the pinned ruby's C
+  headers (`include/ruby-<ruby_version>`) and its `rbconfig.rb` for that
+  target, from a build of the pinned ruby's release tarball (with the
+  configure of the official ruby image) in the `alpine` image for musl
+  and the `ubuntu` image for glibc: `vendor/vendor.lock` names the
+  tarball and the image of each. zr builds a C extension for that target
+  with them. They are under Ruby or BSD-2-Clause (`vendor/LICENSES/ruby`).
 
 The gems whose C zr ports, at zr's versions:
 
@@ -73,6 +75,8 @@ The gems whose C zr ports, at zr's versions:
 | `lib/zr/runtime/kernel/zlib_check.rb`, `lib/zr/runtime/kernel/zlib_tables.rb`, `lib/zr/runtime/kernel/zlib_stream.rb`, `lib/zr/runtime/kernel/zlib_inftrees.rb`, `lib/zr/runtime/kernel/zlib_inffast.rb`, `lib/zr/runtime/kernel/zlib_inflate.rb`, `lib/zr/runtime/kernel/zlib_trees.rb`, `lib/zr/runtime/kernel/zlib_deflate.rb`, `lib/zr/runtime/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `lib/zr/runtime/kernel/zlib.rb` | Zlib |
 | `lib/zr/runtime/core/random.rb` | MT19937 (Makoto Matsumoto and Takuji Nishimura), as CRuby's `missing/mt19937.c` has it; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[missing/mt19937.c]` | BSD-3-Clause |
 | `lib/zr/runtime/kernel/os/wasi/libm.rb`, `lib/zr/runtime/kernel/os/wasi/libm_*.rb` | musl 1.2.5's `src/math` (Rich Felker, et al.), with code from FreeBSD's msun (Sun Microsystems) and from Arm Limited's optimized routines; the license texts are in `licenses/musl.txt` | MIT, the Sun notice, and MIT for Arm's files |
+| `lib/zr/runtime/kernel/sort.rb` (from `zr_sort_apple_all` to `zr_sort_heap`) | FreeBSD's `qsort.c` and `heapsort.c` (The Regents of the University of California; heapsort by Ronnie Kon, Kevin Lew and Elmer Yglesias), as Apple Libc-1752 ships them; the license texts are in `licenses/freebsd-libc.txt` | BSD-3-Clause |
+| `lib/zr/runtime/kernel/os/linux/libc/musl/smoothsort.rb` | musl 1.2.6's `src/stdlib/qsort.c`, Lynn Ochs's smoothsort; the license text is in `licenses/musl.txt` | MIT |
 | `lib/zr/runtime/kernel/os/wasi/strtod.rb` | the decimal conversion of Go's strconv package (`decimal.go`, `atof.go`; The Go Authors); the license text is in `licenses/go.txt` | BSD-3-Clause |
 | `lib/zr/runtime/kernel/digest.rb`, `lib/zr/runtime/ext/digest/*.rb`, `lib/zr/runtime/ext/digest.so.rb` | CRuby's `ext/digest`: MD5 (L. Peter Deutsch, Aladdin Enterprises; zlib-style; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/md5/md5.c]`), RIPEMD-160 (Antoon Bosselaers, Katholieke Universiteit Leuven; BSD; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/rmd160/rmd160.c]`), SHA-2 (Aaron D. Gifford; BSD-3-Clause; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/sha2/sha2.c]`), SHA-1 (Steve Reid, public domain), and ruby's own glue | as named, and Ruby or BSD-2-Clause for the glue |
 | `lib/zr/runtime/ext/psych/libyaml/*.rb` | libyaml 0.2.5 (Kirill Simonov, Ingy döt Net); the license text is in `licenses/libyaml.txt` | MIT |
@@ -97,7 +101,9 @@ A binary or a WASI module that zr builds contains the zr runtime, so it
 contains code from some of the parts above. Every program contains
 Onigmo (BSD-2-Clause), MT19937 (BSD-3-Clause), Ryu (Apache-2.0 or
 Boost-1.0), fpconv (MIT and Boost-1.0), the Unicode tables (Unicode-3.0) and ruby's
-own code (Ruby or BSD-2-Clause). A WASI module also contains the port
+own code (Ruby or BSD-2-Clause). A macOS binary also contains the port
+of FreeBSD's qsort and heapsort (BSD-3-Clause), and a binary for a musl
+target the port of musl's smoothsort (MIT). A WASI module also contains the port
 of musl's libm (MIT, and the Sun notice) and the port of Go's decimal
 conversion (BSD-3-Clause). A program that requires zlib, digest,
 psych, nkf, json, ffi or openssl also contains that part, and the files
@@ -112,4 +118,6 @@ one way to do that.
 ## Benchmarks (repository only, not in the gem)
 
 `benchmark/` holds benchmarks from spinel (MIT); see `benchmark/UPSTREAM.md`.
-The license text is in `benchmark/LICENSE.txt`.
+Some of them come, through spinel, from yjit-bench (MIT, Shopify), and
+`bm_splay.rb` from V8's Octane suite (BSD-3-Clause). The license texts
+are in `benchmark/LICENSE.txt`.

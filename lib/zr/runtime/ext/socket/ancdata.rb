@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ancdata.c: the control messages that sendmsg and recvmsg send and
 # receive, and the two calls themselves. A cmsghdr here is 12 bytes, and
 # its data is padded to a multiple of 4.

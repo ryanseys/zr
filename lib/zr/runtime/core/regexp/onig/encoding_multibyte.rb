@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Onigmo's multibyte encodings past Unicode: EUC-JP (enc/euc_jp.c),
 # Shift_JIS and Windows-31J (shift_jis.h), Big5, GBK and CP949 (big5.c,
 # gbk.c, cp949.c), EUC-KR (euc_kr.c), EUC-TW (euc_tw.c), GB18030

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 # shareable_constant_value: literal
 
+# Derived from prism's C (MIT); see THIRD_PARTY_NOTICES.md.
+
 module Prism
   module Ruby
     # A lex mode's breakpoints, pm_strpbrk's charset: the bytes a scan stops

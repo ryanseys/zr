@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # The encodings ruby hands Onigmo (OnigEncodingType): what the shared
 # helpers of regenc.c do over each encoding's primitives, the
 # single-byte encodings (enc/ascii.c, us_ascii.c, iso_8859_*.c,

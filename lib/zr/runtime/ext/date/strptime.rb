@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Date._strptime: the format walks the text, and each directive takes
 # from it what it names. Anything the format does not name is left over.
 

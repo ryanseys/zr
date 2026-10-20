@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 # shareable_constant_value: literal
 
+# Derived from prism's C (MIT); see THIRD_PARTY_NOTICES.md.
+
 module Prism
   module Ruby
     # util/pm_char.c: which bytes are whitespace, digits and regexp option

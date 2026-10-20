@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Platform.c: the byte order, and the size and alignment in bits of the
 # C types the platform has.
 module FFI

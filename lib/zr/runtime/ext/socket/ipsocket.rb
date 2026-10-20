@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ipsocket.c, tcpsocket.c, tcpserver.c and udpsocket.c: the sockets of
 # the Internet families. A TCP client resolves its host and tries each
 # address in the order that the resolver returns, as

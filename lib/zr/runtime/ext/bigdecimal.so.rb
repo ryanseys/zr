@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the bigdecimal gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Decimal numbers with as many digits as the caller requests.
 #
 # A value is `sign * digits * 10 ** (exponent - digit count)`, so the

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # FunctionInfo.c, Function.c and Call.c: a C function's signature, a
 # function to call through it, a Proc C can call through a closure, and
 # how a call turns ruby values into C arguments and a C result back.

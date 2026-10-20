@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Variadic.c: a call of a C function that takes arguments past its fixed
 # ones, whose types each call names.
 module FFI

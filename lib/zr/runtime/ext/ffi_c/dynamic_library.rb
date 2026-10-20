@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # DynamicLibrary.c: a library dlopen opened, and the symbols dlsym finds
 # in it. The dlopen flags are the OS's own.
 require "ffi_c/rtld"

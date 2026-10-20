@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Linux's struct termios, as io/console reads and writes it: four flag
 # ints, the line discipline, then 32 control characters, and the flags
 # each mode changes, as musl spells them.

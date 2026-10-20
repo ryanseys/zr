@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from libyaml 0.2.5 (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # The emitter of libyaml 0.2.5 (src/emitter.c): it turns events back into
 # YAML text. The functions keep their C names without the
 # `yaml_emitter_` prefix.

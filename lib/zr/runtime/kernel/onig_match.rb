@@ -1,3 +1,5 @@
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # match_at (regexec.c:2311-4234): Onigmo's byte-code interpreter for a
   # program that the core compiled (lib/zr/runtime/core/regexp/onig/program.rb).

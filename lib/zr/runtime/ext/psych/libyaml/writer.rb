@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from libyaml 0.2.5 (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # The output writer of libyaml 0.2.5 (src/writer.c).
 #
 # The emitter writes UTF-8 into `@buffer` and flushes it through the

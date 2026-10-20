@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from libyaml 0.2.5 (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # The scanner of libyaml 0.2.5 (src/scanner.c): it turns the characters
 # the reader decodes into tokens. The comments at the top of scanner.c
 # describe the token grammar; this port keeps its functions one for one,

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # date_core, the C half of date 3.5.1, in Ruby. ruby's own date.rb
 # requires it, then adds Date::VERSION, Date::Infinity and #infinite?.
 #

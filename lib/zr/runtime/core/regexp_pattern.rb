@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from CRuby's re.c (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # What Ruby does to a pattern around its engine (re.c): the preprocess
 # that decodes the escapes naming characters (rb_reg_preprocess), the
 # encoding a pattern takes and a match reads it in, a compile again

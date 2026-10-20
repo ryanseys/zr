@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # StringScanner: a position in a string and a match at it. Ruby ships
 # this as a C extension (strscan.so) and a small part in ruby
 # (strscan/strscan.rb, which strscan.rb requires after this file). This

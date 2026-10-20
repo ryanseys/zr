@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # `ripper.so`: the C part of ext/ripper, over prism. CRuby's ripper runs
 # parse.y's lexer and parser and calls a method for each token (a scanner
 # event) and each rule it reduces (a parser event). Here prism supplies

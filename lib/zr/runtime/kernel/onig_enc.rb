@@ -1,3 +1,5 @@
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # The encodings that the Onigmo matcher reads in zr, and the helpers of
   # regenc.c and enc/unicode.c that the matcher calls. `enc` is the

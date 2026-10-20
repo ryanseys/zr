@@ -4,8 +4,12 @@ Copied from the `benchmark/` suite of [spinel](https://github.com/matz/spinel)
 (MIT License, Copyright (c) 2024- Yukihiro Matsumoto), zr's C-emitting
 predecessor, whose golden-output benchmark discipline this suite continues.
 Many programs are in turn adaptations of classic Ruby benchmark corpora
-(the Computer Language Benchmarks Game shapes, yjit-bench-style micro
-benchmarks).
+(the Computer Language Benchmarks Game shapes, yjit-bench micro
+benchmarks). A program whose first line names yjit-bench comes from
+[yjit-bench](https://github.com/Shopify/yjit-bench) (MIT License,
+Copyright (c) 2020-present Shopify Inc.), and `bm_splay.rb` from V8's
+Octane suite through yjit-bench (BSD-3-Clause). `LICENSE.txt` beside
+this file has each license text.
 
 Local workload divergence: `bm_tree_walker.rb`'s round count was reduced
 400 -> 100 (2026-08-25) so a 10-sample criterion bank stays affordable

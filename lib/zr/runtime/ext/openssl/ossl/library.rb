@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 module OpenSSL
   # libssl and libcrypto 3, as the host installs them: found and opened
   # once, when the program requires openssl. Each file of the port binds

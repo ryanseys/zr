@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the psych gem (MIT); see
+# THIRD_PARTY_NOTICES.md.
+
 Object.send(:native_module, :Psych)
 
 # psych's C extension, in Ruby: the libyaml 0.2.5 parser and emitter

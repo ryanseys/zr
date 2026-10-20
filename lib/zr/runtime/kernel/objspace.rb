@@ -1,3 +1,6 @@
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ObjectSpace's view of the heap: the objects that a walk yields, the
 # count by type, the object for an id, and the objects that one object
 # refers to. A walk copies the objects it finds into an Array before any

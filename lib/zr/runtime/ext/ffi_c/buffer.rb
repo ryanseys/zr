@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Buffer.c: memory for a call's argument. Eight bytes or fewer are kept
 # inside the buffer itself.
 module FFI

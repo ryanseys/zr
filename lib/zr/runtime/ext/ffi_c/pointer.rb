@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Pointer.c and MemoryPointer.c: memory at an address, and memory that
 # ffi_c allocates. ffi_c frees it when nothing refers to the pointer,
 # unless told to keep it.

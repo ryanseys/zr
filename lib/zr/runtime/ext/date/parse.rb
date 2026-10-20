@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Date._parse: ruby own loose reader, ported from date_parse.c. It tries
 # one shape after another, blanking what it reads, so the first shape
 # that fits wins and later ones see only what is left.

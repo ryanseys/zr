@@ -1,3 +1,5 @@
+# Derived from zlib 1.3.1 (Zlib); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # zlib's checksums: adler32.c and crc32.c, as in zlib 1.3.1. A sum is a
   # 32-bit value in a Word. The C unsigned long is 64 bits on each host

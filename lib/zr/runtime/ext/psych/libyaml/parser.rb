@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from libyaml 0.2.5 (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # The parser of libyaml 0.2.5 (src/parser.c): it reads the scanner's
 # tokens and produces events. It implements this grammar:
 #

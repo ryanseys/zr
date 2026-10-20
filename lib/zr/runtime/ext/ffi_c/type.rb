@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # Type.c, ArrayType.c, MappedType.c and StructByValue.c: a C type, its
 # builtin instances under every name the gem gives them, and the types
 # that describe an array, a converted value and a struct passed whole.

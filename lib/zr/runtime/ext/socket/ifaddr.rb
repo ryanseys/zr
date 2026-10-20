@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ifaddr.c: one interface address that getifaddrs(3) returned, with its
 # name, flags and addresses read at the same time as the list.
 class Socket < BasicSocket

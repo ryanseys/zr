@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # strftime and the fixed-shape readers and writers: ISO 8601, RFC 3339,
 # RFC 2822, HTTP dates and JIS X 0301.
 

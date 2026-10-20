@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from libyaml 0.2.5 (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # The object setup and the event constructors of libyaml 0.2.5
 # (src/api.c).
 module Psych

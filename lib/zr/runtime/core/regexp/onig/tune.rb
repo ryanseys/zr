@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Onigmo's tree setup between the parse and the compile (regcomp.c:
 # 1895-4200): group renumbering, match lengths, subexpression calls,
 # look-behind checks, the possessive rewrite, case fold expansion of

@@ -18,7 +18,10 @@ Gem::Specification.new do |spec|
     carries ruby's standard library itself, so the gem depends on nothing.
   TEXT
   spec.homepage = "https://github.com/ryanseys/zr"
-  spec.license = "MIT" # the vendored parts: THIRD_PARTY_NOTICES.md
+  # zr's own code is MIT. The gem also carries code under each of the
+  # other licenses, all at once (not a choice between them):
+  # THIRD_PARTY_NOTICES.md names the part that each one covers.
+  spec.licenses = ["MIT", "Ruby", "BSD-2-Clause", "BSD-3-Clause", "Zlib", "Apache-2.0", "BSL-1.0", "Unicode-3.0", "CC0-1.0"]
   # Ruby 4 or later. zr carries its own standard library (vendor/ruby), so
   # the host ruby only runs the compiler. zr warns on a ruby of another
   # series than the one that it checks its output against (.ruby-version).

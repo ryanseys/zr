@@ -1,3 +1,5 @@
+# Derived from zlib 1.3.1 (Zlib); see THIRD_PARTY_NOTICES.md.
+#
 # inffast.c: the decoding loop that inflate runs while at least 6 bytes
 # of input and 258 bytes of output space remain. Thus no step checks for
 # either limit. The bit buffer is a Ptr, which is the C unsigned long.

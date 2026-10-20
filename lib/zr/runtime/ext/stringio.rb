@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # stringio.c, in ruby: an IO over a String. The buffer is the same String
 # that the program gave, so a write shows through it, and a change to it
 # shows here. A Strio contains what the extension keeps in `struct

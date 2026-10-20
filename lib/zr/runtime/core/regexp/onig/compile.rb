@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Onigmo's compiler: a tuned tree to its byte code (regcomp.c:386-1894).
 # The bytes are laid out as Onigmo lays them out, little-endian: an
 # opcode is one byte, a relative or absolute address, a length and a

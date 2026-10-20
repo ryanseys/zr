@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # basicsocket.c, and the receives, sends, accepts and connects that
 # init.c makes for every socket class. A socket's descriptor returns
 # EAGAIN rather than waiting, so each call that would wait waits here

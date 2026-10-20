@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # `Kernel#format` over Integer, Float, String, Symbol and the `%c` and
 # `%p` directives.
 module Kernel

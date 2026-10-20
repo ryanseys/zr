@@ -1,3 +1,5 @@
+# Derived from zlib 1.3.1 (Zlib); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # trees.c: the Huffman trees that encode a block, and the bit output
   # that they use. A tree entry is the C ct_data as two 32-bit fields:

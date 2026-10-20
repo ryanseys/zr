@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # RubyVM: what CRuby tells a program about its virtual machine. This
 # runtime compiles every file with prism ahead of time, so it behaves as
 # a CRuby whose instruction sequences prism compiled, built without JIT

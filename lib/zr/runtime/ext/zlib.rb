@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # zlib.c, in ruby, over zr's port of zlib (lib/zr/runtime/kernel/zlib_*.rb, reached
 # through lib/zr/runtime/kernel/zlib.rb). The extension's structs are classes here: Stream
 # is `struct zstream`, the z_stream and the buffers around it, and

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # The compiled pattern as the kernel's matcher reads it: one binary
 # String holding a header of 64-bit little-endian words, the byte code
 # (Onigmo's own layout, ending in OP_END and then OP_FINISH as the

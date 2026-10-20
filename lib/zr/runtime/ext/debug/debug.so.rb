@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # `debug/debug.so`: the C half of the debug gem, over the frames the
 # kernel lets a debugger read (zr_debug_frames). The Ruby half is the
 # gem's own.

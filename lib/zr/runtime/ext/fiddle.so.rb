@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 Object.send(:native_module, :Fiddle)
 
 # `fiddle.so`: the C part of the fiddle gem (1.1.8), in ruby over the ffi

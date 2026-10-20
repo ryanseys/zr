@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # The fixed shapes: ISO 8601, RFC 3339, XML Schema, RFC 2822, HTTP dates
 # and JIS X 0301. Each returns the elements it finds, or nothing at all.
 

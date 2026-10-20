@@ -1,3 +1,5 @@
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # onig_search_gpos and onig_match (regexec.c:4238-5281): the search
   # drivers that call match_at. They include the anchor pre-checks, the

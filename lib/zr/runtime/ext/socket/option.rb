@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # option.c: one socket option's family, level, name and bytes, which
 # read back as the number, the flag or the structure of the option.
 class Socket < BasicSocket

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_pkey.c: OpenSSL::PKey and PKey::PKey over EVP_PKEY: reading any
 # key the library decodes, generating keys and parameters, and signing,
 # verifying, deriving, encrypting and decrypting with them.

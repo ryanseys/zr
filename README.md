@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ryanseys/zr/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanseys/zr/actions/workflows/ci.yml)
 [![Gem Version](https://img.shields.io/gem/v/zr)](https://rubygems.org/gems/zr)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/ryanseys/zr/blob/v0.1.0/LICENSE.txt)
+[![License: MIT + third-party](https://img.shields.io/badge/license-MIT%20%2B%20third--party-blue)](https://github.com/ryanseys/zr/blob/v0.1.0/THIRD_PARTY_NOTICES.md)
 
 **A Ruby compiler, written in Ruby.** zr compiles Ruby programs to
 native binaries and WebAssembly modules. A compiled program gives
@@ -170,6 +170,8 @@ it.
 
 ## License
 
-zr is under the [MIT License](https://github.com/ryanseys/zr/blob/v0.1.0/LICENSE.txt). The vendored and
-derived parts keep their own licenses.
+zr's own code is under the [MIT License](https://github.com/ryanseys/zr/blob/v0.1.0/LICENSE.txt). The vendored and
+derived parts keep their own licenses, so the gem also carries code
+under the Ruby, BSD-2-Clause, BSD-3-Clause, Zlib, Apache-2.0,
+Boost-1.0, Unicode-3.0 and CC0-1.0 licenses.
 [`THIRD_PARTY_NOTICES.md`](https://github.com/ryanseys/zr/blob/v0.1.0/THIRD_PARTY_NOTICES.md) lists each one.

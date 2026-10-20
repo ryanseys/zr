@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the racc gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # racc's cparse.c, in ruby: the parser core that `require "racc/cparse"`
 # loads from racc/parser.rb. The C core and racc's own Ruby core
 # (Racc::Parser#_racc_do_parse_rb, in the same parser.rb) run the same

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # The parse tree Onigmo builds (regparse.h's Node union) and what it
 # is built with: the scan environment, the bit sets and code range
 # buffers of a character class, and the name table of a pattern. A

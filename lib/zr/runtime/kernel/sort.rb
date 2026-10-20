@@ -8,6 +8,10 @@ module Zr::Kern
   # the sort calls glibc's own qsort_r
   # (lib/zr/runtime/kernel/os/linux/libc/glibc/libc.rb).
   #
+  # The macOS sort is derived from FreeBSD's qsort.c and heapsort.c, as
+  # Apple Libc-1752 ships them (BSD-3-Clause); see THIRD_PARTY_NOTICES.md
+  # and licenses/freebsd-libc.txt.
+  #
   # The comparator runs Ruby. After a comparison raises, every later
   # comparison returns 0 and runs no Ruby. The sort finishes on its copy,
   # and the pending unwind continues after the sort.

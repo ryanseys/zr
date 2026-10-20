@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_ssl.c: OpenSSL::SSL, SSLContext over SSL_CTX and SSLSocket over
 # SSL on the socket's descriptor, with the library's callbacks calling the
 # context's procs.

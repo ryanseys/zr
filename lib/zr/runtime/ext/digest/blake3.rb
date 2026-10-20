@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# Derived from CRuby's ext/digest (each algorithm's own license, and Ruby or
+# BSD-2-Clause) and BLAKE3 1.8.5 (CC0-1.0 or Apache-2.0); see
+# THIRD_PARTY_NOTICES.md.
+#
 # blake3init.c, in ruby: Digest::BLAKE3 over a port of BLAKE3's portable
 # C (blake3.c, blake3_portable.c) in its hash mode, with a 32-byte digest.
 require "digest"

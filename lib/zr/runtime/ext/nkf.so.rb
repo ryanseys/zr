@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from nkf 2.1.5 (zlib-style); see THIRD_PARTY_NOTICES.md.
+
 Object.send(:native_module, :NKF)
 
 # nkf.so, the C part of the nkf gem 0.3.0: Network Kanji Filter 2.1.5

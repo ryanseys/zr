@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from MT19937 (BSD-3-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Random: CRuby's MT19937, seeded and drawn as CRuby does it, so a
 # seeded stream returns the same numbers.
 #

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 module Kernel
   # The format of the C API's printf functions (rb_sprintf, rb_raise,
   # rb_warn and the rest): C's printf as ruby's own (vsnprintf.c) reads

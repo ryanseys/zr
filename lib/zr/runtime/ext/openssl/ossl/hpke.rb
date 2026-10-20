@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_hpke.c: OpenSSL::HPKE, hybrid public key encryption (RFC 9180) in
 # its base mode. A Suite names the KEM, the KDF and the AEAD; a
 # Context::Sender encapsulates a key for a recipient's public key and

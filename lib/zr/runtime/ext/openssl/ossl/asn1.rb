@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_asn1.c: OpenSSL::ASN1, DER in and out through the library's
 # ASN1_get_object and i2d/d2i functions, and the conversions between
 # ASN1_* values and Ruby objects every other file uses.

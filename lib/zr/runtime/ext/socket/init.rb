@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # init.c and constants.c: the error classes, the socket every class
 # opens over a descriptor, and the conversions every method shares. What
 # the C half keeps in static functions lives here as Socket's hidden

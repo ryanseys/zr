@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C part of the rbs gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # rbs_extension, the C part of the rbs gem 4.2.0 (ext/rbs_extension over
 # the parser in src/), in Ruby. The gem's own rbs.rb requires this file
 # after its AST classes, and its parser_aux.rb and location_aux.rb build

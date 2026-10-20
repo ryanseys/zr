@@ -1,3 +1,5 @@
+# Derived from zlib 1.3.1 (Zlib); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # deflate.c: the compressor. The state is the C deflate_state, with its
   # trees, counts, heap and depths in one block after it. The four buffers

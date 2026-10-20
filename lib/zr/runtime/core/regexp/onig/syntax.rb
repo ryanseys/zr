@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+#
 # Onigmo's constants: the options, the Ruby syntax, the character
 # types, the node and anchor kinds, and the limits. A port of the
 # definitions in onigmo.h, regint.h, regparse.h and regparse.c:47-82

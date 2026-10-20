@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from CRuby's ext/digest (each algorithm's own license, and Ruby or
+# BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+
 Object.send(:native_module, :Digest)
 
 # digest.c, in ruby: Digest.hexencode, the Digest::Instance protocol,

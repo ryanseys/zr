@@ -1,3 +1,5 @@
+# Derived from zlib 1.3.1 (Zlib); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # inflate.c: the decompressor. It is a state machine over the modes
   # below. It goes as far as the input and the output space allow, then

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# Derived from libyaml 0.2.5 (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # The public types of libyaml 0.2.5 (include/yaml.h): the enumerations,
 # the marks, the tokens and the events that the reader, the scanner, the
 # parser and the emitter pass between them.

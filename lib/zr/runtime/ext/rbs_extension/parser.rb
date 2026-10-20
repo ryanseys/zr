@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C part of the rbs gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 module RBS
   class Parser
     # rbs's parser (src/parser.c), in Ruby. Each method is the C function

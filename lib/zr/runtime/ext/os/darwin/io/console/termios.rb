@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # darwin's struct termios, as io/console reads and writes it: four flag
 # words of 8 bytes, then twenty control characters, and the flags each
 # mode changes, as this platform spells them.

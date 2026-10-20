@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 # shareable_constant_value: literal
 
+# Derived from prism's C (MIT); see THIRD_PARTY_NOTICES.md.
+#
 # prism's parser in Ruby: a port of prism 1.9.0's C (src/prism.c and its
 # helpers), which lib/zr/runtime/ext/prism/prism.rb uses in place of the C extension.
 # prism is MIT licensed; see the LICENSE.md of the vendored prism gem (vendor/ruby).

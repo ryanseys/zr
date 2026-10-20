@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # RubyVM::AbstractSyntaxTree over prism.
 #
 # CRuby returns parse.y's node tree from RubyVM::AbstractSyntaxTree.parse

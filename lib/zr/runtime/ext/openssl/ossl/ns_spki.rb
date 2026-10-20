@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl_ns_spki.c: OpenSSL::Netscape::SPKI over NETSCAPE_SPKI.
 module OpenSSL
   Lib.attach_all(

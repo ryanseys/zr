@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # LastError.c: the errno that each thread's last C call left, kept
 # separate from errno itself, which ruby's own calls change.
 module FFI

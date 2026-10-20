@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # RUBYOPT, as ruby reads it when a program starts (ruby.c's moreswitches
 # with envopt): the switches that change how the program runs. They come
 # before the switches that the build took from its command line

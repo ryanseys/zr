@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # unixsocket.c and unixserver.c: sockets named by a path, which can also
 # hand a descriptor to the process at the other end.
 class UNIXSocket < BasicSocket

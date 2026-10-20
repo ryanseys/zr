@@ -1,3 +1,5 @@
+# Derived from zlib 1.3.1 (Zlib); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # inftrees.c: the decoding tables of a canonical Huffman code. A table
   # entry is one 32-bit word, `op | bits << 8 | val << 16`, which is the

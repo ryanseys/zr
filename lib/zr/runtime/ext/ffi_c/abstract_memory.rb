@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # AbstractMemory.c: an address, how many bytes past it can be used,
 # whether they can be read and written, and every typed read and write
 # of them. A memory object of any class contains these four, which the

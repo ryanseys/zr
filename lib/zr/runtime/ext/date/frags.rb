@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # The elements that a reader found, made into a date: the largest set of
 # elements that identifies a day wins, and missing elements come from today.
 

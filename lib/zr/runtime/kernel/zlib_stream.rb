@@ -1,3 +1,5 @@
+# Derived from zlib 1.3.1 (Zlib); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # zlib's stream and the values that all its calls use: zlib.h's
   # z_stream and its codes, and zutil.c's error strings. A ZStream is the

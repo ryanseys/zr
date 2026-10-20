@@ -1,3 +1,6 @@
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # The C API's numbers. FIX2LONG, INT2FIX and the flonum tests are
   # inline in an extension; these are the calls that NUM2LONG, LONG2NUM

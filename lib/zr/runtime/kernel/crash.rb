@@ -1,3 +1,6 @@
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # ruby's bug report. A fatal signal (SIGSEGV, SIGBUS, SIGILL or SIGABRT),
   # a bug that the runtime finds (zr_bug) and a C extension's rb_bug all

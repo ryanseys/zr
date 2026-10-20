@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # A Time is nanoseconds since the epoch, kept in UTC, plus the zone it
 # shows itself in. The count is exact, as CRuby keeps it: an Integer, or
 # a Rational when the Time was built from a Float or a Rational whose

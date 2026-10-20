@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # The checks and conversions of the arguments of the eval forms that take
 # a string, as eval.c makes them. The forms of both back ends share them
 # (forms.rb, interpreter_forms.rb). The primitives that read the calling

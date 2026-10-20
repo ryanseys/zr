@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the ffi gem (BSD-3-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ffi_c: the ffi gem's C part, in ruby over the kernel's calls
 # (lib/zr/runtime/kernel/ffi.rb), which reach libffi. lib/ffi.rb, as the gem ships
 # it, requires this first and then reopens what it defines. The files

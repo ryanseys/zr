@@ -1,3 +1,6 @@
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # The WASI part of the process environment: the arguments and the
 # environment from the host, the clocks, random bits, and the libc
 # calls that a module implements itself because WASI has no process,

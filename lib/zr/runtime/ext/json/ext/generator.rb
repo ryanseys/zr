@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of the json gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 Object.send(:native_module, :JSON)
 
 # json's generator.c, in ruby. The gem's own ruby (json/common and

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C half of ruby's openssl gem (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+#
 # ossl.c: the OpenSSL module, its versions and errors, and the helpers
 # every other file shares (the Ossl module: ossl_raise and its kin, the
 # PEM password callback, to_der).

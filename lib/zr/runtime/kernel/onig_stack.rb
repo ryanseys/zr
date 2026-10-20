@@ -1,3 +1,5 @@
+# Derived from Onigmo (BSD-2-Clause); see THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # Onigmo's backtrack stack (regexec.c:1043-1830): the entry type, the
   # STACK_* macros as defs on the match state, and the stack itself. The

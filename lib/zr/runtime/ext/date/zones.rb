@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Derived from the C of CRuby and of its gems (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 require_relative "zonetab"
 
 # The zone names and offsets of a loose parse: ZONES is generated, in
