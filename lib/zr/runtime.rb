@@ -385,7 +385,11 @@ module Zr
     end
 
     # `[functions, data]` of the gem prelude's program `hir`.
-    #: (Hir::Program hir, Machine::Lower | Machine::Description unit, Hash[String, Integer] fixed, Target target) -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
+    # @rbs hir: Hir::Program
+    # @rbs unit: Machine::Lower | Machine::Description
+    # @rbs fixed: Hash[String, Integer]
+    # @rbs target: Target
+    # @rbs return: [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
     def self.lower_gem_prelude(hir, unit, fixed, target)
       Lower.new(hir, unit, nil, entry: GEM_PRELUDE_ENTRY, kind: :top, target: target, fixed: fixed).run
     end

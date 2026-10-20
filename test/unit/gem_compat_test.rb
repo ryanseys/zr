@@ -212,7 +212,8 @@ class GemCompatTest < Minitest::Test
 
     assert_equal ["packed", "0.4.0", "rubygems", File.join(store.gems, "packed-0.4.0")], [subject.name, subject.version, subject.source, subject.root]
     assert File.file?(File.join(subject.root, "lib/packed.rb"))
-    assert_equal "packed", Gem::Specification.load(File.join(store.specifications, "packed-0.4.0.gemspec")).name, "ruby and zr build read this gemspec on GEM_PATH"
+    assert_equal "packed", Gem::Specification.load(File.join(store.specifications, "packed-0.4.0.gemspec")).name,
+                 "ruby and zr build read this gemspec on GEM_PATH"
     assert_equal [subject], store.versions("packed")
     assert_equal subject, store.find("packed", "0.4.0")
     assert_equal subject, store.unpack(package("packed", "0.4.0", "lib/packed.rb" => "module Packed; end\n"))

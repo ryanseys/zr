@@ -39,8 +39,8 @@ module Zr
     # tell, once for each content.
     #: (String path) -> Array[String]
     def read_by(path)
-      text = begin
-        File.binread(path)
+      begin
+        text = File.binread(path)
       rescue SystemCallError
         return []
       end

@@ -130,7 +130,9 @@ module Zr
         p = x[i] || 0
         q = y[i] || 0
         next if p == q
-        return p.is_a?(String) && q.is_a?(String) ? p <=> q : (p.is_a?(String) ? -1 : (q.is_a?(String) ? 1 : p <=> q))
+        # A word sorts before a number, as Gem::Version sorts a prerelease.
+        return p <=> q if p.is_a?(String) == q.is_a?(String)
+        return p.is_a?(String) ? -1 : 1
       end
       0
     end

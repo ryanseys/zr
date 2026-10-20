@@ -72,7 +72,8 @@ class RunnerTest < Minitest::Test
       plain = Runner.pinned_launcher(exe, flags: [])
       refute_equal plain, Runner.pinned_launcher(exe, flags: ["--cache-dir=/elsewhere"])
       refute_equal plain, Runner.pinned_launcher(exe, ruby: "/opt/other/ruby", flags: [])
-      assert_equal "#!/opt/other/ruby -W:no-experimental", File.readlines(Runner.pinned_launcher(exe, ruby: "/opt/other/ruby", flags: []), chomp: true).first
+      launcher = Runner.pinned_launcher(exe, ruby: "/opt/other/ruby", flags: [])
+      assert_equal "#!/opt/other/ruby -W:no-experimental", File.readlines(launcher, chomp: true).first
       refute_includes File.read(plain), "ARGV", "no flags, no words added"
     end
   end

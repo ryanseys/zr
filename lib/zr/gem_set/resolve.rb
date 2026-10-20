@@ -69,7 +69,8 @@ module ZrGemSet
             else
               "Put a version in that range in the Gemfile, then run 'bundle install'"
             end
-      "#{name} #{version || "(no version)"} (#{source}): zr implements the C part of #{name} #{compat} only. #{fix}, or link the gem's own C with --native-ext #{name}=#{version}"
+      "#{name} #{version || "(no version)"} (#{source}): zr implements the C part of #{name} #{compat} only. " \
+        "#{fix}, or link the gem's own C with --native-ext #{name}=#{version}"
     elsif extensions
       "#{name} #{version} (#{source}) has a C extension, and zr has no port of it. zr compiles only Ruby"
     end

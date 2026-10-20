@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "set"
-
 module Zr
   module Backend
     module Native

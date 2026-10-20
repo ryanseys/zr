@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "set"
 require_relative "../../backend"
 require_relative "../../obj/model"
 

@@ -171,11 +171,7 @@ module GC
   # get_envparam_double.
   def self.tuning_double(name, text, default, lower, upper, accept_zero)
     Primitive.attr! :hidden
-    val = begin
-      Float(text.strip.empty? ? "x" : text)
-    rescue ArgumentError
-      nil
-    end
+    val = Float(text.strip.empty? ? "x" : text, exception: false)
     if val.nil?
       $stderr.write("invalid string for #{name}: #{text}\n") if $VERBOSE
       return default

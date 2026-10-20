@@ -46,7 +46,7 @@ module Zr
           name, value = word.start_with?("--") && word.include?("=") ? word.split("=", 2) : [word, nil] #: Array[String?]
           if (taken = VALUES[name])
             field, what = taken
-            set(opts, field, value || args.shift || Errors.usage_error("#{name} needs #{what}", command), command)
+            set(opts, field, value || args.shift || Errors.usage_error("#{name} needs #{what}", command))
             next
           end
           if (switch = SWITCHES[name])
@@ -68,8 +68,8 @@ module Zr
       end
 
       # Sets the option `field` to `value`, or adds it to the option's list.
-      #: (Hash[Symbol, untyped] opts, Symbol field, String value, String command) -> void
-      def set(opts, field, value, command)
+      #: (Hash[Symbol, untyped] opts, Symbol field, String value) -> void
+      def set(opts, field, value)
         case field
         when :link then opts[:link] << value
         else opts[field] = value

@@ -84,7 +84,8 @@ module Zr
               rows = multi[name].sort.map { |from, to| [from, to.size, *to, *[0] * (3 - to.size)] }
               raise "#{name}: a mapping to more than three characters" if rows.any? { |row| row.size > 5 }
 
-              emit_bytes(io, "zr_case_#{name.downcase}_runs", ([runs.size] + runs.flat_map { |first, count, delta| [first, count, delta + BIAS] }).pack("V*").bytes,
+              words = [runs.size] + runs.flat_map { |first, count, delta| [first, count, delta + BIAS] }
+              emit_bytes(io, "zr_case_#{name.downcase}_runs", words.pack("V*").bytes,
                          "#{name}: the count, then runs of three words sorted by code point (first, how many, delta + CASE_BIAS).")
               io.puts
               emit_bytes(io, "zr_case_#{name.downcase}_multi", ([rows.size] + rows.flatten).pack("V*").bytes,

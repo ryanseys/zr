@@ -216,7 +216,7 @@ module Zr
             if latest && @defined_in[v] == entry
               blocks.each { |bi| reach(from, to, v, latest[bi]) }
             else
-              blocks.each { |bi| live_into(bi, v, from, to, live, before) }
+              blocks.each { |bi| live_into(bi, v, from, to, live:, before:) }
             end
           end
           # Sort by start, then by end, then by the value's number. Ruby's
@@ -278,7 +278,7 @@ module Zr
           candidates.each do |v|
             live_in = {} #: Hash[Integer, bool]
             (away[v] || NOTHING).each { |bi| mark_live_in(bi, v, live_in, before) }
-            crossing[v] = crossed?(v, from[v], to[v], live_in, call_block, last_read[v])
+            crossing[v] = crossed?(v, from[v], to[v], live_in, call_block:, last_read: last_read[v])
           end
         end
 
@@ -319,7 +319,7 @@ module Zr
         # @rbs call_block: Array[Integer]
         # @rbs last_read: Hash[Integer, Integer]
         # @rbs return: bool
-        def crossed?(v, from, to, live_in, call_block, last_read)
+        def crossed?(v, from, to, live_in, call_block:, last_read:)
           i = @calls.bsearch_index { |c| c > from }
           return false if i.nil?
 
@@ -353,7 +353,7 @@ module Zr
         # @rbs live: Array[Integer?]
         # @rbs before: Array[Array[Integer]]
         # @rbs return: void
-        def live_into(bi, v, from, to, live, before)
+        def live_into(bi, v, from, to, live:, before:)
           return if live[bi] == v
 
           live[bi] = v

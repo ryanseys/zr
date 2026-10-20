@@ -170,7 +170,9 @@ module Zr
 
         # --- arithmetic ---------------------------------------------------
 
-        ALU = { add: [0x01, 0], or: [0x09, 1], and: [0x21, 4], sub: [0x29, 5], xor: [0x31, 6], cmp: [0x39, 7] }.freeze #: Hash[Symbol, [Integer, Integer]]
+        # The opcode of the r/m, reg form and the /digit of the immediate form.
+        ALU = { add: [0x01, 0], or: [0x09, 1], and: [0x21, 4],
+                sub: [0x29, 5], xor: [0x31, 6], cmp: [0x39, 7] }.freeze #: Hash[Symbol, [Integer, Integer]]
 
         ALU.each do |op, (opcode, digit)|
           # `op d, s` of two registers (8-bit ones too), or of a register

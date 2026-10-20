@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "set"
 require_relative "../../bytes"
 require_relative "../../ir/inst"
 require_relative "../../ir/types"

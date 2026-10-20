@@ -57,7 +57,7 @@ module Zr
           # The walker's threads stay green: each runs on a ruby Fiber, and
           # no kernel code may run on an OS thread that ruby did not make.
           #: () -> bool
-          def zr_threads_native = false
+          def zr_threads_native = false # rubocop:disable Naming/PredicateMethod -- the kernel's name for it
           #: (Integer record, Integer fn, Integer argv, Integer argc) -> Integer
           def zr_cframe_call(record, fn, argv, argc) = self::BOOT.cframe_call(record, fn, argv, argc)
           #: (Integer record) -> bot
