@@ -69,9 +69,9 @@ jobs:
           ruby: ${{ inputs.ruby }}
       # The runner's memory in use every 10 s, and the largest processes
       # above 8 GB, on Linux, where a build that runs out stops the runner
-      # with no word in the log. On macOS, the resident size of the ruby
-      # processes (the parent and its workers) and the swap in use, which
-      # set how many workers the 7 GB runner can afford.
+      # with no word in the log. On macOS, the memory in use (active,
+      # wired and compressed pages) and the swap, which set how many
+      # workers the 7 GB runner can afford.
       - name: Build the runtime and export it
         if: steps.bundle.outputs.cache-hit != 'true'
         run: |
@@ -79,8 +79,8 @@ jobs:
             used=$(free -m | awk 'NR == 2 { print $3 }'); echo "memory in use: $used MB"
             if [ "$used" -gt 8000 ]; then ps -eo rss,etimes,args --sort=-rss | head -4 | cut -c1-200; fi
           done) & else (while sleep 10; do
-            rss=$(ps -axo rss=,comm= | awk '/ruby/ { s += $1; n++ } END { printf "%d MB in %d", s / 1024, n }')
-            echo "memory in use: $rss ruby processes, swap $(sysctl -n vm.swapusage | awk '{ print $6 }')"
+            used=$(vm_stat | awk '/page size of/ { p = $8 } /Pages active|Pages wired|occupied by compressor/ { gsub("\\.", "", $NF); s += $NF } END { printf "%d", s * p / 1048576 }')
+            echo "memory in use: $used MB, swap $(sysctl -n vm.swapusage | awk '{ print $6 }')"
           done) & fi
           mkdir -p bundles
           for triple in $BUILDS; do
