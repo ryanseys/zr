@@ -18,11 +18,18 @@ cli/stdlib/rbconfig/ruby_is_bindir_and_ruby_install_name.rb	RbConfig.ruby: a was
 cli/core/fiber/fiber_resume.rb	can't allocate fiber stack: Function not implemented
 cli/core/thread/threads_join.rb	can't allocate fiber stack: Function not implemented
 cli/core/thread/thread_queue_handoff.rb	can't allocate fiber stack: Function not implemented
+lang/methods/super_in_a_block_that_another_thread_runs_goes_on_from_the_def_s_node.rb	can't allocate fiber stack: Function not implemented
+lang/methods/a_def_in_a_define_method_body_defines_where_the_block_was_written.rb	syntax_suggest runs in Timeout.timeout, which needs a Thread, so the report is prism's alone
 
 # On wasi, eval uses the tree-walking interpreter (lib/zr/eval/interpreter.rb).
 # These programs use eval, but eval support does not cause their
 # failure.
 cli/stdlib/ffi/ffi_libc_call.rb	dlopen has no wasm form
+
+# A method that an eval defines is a define_method of
+# `|*args, **kwargs, &blk|` in the walk, so its parameters and its
+# backtrace label are the walk's, not the def's.
+lang/methods/a_block_parameter_of_nil_refuses_a_block_after_the_arity_and_keyword_checks.rb	an eval'd def's parameters and label come from the tree walk
 
 # A build of these programs for wasm needs more memory than the limit.
 
