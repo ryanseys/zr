@@ -38,7 +38,7 @@ option ivars: []
 anc: [#<Socket::AncillaryData: UNIX SOCKET RIGHTS 3>, #<Socket::AncillaryData: INET IP RECVDSTADDR 127.0.0.1>, #<Socket::AncillaryData: INET IP PKTINFO 127.0.0.1 lo0 spec_dst:127.0.0.1>, #<Socket::AncillaryData: INET6 IPV6 PKTINFO ::1 lo0>]
 anc vals: [[#<Addrinfo: 127.0.0.1>, 1, #<Addrinfo: 127.0.0.1>], [#<Addrinfo: ::1>, 1], true]
 ifaddrs: [#<Socket::Ifaddr lo0 UP,LOOPBACK,RUNNING,MULTICAST LINK[lo0]>, #<Socket::Ifaddr lo0 UP,LOOPBACK,RUNNING,MULTICAST 127.0.0.1 netmask=255.?.?.? (5 bytes for 16 bytes sockaddr_in)>]
-ip_address_list: [#<Addrinfo: 127.0.0.1>, #<Addrinfo: 127.0.2.2>, #<Addrinfo: 127.0.2.3>]
+ip_address_list: [true, true]
 hostname: true
 server addr: ["AF_INET", "127.0.0.1"]
 server inspect: "#<TCPServer:fd N, AF_INET, 127.0.0.1, PORT>"

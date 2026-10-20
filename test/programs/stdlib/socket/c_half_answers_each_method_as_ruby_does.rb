@@ -48,7 +48,9 @@ t("option ivars") { Socket::Option.int(:INET, :SOCKET, :REUSEADDR, 1).instance_v
 t("anc") { [Socket::AncillaryData.int(:UNIX, :SOCKET, :RIGHTS, 3), Socket::AncillaryData.new(:INET, :IP, :RECVDSTADDR, [127,0,0,1].pack("C4")), Socket::AncillaryData.ip_pktinfo(Addrinfo.ip("127.0.0.1"), 1), Socket::AncillaryData.ipv6_pktinfo(Addrinfo.ip("::1"), 1)] }
 t("anc vals") { a = Socket::AncillaryData.ip_pktinfo(Addrinfo.ip("127.0.0.1"), 1); [a.ip_pktinfo, Socket::AncillaryData.ipv6_pktinfo(Addrinfo.ip("::1"), 1).ipv6_pktinfo, a.cmsg_is?(:IP, :PKTINFO)] }
 t("ifaddrs") { Socket.getifaddrs.select { |i| i.name == "lo0" }.first(2) }
-t("ip_address_list") { Socket.ip_address_list.select(&:ipv4_loopback?) }
+# A host can have more loopback addresses (127.0.2.2 on some Macs): only
+# 127.0.0.1 is on every one.
+t("ip_address_list") { Socket.ip_address_list.select(&:ipv4_loopback?).then { |list| [list.all?(Addrinfo), list.map(&:ip_address).include?("127.0.0.1")] } }
 t("hostname") { Socket.gethostname == `hostname`.chomp }
 s = TCPServer.new("127.0.0.1", 0)
 port = s.addr[1]

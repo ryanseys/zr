@@ -7,6 +7,7 @@ r, w = IO.pipe
 before = r.close_on_exec?
 r.close_on_exec = false
 p [before, r.close_on_exec?, r.fcntl(1)]
-p((w.fsync rescue $!), (w.fdatasync rescue $!))
+# A pipe has no fsync: EINVAL on Linux and macOS 27, ENOTSUP on macOS 15.
+p((w.fsync rescue $!.is_a?(SystemCallError)), (w.fdatasync rescue $!.is_a?(SystemCallError)))
 File.open(path, "w") { |f| p f.fsync }
 File.delete(path)
