@@ -198,18 +198,23 @@ class WasmTest < Minitest::Test
     end
   end
 
-  # The janitor keeps what a wasm program reads: its prelude, and the body
-  # packs that the next prelude takes its bodies from.
-  def test_a_wasm_prelude_roots_itself_and_the_body_packs
+  # The janitor keeps what a wasm program reads, and a bundle (`zr cache
+  # export`) holds it: its prelude, the runtime's symbol table and gem
+  # prelude list, and the body packs that the next prelude takes its
+  # bodies from.
+  def test_a_wasm_prelude_roots_itself_the_runtimes_tables_and_the_body_packs
     Dir.mktmpdir("zr-wasm-root-") do |dir|
       with_env("ZR_CACHE" => dir) do
-        runtime = Data.define(:target).new(Zr::Target::WASM32_WASI)
+        prelude_list = Zr::Cache::Store.path(:meta, "1" * 64)
+        runtime = Data.define(:target, :digest, :gem_prelude_path).new(Zr::Target::WASM32_WASI, "2" * 64, prelude_list)
         path = Zr::Cache::Store.path(:wasm, "0" * 64)
 
         Zr::Native::Build.wasm_root(runtime, path, nil)
 
         rooted = Zr::Cache::Store.rooted_paths(prefix: "wasm32-wasi-prelude-plain")
         assert_includes rooted, path
+        assert_includes rooted, Zr::RuntimeSources.symbols_path(runtime.digest)
+        assert_includes rooted, prelude_list
         assert_includes rooted, Zr::Cache::Code.dir(:wasm32)
       end
     end

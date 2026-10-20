@@ -586,7 +586,12 @@ module Zr
       # each have a root.
       #: (Runtime runtime, String path, EvalSupport? support) -> void
       def wasm_root(runtime, path, support)
-        Cache::Store.root("#{runtime.target.triple}-prelude-#{support ? "eval" : "plain"}", [path, Cache::Code.dir(:wasm32)])
+        # As a native link's `root`: a build reads the runtime's symbol
+        # table and gem prelude list before it reads the prelude, and a
+        # bundle (`zr cache export`) holds only what the roots name.
+        Cache::Store.root("#{runtime.target.triple}-prelude-#{support ? "eval" : "plain"}",
+                          [path, RuntimeSources.symbols_path(runtime.digest), runtime.gem_prelude_path, (support.meta_path if support),
+                           Cache::Code.dir(:wasm32)])
       rescue SystemCallError, SourceChanged
         nil # a root that is not written protects less; the build goes on
       end
