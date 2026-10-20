@@ -110,13 +110,14 @@ jobs:
           - triple: aarch64-apple-darwin
             os: macos-15
             experimental: false
-          # Experimental: on an x86_64 Linux runner the build uses all of
-          # its 16 GB and stops the runner, with 2 workers or 4. Only the
-          # experimental rows import its bundle.
+          # Experimental: on an x86_64 Linux runner, with 2 workers, the
+          # eval support build holds three processes of 5 to 6 GB, 15.2 GB
+          # of the runner's 16 GB. One worker holds about half of that.
+          # Only the experimental rows import its bundle.
           - triple: x86_64-linux-gnu
             os: ubuntu-24.04
             experimental: true
-            jobs: "2"
+            jobs: "1"
           - triple: aarch64-linux-gnu
             os: ubuntu-24.04-arm
             experimental: false
