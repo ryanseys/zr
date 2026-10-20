@@ -73,7 +73,11 @@ module Zr
         return program if program.is_a?(Array)
 
         work = File.dirname(bin)
-        why = Progress.clock(parts, :link) { target.link ? Native::Build.program(program, bin, work: work) : Native::Build.wasm_program(program, bin) }
+        why = Progress.clock(parts, :link) do
+          if target.link then Native::Build.program(program, bin, work: work)
+          else Native::Build.wasm_program(program, bin, split: (Harness::Wasmtime.split_dir if Harness::Wasmtime.split?))
+          end
+        end
         return [:backend, why] if why
 
         Binaries.keep(kept, bin, program, work)

@@ -1,7 +1,13 @@
 # frozen_string_literal: true
 
+require "digest/sha2"
 require "etc"
+require "fileutils"
+require "stringio"
 require_relative "../workers"
+require_relative "child"
+require_relative "../../../lib/zr/paths"
+require_relative "../../../lib/zr/backend/wasm"
 
 module Zr
   module Harness
@@ -17,6 +23,14 @@ module Zr
     # `zr-dev bench` uses Cranelift, because there the speed is the result.
     # `ZR_TEST_WASM_COMPILER=cranelift` selects it for a tier.
     #
+    # A program test builds a program module (`ZR_TEST_WASM_SPLIT`, on
+    # unless 0): the runtime is a module of its own, which wasmtime
+    # compiles once for each runtime (`runtime`) and preloads for each
+    # program, so a test compiles only its program's code. A whole module
+    # sent the 64 MB of the runtime's code through wasmtime for each test.
+    # The cli tier builds with `zr build`, which writes a whole module, so
+    # the default stays tested.
+    #
     # `lib` does not use this: `zr run` starts wasmtime with its defaults.
     module Wasmtime
       COMPILERS = %w[winch cranelift].freeze
@@ -24,6 +38,12 @@ module Zr
       # (`WASMTIME_VERSION` in each workflow; layout_test checks that they
       # agree).
       VERSION = "49.0.2"
+      # The bounds of one `wasmtime compile`, summed over its process
+      # group (Child.run): a compile of a module with eval support takes
+      # gigabytes, and without a bound, compiles in each worker can take
+      # all of the machine's memory.
+      COMPILE_MB = Integer(ENV.fetch("ZR_TEST_COMPILE_MB", "4096"))
+      COMPILE_SECONDS = Integer(ENV.fetch("ZR_TEST_COMPILE_SECONDS", "900"))
 
       module_function
 
@@ -38,6 +58,12 @@ module Zr
       def memory = Integer(ENV.fetch("ZR_TEST_WASM_MEMORY", 1 << 30))
 
       def installed? = system(executable, "--version", out: File::NULL, err: File::NULL)
+
+      def split? = ENV.fetch("ZR_TEST_WASM_SPLIT", "1") != "0"
+
+      # Where a program build writes its runtime module: one file for each
+      # runtime, which every test of the run shares.
+      def split_dir = File.join(Paths.cache, "wasm-split")
 
       # The flags of a run: the compiler and the memory limit. Winch
       # compiles quickly, so the tests turn off wasmtime's cache (it grew
@@ -61,12 +87,68 @@ module Zr
       # guest the current directory with the same name) and passes each
       # variable in `env` by name. `argv0` gives the program name that the
       # guest sees, for a precompiled module with a different file name.
-      def run(module_path, *args, dirs: {}, env: {}, compiler: self.compiler, argv0: nil)
+      # `preload` is the compiled runtime module that a program module
+      # imports (`runtime`).
+      def run(module_path, *args, dirs: {}, env: {}, compiler: self.compiler, argv0: nil, preload: nil)
         opened = dirs.flat_map { |host, guest| ["--dir", "#{host}::#{guest}"] }
         named = env.flat_map { |name, value| ["--env", "#{name}=#{value}"] }
-        precompiled = module_path.end_with?(".cwasm") ? ["--allow-precompiled"] : []
-        [executable, "run", *flags(compiler: compiler), *precompiled, *(["--argv0", argv0] if argv0), *opened, *named,
+        precompiled = module_path.end_with?(".cwasm") || preload ? ["--allow-precompiled"] : []
+        linked = preload ? ["--preload", "#{Backend::Wasm::Codegen::RUNTIME}=#{preload}"] : []
+        [executable, "run", *flags(compiler: compiler), *precompiled, *linked, *(["--argv0", argv0] if argv0), *opened, *named,
          module_path, *args]
+      end
+
+      # The compiled form of the runtime module at `path`, compiled one
+      # time for each runtime, wasmtime and set of flags, in the cache
+      # (`<cache>/wasmtime`). Each worker of a tier asks for it, so the
+      # first compiles it under a lock and the others wait. Returns nil
+      # when the compile fails.
+      def runtime(path, compiler: self.compiler)
+        key = Digest::SHA256.hexdigest([Digest::SHA256.file(path).hexdigest, VERSION, *flags(compiler: compiler)].join("\n"))
+        dir = File.join(Paths.cache, "wasmtime")
+        out = File.join(dir, "#{key}.cwasm")
+        return out if File.exist?(out)
+
+        FileUtils.mkdir_p(dir)
+        File.open("#{out}.lock", File::RDWR | File::CREAT, 0o644) do |lock|
+          lock.flock(File::LOCK_EX)
+          next if File.exist?(out)
+
+          draft = "#{out}.#{Process.pid}"
+          compiled?(path, draft, compiler: compiler) ? File.rename(draft, out) : FileUtils.rm_f(draft)
+        end
+        File.exist?(out) ? out : nil
+      end
+
+      # The file name of the runtime module that the program module at
+      # `path` imports (Backend::Wasm.runtime_of), or nil for a whole
+      # module. It reads only the sections' headers, and the custom ones.
+      def runtime_of(path)
+        File.open(path, "rb") do |io|
+          io.seek(8)
+          until io.eof?
+            id = io.readbyte
+            size = leb(io)
+            next io.seek(size, IO::SEEK_CUR) unless id.zero?
+
+            section = StringIO.new(io.read(size).to_s)
+            name = section.read(leb(section))
+            return section.read if name == Backend::Wasm::Codegen::RUNTIME_SECTION
+          end
+        end
+        nil
+      end
+
+      def leb(io)
+        value = 0
+        shift = 0
+        loop do
+          byte = io.readbyte
+          value |= (byte & 0x7F) << shift
+          return value if byte < 0x80
+
+          shift += 7
+        end
       end
 
       # Compiles `module_path` to `<module_path>.cwasm` and returns that
@@ -76,9 +158,15 @@ module Zr
       # so it must not count the compile.
       def precompile(module_path, compiler: self.compiler)
         out = "#{module_path}.cwasm"
-        ok = system(executable, "compile", *flags(compiler: compiler), "-o", out, module_path,
-                    out: File::NULL, err: File::NULL)
-        ok ? out : nil
+        compiled?(module_path, out, compiler: compiler) ? out : nil
+      end
+
+      # Whether `wasmtime compile` of `path` to `out` finished inside
+      # COMPILE_SECONDS and COMPILE_MB.
+      def compiled?(path, out, compiler: self.compiler)
+        argv = [executable, "compile", *flags(compiler: compiler), "-o", out, path]
+        answer, = Child.run(argv, cwd: Dir.pwd, seconds: COMPILE_SECONDS, megabytes: COMPILE_MB)
+        answer.code.zero?
       end
     end
   end

@@ -305,6 +305,34 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # A program module imports the runtime from a runtime module of its own
+  # (`wasm_program` with `split`), which wasmtime compiles once and
+  # preloads. It must run as the whole module runs: an address that the
+  # program takes of a runtime function, a block that the runtime calls
+  # back into, and the program's data, which its `_start` copies in.
+  def test_a_program_module_runs_as_the_whole_module_does
+    skip Checks.wasm_missing if Checks.wasm_missing
+
+    source = "def m(*a, &b) = b.call(a)\nh = { a: [3, 1, 2].sort }\np h, m(1, 2) { |x| x.size }, [1, 2].map(&:succ)\n"
+    Dir.mktmpdir("zr-wasm-") do |dir|
+      program = Zr::Program.build(source, File.join(dir, "split.rb"), Zr::BuildOptions.new(target: Zr::Target::WASM32_WASI))
+      whole = File.join(dir, "whole.wasm")
+      split = File.join(dir, "split.wasm")
+      assert_nil Zr::Native::Build.wasm_program(program, whole)
+      assert_nil Zr::Native::Build.wasm_program(program, split, split: dir)
+      runtime = Zr::Harness::Wasmtime.runtime_of(split)
+
+      assert_nil Zr::Harness::Wasmtime.runtime_of(whole)
+      assert_path_exists File.join(dir, runtime)
+      assert_operator File.size(split), :<, File.size(whole) / 10
+      compiled = Zr::Harness::Wasmtime.runtime(File.join(dir, runtime))
+      outputs = [Zr::Harness::Wasmtime.run(whole), Zr::Harness::Wasmtime.run(split, preload: compiled)].map do |argv|
+        Checks.run(argv, chdir: dir, merge: true).stdout
+      end
+      assert_equal ["{a: [1, 2, 3]}\n2\n[2, 3]\n"] * 2, outputs
+    end
+  end
+
   Dir[File.join(ROOT, "test/machine/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
     define_method("test_zr_#{name}") do

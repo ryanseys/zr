@@ -76,13 +76,28 @@ module Zr
 
         dirs = { "." => ".", Dir.tmpdir => "/tmp" }
         compiled = precompile(out) if compiled == :here
-        [Wasmtime.run(compiled || out, *args, dirs: dirs, env: { "TMPDIR" => "/tmp" }.merge(env), compiler: @compiler,
-                                              argv0: (out if compiled)), {}]
+        env = { "TMPDIR" => "/tmp" }.merge(env)
+        if compiled.is_a?(Hash)
+          return [Wasmtime.run(out, *args, dirs: dirs, env: env, compiler: @compiler, preload: compiled.fetch(:preload)), {}]
+        end
+
+        [Wasmtime.run(compiled || out, *args, dirs: dirs, env: env, compiler: @compiler, argv0: (out if compiled)), {}]
       end
 
       # The compiled form of a wasm module `out`, or nil: a native binary
-      # needs none.
-      def precompile(out) = wasm? ? Wasmtime.precompile(out, compiler: @compiler) : nil
+      # needs none. For a program module, `{ preload: }` names its compiled
+      # runtime (`Wasmtime.runtime`); wasmtime compiles the small program
+      # module as it runs it.
+      def precompile(out)
+        return nil unless wasm?
+
+        name = Wasmtime.runtime_of(out)
+        return Wasmtime.precompile(out, compiler: @compiler) unless name
+
+        path = [File.dirname(out), Wasmtime.split_dir].map { |dir| File.join(dir, name) }.find { |file| File.file?(file) }
+        preload = path && Wasmtime.runtime(path, compiler: @compiler)
+        preload ? { preload: preload } : nil
+      end
 
       # True when wasmtime reports a trap. A trap stops the module as
       # abort(3) stops a process, so it counts as a crash.

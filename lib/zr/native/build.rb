@@ -532,9 +532,18 @@ module Zr
       # second object to link, so a program that uses eval gets a prelude
       # that also contains eval support. Its 16,000 functions then compile
       # once for each cache, not once for each program (about 280 s).
-      #: (Program program, String out) -> String?
-      def wasm_program(program, out)
-        pre = wasm_prelude(program.runtime, pending_for(program), program.evals || nil)
+      #
+      # With `split` (a directory), `out` is a program module, which
+      # imports the runtime from the runtime module that this writes to
+      # `split` once for each prelude (`wasm_runtime_module`): wasmtime
+      # then compiles the runtime once, not again for each program
+      # (`wasmtime run --preload zr=<runtime> <out>`).
+      #: (Program program, String out, ?split: String?) -> String?
+      def wasm_program(program, out, split: nil)
+        pending = pending_for(program)
+        support = program.evals || nil
+        pre = wasm_prelude(program.runtime, pending, support)
+        runtime = split && wasm_runtime_module(pre, wasm_prelude_key(program.runtime, pending, support), split)
         # A program for wasm assembles nothing, so its functions are IR.
         functions = program.functions #: Array[IR::Function]
         data = program.data.dup
@@ -542,7 +551,7 @@ module Zr
         functions += stops(functions, [], data, pre.functions)
         IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
         bytes = Timing.phase("emitting the program's module (#{functions.size} functions)", "program module emitted") do
-          Backend::Wasm.emit(functions, data, prelude: pre)
+          Backend::Wasm.emit(functions, data, prelude: pre, split: runtime && File.basename(runtime))
         end
         File.binwrite(out, bytes)
         nil
@@ -569,12 +578,32 @@ module Zr
       # never writes to it.
       #: (Runtime runtime, Backend::Wasm::Codegen::pending pending, ?EvalSupport? support) -> Backend::Wasm::Codegen::Prelude
       def wasm_prelude(runtime, pending, support = nil)
-        key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
+        key = wasm_prelude_key(runtime, pending, support)
         path = Cache::Store.path(:wasm, key)
         preludes = Session.current.memo(:wasm_preludes) { {} } #: Hash[String, Backend::Wasm::Codegen::Prelude | false]
         kept = preludes[path] ||= File.exist?(path) && Marshal.load(File.binread(path)).tap { wasm_root(runtime, path, support) }
         return kept if kept
 
+        # One prelude build at a time in a cache: a build with eval support
+        # takes about 3 GB, and the workers of a test tier that each built
+        # the prelude of their own pending set took all of a 16 GB machine.
+        # A process that waited reads what the other wrote.
+        Paths.mkdir_p(File.dirname(path))
+        File.open(File.join(File.dirname(path, 2), "build.lock"), File::RDWR | File::CREAT, 0o644) do |lock|
+          unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+            waiting("a wasm prelude", runtime.target)
+            lock.flock(File::LOCK_EX)
+          end
+          return preludes[path] = Marshal.load(File.binread(path)).tap { wasm_root(runtime, path, support) } if File.exist?(path)
+
+          wasm_prelude_built(runtime, pending, support, path)
+        end
+      end
+
+      # Builds and writes the prelude of `wasm_prelude` to `path`.
+      #: (Runtime runtime, Backend::Wasm::Codegen::pending pending, EvalSupport? support, String path) -> Backend::Wasm::Codegen::Prelude
+      def wasm_prelude_built(runtime, pending, support, path)
+        preludes = Session.current.memo(:wasm_preludes) { {} } #: Hash[String, Backend::Wasm::Codegen::Prelude | false]
         functions, leaves = wasm_inlined(runtime)
         data = runtime.data.dup
         if support
@@ -594,6 +623,32 @@ module Zr
         Timing.phase("writing #{what}", "#{what} written") { Cache::Store.write_file(path, Marshal.dump(pre)) }
         wasm_root(runtime, path, support)
         preludes[path] = pre
+      end
+
+      # The key of a prelude: the runtime, eval support and the pending
+      # symbols decide it.
+      #: (Runtime runtime, Backend::Wasm::Codegen::pending pending, EvalSupport? support) -> String
+      def wasm_prelude_key(runtime, pending, support)
+        Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
+      end
+
+      # The path of the runtime module of the prelude `pre` (of `key`) in
+      # the directory `dir`, which this writes when the file is not there.
+      # Its name is the prelude's key, so two preludes never share one, and
+      # a module that the directory has is the same bytes.
+      #: (Backend::Wasm::Codegen::Prelude pre, String key, String dir) -> String
+      def wasm_runtime_module(pre, key, dir)
+        path = File.join(dir, "zr-runtime-#{key[0, 32]}.wasm")
+        written = Session.current.memo(:wasm_runtime_modules) { {} } #: Hash[String, bool]
+        written[path] ||= begin
+          unless File.exist?(path)
+            bytes = Timing.phase("writing the wasm runtime module", "wasm runtime module written") { Backend::Wasm.runtime_module(pre) }
+            Paths.mkdir_p(dir)
+            Paths.write_atomic(path, bytes)
+          end
+          true
+        end
+        path
       end
 
       # Names the store entries that a wasm program reads, so no eviction
