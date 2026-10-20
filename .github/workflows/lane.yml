@@ -124,6 +124,8 @@ jobs:
   # The unit files of the target, and the programs of a push. An example
   # has 600 s (ZR_TEST_TIMEOUT), not 180: a runner has fewer and slower
   # cores than a developer's machine, and the rdoc programs took longer.
+  # No program keeps its binary (ZR_TEST_BINARIES=0): a job runs each
+  # program once and saves no binary, and an ELF binary is deflated whole.
   test:
     needs: runtime
     runs-on: ${{ fromJSON(inputs.lane).os }}
@@ -134,6 +136,7 @@ jobs:
       LANE_CONTAINER: ${{ fromJSON(inputs.lane).container && '1' || '' }}
       ZR_TEST_SECONDS: ${{ fromJSON(inputs.lane).test_seconds }}
       ZR_TEST_TIMEOUT: "600"
+      ZR_TEST_BINARIES: "0"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -238,6 +241,7 @@ jobs:
       ZR_TEST_TIMEOUT: "600"
       ZR_TEST_SHARD: ${{ matrix.shard }}/${{ fromJSON(inputs.lane).of }}
       ZR_VERIFY: "1"
+      ZR_TEST_BINARIES: "0"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
