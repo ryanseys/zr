@@ -50,6 +50,15 @@ end
 # The cache below it must be this user's alone (Paths.trusted!), and a
 # runner's umask can leave a new directory open to every user.
 File.chmod(0o755, root)
+# So must each directory above it: on the arm64 Linux runner, every user
+# can write /opt, with no sticky bit, and zr refuses a cache below it.
+File.dirname(root).then do |dir|
+  until dir == "/"
+    stat = File.stat(dir)
+    system("sudo", "chmod", "o-w", dir, exception: true) if stat.world_writable? && !stat.sticky?
+    dir = File.dirname(dir)
+  end
+end
 
 # GEM_PATH is ruby's own default gems only: no gem that the runner has
 # installed can satisfy the install.
