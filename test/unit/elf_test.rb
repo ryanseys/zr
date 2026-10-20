@@ -65,6 +65,15 @@ class ElfTest < Minitest::Test
     assert by_name.key?(".note.GNU-stack"), "the stack is not executable"
   end
 
+  # An import with a pinned version names it, as `.symver` does, so ld
+  # binds that version; a name that the unit defines keeps its name.
+  def test_a_pinned_import_names_its_version
+    _, symbols, relocs = read(Elf.write(unit, arch: :aarch64, versions: { "exit" => "GLIBC_2.17", "main" => "GLIBC_2.17" }))
+
+    assert_equal %w[exit@GLIBC_2.17 main msg], symbols.reject { |s| s.bind == Elf::STB_LOCAL }.map(&:name)
+    assert_equal "exit@GLIBC_2.17", relocs.fetch(".text.main").first[2]
+  end
+
   def test_the_symbols_are_locals_first_with_no_prefix
     _, symbols, _, symtab = read(Elf.write(unit, arch: :aarch64))
     assert_equal "", symbols.first.name

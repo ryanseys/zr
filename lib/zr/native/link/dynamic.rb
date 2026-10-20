@@ -20,6 +20,12 @@ module Zr
         FLAGS = ["-no-pie", "-Wl,--build-id=none", "-Wl,-z,noexecstack", "-Wl,-z,now"].freeze #: Array[String]
         LIBRARIES = ["-lm", "-lcrypt"].freeze #: Array[String]
 
+        # The imports that a newer glibc gives a new default version, each
+        # pinned to its version in glibc 2.35, the floor (GlibcFloorTest),
+        # so a binary built on any glibc loads there. glibc 2.38 gave fmod
+        # a new version when it dropped fmod's error wrapper.
+        VERSIONS = { aarch64: { "fmod" => "GLIBC_2.17" }, x86_64: { "fmod" => "GLIBC_2.2.5" } }.freeze #: Hash[Symbol, Hash[String, String]]
+
         # Removes code that nothing calls. Each item is in its own section.
         STRIP_FLAGS = ["-Wl,--gc-sections"].freeze #: Array[String]
 
@@ -42,7 +48,7 @@ module Zr
           return "ZR_LINKER=ruby: zr has no linker of its own for an ELF binary. Set ZR_LINKER=auto or cc" if linker == "ruby"
 
           obj = File.join(work, "unit.o")
-          File.binwrite(obj, Obj::Elf::ObjectFile.write(image, arch: target.arch))
+          File.binwrite(obj, Obj::Elf::ObjectFile.write(image, arch: target.arch, versions: VERSIONS.fetch(target.arch)))
           list = File.join(work, "exports.list")
           File.write(list, exports)
           flags = FLAGS + ["-Wl,--dynamic-list=#{list}"] + (strip ? STRIP_FLAGS : []) + link + LIBRARIES

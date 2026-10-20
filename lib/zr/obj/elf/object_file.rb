@@ -79,9 +79,11 @@ module Zr
 
         module_function
 
-        # Returns the bytes of the object file.
-        #: (Unit unit, arch: Symbol) -> String
-        def write(unit, arch:)
+        # Returns the bytes of the object file. `versions` names the version
+        # of a shared library's symbol that an import binds to: ld binds an
+        # undefined `fmod@GLIBC_2.17` to that version, as `.symver` does.
+        #: (Unit unit, arch: Symbol, ?versions: Hash[String, String]) -> String
+        def write(unit, arch:, versions: {})
           machine, relocs = MACHINES.fetch(arch)
           items = unit.items
           sections = [Section.new(name: "", type: 0, flags: 0, bytes: "".b, size: 0, align: 0, link: 0, info: 0, entsize: 0)]
@@ -110,7 +112,10 @@ module Zr
           sections << Section.new(name: ".note.GNU-stack", type: SHT_PROGBITS, flags: 0, bytes: "".b, size: 0, align: 1, link: 0, info: 0, entsize: 0)
 
           table = StringTable.new(blank: 0)
-          symbols.each { |sym| sym.strx = table.add(sym.name) }
+          symbols.each do |sym|
+            version = versions[sym.name] if sym.shndx == SHN_UNDEF
+            sym.strx = table.add(version ? "#{sym.name}@#{version}" : sym.name)
+          end
           strtab = table.bytes
           locals = symbols.count { |sym| sym.bind == STB_LOCAL }
           symtab = symbols.map do |sym|
