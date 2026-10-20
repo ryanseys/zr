@@ -157,7 +157,7 @@ jobs:
       matrix:
         include:
           - host: macOS arm64
-            os: macos-15
+            os: macos-26
             runtimes: aarch64-apple-darwin wasm32-wasi
             outputs: outputs-macos
           - host: arm64 Linux

@@ -27,9 +27,11 @@ module Lanes
   ROOT = File.expand_path("../..", __dir__)
 
   # The runner of each target, and what its lane differs in:
-  # - jobs: ZR_JOBS for the runtime build. A macos-15 runner has 3 cores
-  #   and 7 GB, and an x86_64 Linux one 16 GB; eval support's build with
-  #   more workers ran out of either.
+  # - jobs: ZR_JOBS for the runtime build, which sets the workers and
+  #   turns off the memory bound. No lane sets it: a build takes the
+  #   cores up to 6, and Parallel.afforded keeps the workers inside the
+  #   free memory (a macos-26 runner has 7 GB, an x86_64 Linux one 16 GB),
+  #   and ZR_TIMING prints the count that it chose.
   # - verify: "0" builds the runtime with no IR check, which the aarch64
   #   Linux lane makes on the same passes; the bundle is the same.
   # - container: the lane runs in the pinned ruby's Alpine image.
@@ -37,14 +39,14 @@ module Lanes
   #   harness builds its host's (test/support/built.rb, `targets`).
   # - shards: the number of nightly program shards, for about 45 minutes
   #   each.
-  # - seconds: ZR_TEST_SECONDS, the bound of one program's build and run.
-  #   An x86_64 runner, and a container's, build at one worker.
+  # - seconds: ZR_TEST_SECONDS, the bound of one program's build and run,
+  #   for a runner or a container that builds slowly.
   RUNNERS = {
-    "aarch64-apple-darwin" => { os: "macos-15", jobs: "1", verify: "0", timeout: 150, shards: 6, stage1: true },
+    "aarch64-apple-darwin" => { os: "macos-26", verify: "0", timeout: 150, shards: 6, stage1: true },
     "aarch64-linux-gnu" => { os: "ubuntu-24.04-arm", shards: 4 },
     "aarch64-linux-musl" => { os: "ubuntu-24.04-arm", container: true, vendor: true, shards: 4, seconds: "180" },
-    "x86_64-linux-gnu" => { os: "ubuntu-24.04", jobs: "1", shards: 4, seconds: "180" },
-    "x86_64-linux-musl" => { os: "ubuntu-24.04", container: true, jobs: "1", shards: 2, seconds: "180" },
+    "x86_64-linux-gnu" => { os: "ubuntu-24.04", shards: 4, seconds: "180" },
+    "x86_64-linux-musl" => { os: "ubuntu-24.04", container: true, shards: 2, seconds: "180" },
     "wasm32-wasi" => { os: "ubuntu-24.04-arm", host: "aarch64-linux-gnu", shards: 4 },
   }.freeze
 
