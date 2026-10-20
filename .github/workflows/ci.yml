@@ -107,8 +107,10 @@ jobs:
         include:
           - triple: aarch64-apple-darwin
             os: macos-15
+          # Two runner shutdowns in the build with 4 workers.
           - triple: x86_64-linux-gnu
             os: ubuntu-24.04
+            jobs: "2"
           - triple: aarch64-linux-gnu
             os: ubuntu-24.04-arm
           - triple: wasm32-wasi
@@ -117,6 +119,8 @@ jobs:
     # is the same with or without the check (Config#verify?).
     env:
       ZR_VERIFY: "1"
+      ZR_TIMING: "1"
+      ZR_JOBS: ${{ matrix.jobs }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -127,8 +131,12 @@ jobs:
       - uses: ./.github/actions/runtime-cache
         with:
           flavor: ${{ matrix.triple }}
+      # The runner's memory in use every 10 s, on Linux, where a build
+      # that runs out stops the runner with no word in the log.
       - name: Build the runtime and export it
-        run: bin/zr cache export --target ${{ matrix.triple }} -o runtime-${{ matrix.triple }}.zrr
+        run: |
+          if command -v free > /dev/null; then (while sleep 10; do free -m | awk 'NR == 2 { print "memory in use: " $3 " of " $2 " MB" }'; done) & fi
+          bin/zr cache export --target ${{ matrix.triple }} -o runtime-${{ matrix.triple }}.zrr
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: runtime-${{ matrix.triple }}
@@ -270,6 +278,11 @@ jobs:
       - name: Check vendor/ against its lock
         if: matrix.vendor
         run: docker exec alpine ruby tool/zr-dev.rb vendor --check
+      # The runtime and eval support, once: the program tests' workers
+      # would each build eval support at the same time, and two such
+      # builds are more than a runner's 16 GB.
+      - name: Build the runtime
+        run: docker exec alpine bundle exec rake build
       - name: Run the units this target answers, and the programs
         run: |
           docker exec alpine bin/minitest test/unit/target_test.rb test/unit/elf_test.rb test/unit/interp_test.rb \

@@ -188,13 +188,21 @@ module Zr
       # runtime's IR before it lowers eval support, so the two are not in
       # memory together. Less memory in this process gives more workers
       # to the eval support build (`Native::Parallel.afforded`).
+      # With `evals`, the tree-walking eval support (ZR_EVAL=walk) too,
+      # which some tests read: no test then builds eval support, which
+      # holds gigabytes.
       def build_binary(target, evals: true)
-        program = Native::Build.lower(evals ? EVALS : PLAIN, "built.rb", BuildOptions.new(target: target))
+        link(target, evals ? EVALS : PLAIN)
+        Config.with(ZR_EVAL: "walk") { link(target, EVALS) } if evals
+        finish(target, evals: evals)
+      end
+
+      def link(target, source)
+        program = Native::Build.lower(source, "built.rb", BuildOptions.new(target: target))
         Dir.mktmpdir("zr-build-") do |work|
           why = Native::Build.program(program, File.join(work, "built"), work: work)
           raise "the build did not finish: #{why}" if why
         end
-        finish(target, evals: evals)
       end
 
       # A WASI module has no linker. Build a plain program, and with

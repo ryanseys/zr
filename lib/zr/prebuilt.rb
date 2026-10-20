@@ -197,16 +197,20 @@ module Zr
 
     # Builds a plain program and one with eval for `target` into this
     # cache, so that its link and built roots name this zr's runtime and
-    # eval support. A cache that has them takes seconds; an empty one
-    # takes the minutes of a first build.
+    # eval support; for a native target, also one with the tree-walking
+    # eval support (ZR_EVAL=walk). A cache that has them takes seconds;
+    # an empty one takes the minutes of a first build.
     #: (Target target) -> void
     def warm(target)
       require "tmpdir"
       require_relative "api"
+      evals = "puts eval(\"1 + 1\")\n"
+      builds = { "plain" => ["puts 1 + 1\n", {}], "evals" => [evals, {}] }
+      builds["walked"] = [evals, { eval_mode: "walk" }] if target.link
       Dir.mktmpdir("zr-warm-") do |dir|
-        { "plain" => "puts 1 + 1\n", "evals" => "puts eval(\"1 + 1\")\n" }.each do |name, source|
+        builds.each do |name, (source, settings)|
           Zr.build(File.join(dir, "#{name}.rb"), source: source, out: File.join(dir, name), target: target.triple,
-                                                 settings: { cache_dir: Paths.cache })
+                                                 settings: { cache_dir: Paths.cache, **settings })
         end
       end
     end
