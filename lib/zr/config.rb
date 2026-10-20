@@ -24,6 +24,7 @@ module Zr
     # @rbs @verify: bool
     # @rbs @kernel_checked: bool
     # @rbs @wasm_names: bool
+    # @rbs @wasm_split: bool
     # @rbs @tune: bool
     # @rbs @run_cache: bool
     # @rbs @trace: bool
@@ -70,6 +71,7 @@ module Zr
       row("ZR_VERIFY", "--verify", :switch, nil, "check each IR function before it is assembled"),
       row("ZR_KERNEL_CHECKED", "--kernel-checked", :switch, nil, "check each operator of the kernel that can wrap"),
       row("ZR_WASM_NAMES", "--wasm-names", :switch, nil, "give a WASI module a name section"),
+      row("ZR_WASM_SPLIT", "--wasm-split", :switch, nil, "write a WASI program module, and its runtime module beside it"),
       row("ZR_WASM_WIDTH", "--wasm-width", :value, "N", "the group size of a big wasm function's dispatch"),
       row("ZR_TUNE", "--tune", :switch, nil, "larger GC limits and YJIT for heavy work (on)"),
       row("ZR_CACHE", "--cache-dir", :value, "DIR", "the cache directory (`zr cache path` prints it)"),
@@ -142,6 +144,7 @@ module Zr
       @verify = switch?("ZR_VERIFY")
       @kernel_checked = switch?("ZR_KERNEL_CHECKED")
       @wasm_names = switch?("ZR_WASM_NAMES")
+      @wasm_split = switch?("ZR_WASM_SPLIT")
       # `ZR_WASM_WIDTH`: the group size of a large wasm function's dispatch
       # (`Backend::Wasm::Codegen::Body::LADDER` explains the default).
       @wasm_width = number("ZR_WASM_WIDTH", 256, "256", min: 1)
@@ -333,6 +336,11 @@ module Zr
     # a profiler that reads function names.
     #: () -> bool
     def wasm_names? = @wasm_names
+
+    # `--wasm-split`: a WASI build writes a program module that imports
+    # the runtime from a runtime module (Native::Build#wasm_program).
+    #: () -> bool
+    def wasm_split? = @wasm_split
 
     # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
     #: () -> bool

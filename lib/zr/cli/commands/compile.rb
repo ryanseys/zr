@@ -287,7 +287,7 @@ module Zr
             write = lambda do |out|
               case emit
               when "obj" then object(program, out)
-              when "wasm" then wasm(program, out, opts[:args])
+              when "wasm" then wasm(program, out, opts[:args], output: opts[:output])
               else native(program, out, work, opts[:args], link: link, cache: cache)
               end
             end
@@ -437,17 +437,26 @@ module Zr
           nil
         end
 
-        #: (Program program, String out, Array[String] rest) -> Process::Status?
-        def wasm(program, out, rest)
-          why = program.write_wasm(out)
+        # With `--wasm-split`, `zr build` writes the runtime module beside
+        # the program module's `output` (`out` is its draft), and `zr run`
+        # keeps it in the cache, where the next run finds it.
+        #: (Program program, String out, Array[String] rest, ?output: String?) -> Process::Status?
+        def wasm(program, out, rest, output: nil)
+          if Config.current.wasm_split?
+            split = name == "run" || output.nil? ? File.join(Paths.cache, "wasm-split") : File.dirname(File.expand_path(output))
+          end
+          why = program.write_wasm(out, split: split)
           abort "zr: #{why}" if why
           return nil unless name == "run"
 
           # The module can see the working directory, as a ruby program can.
           # `system`, not `exec`, so that the build directory goes away after
           # the run, as for a binary.
+          require_relative "../../backend/wasm"
+          runtime = split && Backend::Wasm.runtime_of(File.binread(out))
+          preload = runtime ? ["--preload", "#{Backend::Wasm::Codegen::RUNTIME}=#{File.join(split, runtime)}"] : []
           interrupt = Signal.trap("INT") { nil }
-          system("wasmtime", "run", "--dir", ".", out, *rest)
+          system("wasmtime", "run", "--dir", ".", *preload, out, *rest)
           Signal.trap("INT", interrupt)
           $?
         end

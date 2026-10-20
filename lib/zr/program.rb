@@ -54,7 +54,8 @@ module Zr
     end
 
     #: (String out) -> String?
-    def write_wasm(out) = Native::Build.wasm_program(self, out)
+    #: (String out, ?split: String?) -> String?
+    def write_wasm(out, split: nil) = Native::Build.wasm_program(self, out, split: split)
 
     #: (String out, work: String, link: Array[String]) -> String?
     def write_binary(out, work:, link:) = Native::Build.program(self, out, work: work, link: link)

@@ -123,6 +123,7 @@ class ConfigTest < Minitest::Test
       "ZR_VERIFY" => [%w[--verify], :verify?, true],
       "ZR_KERNEL_CHECKED" => [%w[--kernel-checked], :kernel_checked?, true],
       "ZR_WASM_NAMES" => [%w[--wasm-names], :wasm_names?, true],
+      "ZR_WASM_SPLIT" => [%w[--wasm-split], :wasm_split?, true],
       "ZR_WASM_WIDTH" => [%w[--wasm-width 128], :wasm_width, 128],
       "ZR_TUNE" => [%w[--no-tune], :tune?, false],
       "ZR_CACHE" => [%w[--cache-dir /tmp/c], :cache, "/tmp/c"],

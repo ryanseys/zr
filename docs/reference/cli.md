@@ -161,6 +161,14 @@ the module can read the working directory. If wasmtime is not on
 `PATH`, `zr run --emit wasm` stops with status 1 before it builds. `-o` and `--emit obj` are
 usage errors for `run`: use `zr build` to keep the output.
 
+`--wasm-split` (after the command: `zr build --wasm-split --target
+wasm32-wasi app.rb`) writes a program module of under 1 MB, which
+imports the runtime from `zr-runtime-<key>.wasm`. `zr build` writes that
+runtime module beside the output once for each runtime, and `zr run`
+keeps it in the cache. Run the pair with `wasmtime run --preload
+zr=zr-runtime-<key>.wasm app.wasm`, and compile the runtime once with
+`wasmtime compile` to run each program without compiling it again.
+
 `zr run` keeps each native binary that it builds. A second run of the
 same program, with the same bytes in the program and in every file it
 requires, runs the kept binary without a build. `ZR_RUN_CACHE=0` turns
