@@ -90,6 +90,7 @@ None.
 | Test | Why |
 |---|---|
 | `stdlib/openssl/hpke_kem_key_params_and_crl_serial_lookup.rb` | OpenSSL::HPKE: the floor's OpenSSL 3.0 has no HPKE (3.2) |
+| `cli/stdlib/ffi/ffi_libc_call.rb` | FFI: Invalid ABI specified: the port has no x86_64 ABI |
 
 ### x86_64-linux-musl
 

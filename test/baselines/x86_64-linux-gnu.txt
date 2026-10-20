@@ -7,3 +7,6 @@
 # from this file. Thus the file cannot become out of date.
 # Ubuntu 22.04 (the glibc floor) has OpenSSL 3.0, and HPKE came in 3.2.
 stdlib/openssl/hpke_kem_key_params_and_crl_serial_lookup.rb	OpenSSL::HPKE: the floor's OpenSSL 3.0 has no HPKE (3.2)
+
+# The FFI port has no x86_64 ABI yet (FFI::FFIType.cif).
+cli/stdlib/ffi/ffi_libc_call.rb	FFI: Invalid ABI specified: the port has no x86_64 ABI
