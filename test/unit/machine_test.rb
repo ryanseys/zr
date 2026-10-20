@@ -14,7 +14,11 @@ require_relative "../../lib/zr/native/build"
 class MachineTest < Minitest::Test
   Dir[File.join(ROOT, "test/machine/*.rb")].sort.each do |rb|
     name = File.basename(rb, ".rb")
+    # A program that runs on one arch only says so in a line
+    # `# zr-machine: arch <arch>`.
+    arch = File.foreach(rb).first(5).join[/^# zr-machine: arch (\w+)$/, 1]&.to_sym
     define_method("test_#{name}") do
+      skip "#{name}.rb runs on #{arch} only" if arch && Zr::Target.default.arch != arch
       functions, data, raw = Zr::Machine.compile(File.read(rb), rb)
       Dir.mktmpdir("zr-machine-") do |dir|
         bin = File.join(dir, name)

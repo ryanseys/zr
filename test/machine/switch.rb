@@ -1,5 +1,8 @@
 # Two stacks, one million switches between them: the context-switch stub
-# is a raw function this unit carries, on either road.
+# is a raw function this unit carries, on either road. The program stores
+# the entry and the stack at x30's and sp's offsets in the context; the
+# runtime's fibers test the x86_64 switch.
+# zr-machine: arch aarch64
 module Zr::Kern
   module Libc
     #: (i32, ptr, word) -> word
