@@ -176,16 +176,6 @@ jobs:
           ZR_MCACHE: verify
           ZR_PROGRAMS: compiler/cache,compiler/fusion,lang/methods,lang/singleton,lang/refinements
         run: bin/minitest test/programs_test.rb
-      # Each generated file is what its generator writes from the committed
-      # inputs. The darwin generators read this runner's macOS and ruby,
-      # outside bundler, as a user's ruby has its default gems.
-      # Not the darwin tables: `gen tables` reads them from the host ruby,
-      # and so from the SDK that built it. setup-ruby's ruby on macos-26 has
-      # an older SDK than a maintainer's Mac, with fewer errno and socket
-      # names. The linux lanes check their own tables.
-      - name: The generated files are current
-        if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
-        run: ruby tool/zr-dev.rb gen all --check --except tables
       # The gem is the same bytes on macOS as on Linux (ci-ok compares).
       - name: Build the gem on macOS
         if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
@@ -221,6 +211,32 @@ jobs:
       - name: Give the cache back to the runner
         if: always() && fromJSON(inputs.lane).container
         run: sudo chown -R "$USER" tmp bundles log || true
+
+  # Each generated file is what its generator writes from the committed
+  # inputs, on darwin's lane only: the darwin generators read this
+  # runner's macOS and ruby, outside bundler, as a user's ruby has its
+  # default gems. A job of its own, beside the runtime and the tests: it
+  # needs neither, and took 189 s at the end of the test job. Not the
+  # darwin tables: `gen tables` reads them from the host ruby, and so
+  # from the SDK that built it. setup-ruby's ruby on macos-26 has an older
+  # SDK than a maintainer's Mac, with fewer errno and socket names. The
+  # linux lanes check their own tables.
+  generated:
+    if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
+    runs-on: ${{ fromJSON(inputs.lane).os }}
+    timeout-minutes: 20
+    continue-on-error: ${{ fromJSON(inputs.lane).experimental }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          wasmtime: "false"
+      - name: Fetch the CRuby and prism sources that the generators read
+        run: ruby .github/scripts/fetch_sources.rb
+      - name: The generated files are current
+        run: ruby tool/zr-dev.rb gen all --check --except tables
 
   # Every program of the target, in shards (ZR_TEST_SHARD,
   # test/support/shard.rb), each IR function checked; on a lane outside a
