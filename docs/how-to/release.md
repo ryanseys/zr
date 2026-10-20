@@ -31,7 +31,7 @@ tested, with no build of its own:
 
 - the gem of the `checks` job, `zr-<version>.gem`;
 - the runtime bundle of each target whose lane passed,
-  `zr-runtime-<version>-<triple>.zrr`, by the name that `zr cache fetch`
+  `zr-runtime-<version>-<triple>.tar.gz`, by the name that `zr cache fetch`
   reads;
 - their `SHA256SUMS`, and an attestation of each (`gh attestation verify`).
 
@@ -126,7 +126,7 @@ The workflow then:
    with a fixed cache and again with the user cache
    (`.github/scripts/smoke.rb`);
 5. takes each target's runtime bundle from that CI run, as
-   `zr-runtime-X.Y.Z-<triple>.zrr`, and, for a target that builds on its
+   `zr-runtime-X.Y.Z-<triple>.tar.gz`, and, for a target that builds on its
    runner, imports it into an empty cache, which must build a program
    and an eval with no runtime build. CI keeps a bundle for 7 days;
    after that, run CI on the tag again. An experimental target's

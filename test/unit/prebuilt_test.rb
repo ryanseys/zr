@@ -17,7 +17,7 @@ class PrebuiltTest < Minitest::Test
     Prebuilt.define_singleton_method(:warm) { |_target| nil }
     @dirs = []
     @from = cache
-    @bundle = File.join(Dir.mktmpdir("zr-bundle-").tap { |dir| @dirs << dir }, "runtime.zrr")
+    @bundle = File.join(Dir.mktmpdir("zr-bundle-").tap { |dir| @dirs << dir }, "runtime.tar.gz")
   end
 
   def teardown
@@ -165,6 +165,32 @@ class PrebuiltTest < Minitest::Test
     assert_raises(Prebuilt::Invalid) { Prebuilt.import(@bundle) }
   end
 
+  # The bundle format before the tar archive: a line, then the JSON.
+  def test_an_import_names_a_bundle_of_the_old_format
+    Zlib::GzipWriter.open(@bundle) { |gz| gz.write("zr-runtime 1\n{}\n") }
+
+    error = assert_raises(Prebuilt::Invalid) { Prebuilt.import(@bundle) }
+    assert_match "older zr's format", error.message
+  end
+
+  # A bundle is a plain tar archive in gzip: `tar` lists it, the manifest
+  # first, and the unpacked tree imports as the archive does. A platform
+  # gem holds the tree (`Prebuilt.bundled`).
+  def test_tar_unpacks_a_bundle_and_the_tree_imports_as_the_archive_does
+    built = built_runtime
+    Prebuilt.export(TARGET, @bundle)
+    names = IO.popen(["tar", "-tzf", @bundle], &:read).lines(chomp: true)
+
+    assert_equal Prebuilt::MANIFEST, names.first
+    assert_includes names, "#{Prebuilt::STORE}#{built[:object].delete_prefix("#{Store.dir}/")}"
+    tree = Dir.mktmpdir("zr-tree-").tap { |dir| @dirs << dir }
+    assert system("tar", "-xzf", @bundle, "-C", tree)
+    to = cache
+    Prebuilt.import(tree)
+
+    assert_equal "object bytes", File.binread(built[:object].sub(@from, to))
+  end
+
   private
 
   # Writes the bundle again, with the manifest and the files (path to
@@ -173,14 +199,20 @@ class PrebuiltTest < Minitest::Test
     manifest = nil
     files = {}
     Zlib::GzipReader.open(@bundle) do |gz|
-      gz.gets
-      manifest = JSON.parse(gz.gets)
-      manifest["files"].each { |row| files[row["path"]] = gz.read(row["size"]).to_s }
+      Zr::Tar.each(gz) do |name, size|
+        bytes = gz.read(size).to_s
+        name == Prebuilt::MANIFEST ? (manifest = JSON.parse(bytes)) : (files[name.delete_prefix(Prebuilt::STORE)] = bytes)
+      end
     end
     files = yield(manifest, files)
     Zlib::GzipWriter.open(@bundle) do |gz|
-      gz.write("#{Prebuilt::FORMAT}\n#{JSON.generate(manifest)}\n")
-      manifest["files"].each { |row| gz.write(files.fetch(row["path"])) }
+      json = JSON.generate(manifest)
+      Zr::Tar.add(gz, Prebuilt::MANIFEST, json.bytesize) { |io| io.write(json) }
+      manifest["files"].each do |row|
+        bytes = files.fetch(row["path"])
+        Zr::Tar.add(gz, Prebuilt::STORE + row["path"], bytes.bytesize) { |io| io.write(bytes) }
+      end
+      Zr::Tar.finish(gz)
     end
   end
 end

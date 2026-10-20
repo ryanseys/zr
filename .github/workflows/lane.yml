@@ -84,7 +84,7 @@ jobs:
           done) & fi
           mkdir -p bundles
           for triple in $BUILDS; do
-            .github/scripts/in_lane.sh bin/zr cache export --target "$triple" -o "bundles/runtime-$triple.zrr"
+            .github/scripts/in_lane.sh bin/zr cache export --target "$triple" -o "bundles/runtime-$triple.tar.gz"
           done
       # The runtime cache saves only what this run read. The container's
       # root wrote it; the saves read it as the runner.
@@ -112,7 +112,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: runtime-${{ fromJSON(inputs.lane).triple }}
-          path: bundles/*.zrr
+          path: bundles/*.tar.gz
           # The prerelease of a run on main (ci.yml, `release`) takes it,
           # and so can a re-run of that job.
           retention-days: 7
@@ -154,7 +154,7 @@ jobs:
           name: runtime-${{ fromJSON(inputs.lane).triple }}
           path: bundles
       - name: Import the lane's runtimes
-        run: for bundle in bundles/*.zrr; do .github/scripts/in_lane.sh bin/zr cache import "$bundle"; done
+        run: for bundle in bundles/*.tar.gz; do .github/scripts/in_lane.sh bin/zr cache import "$bundle"; done
       # Some units read CRuby's sources (zr-dev's generators).
       - name: Fetch the CRuby and prism sources that the generators read
         run: .github/scripts/in_lane.sh ruby .github/scripts/fetch_sources.rb
@@ -284,7 +284,7 @@ jobs:
           name: runtime-${{ fromJSON(inputs.lane).triple }}
           path: bundles
       - name: Import the lane's runtimes
-        run: for bundle in bundles/*.zrr; do .github/scripts/in_lane.sh bin/zr cache import "$bundle"; done
+        run: for bundle in bundles/*.tar.gz; do .github/scripts/in_lane.sh bin/zr cache import "$bundle"; done
       - name: Install the reference gems of test/ext
         if: ${{ !fromJSON(inputs.lane).container }}
         run: ruby .github/scripts/reference_gems.rb
@@ -322,6 +322,6 @@ jobs:
           name: runtime-${{ fromJSON(inputs.lane).triple }}
           path: bundles
       - name: Import the lane's runtimes into stage 1's cache
-        run: for bundle in bundles/*.zrr; do ZR_CACHE=tmp/stage1/cache bin/zr cache import "$bundle"; done
+        run: for bundle in bundles/*.tar.gz; do ZR_CACHE=tmp/stage1/cache bin/zr cache import "$bundle"; done
       - name: "Stage 1: zr builds itself with no refusal"
         run: bundle exec ruby tool/zr-dev.rb stage 1

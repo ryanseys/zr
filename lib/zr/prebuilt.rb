@@ -8,6 +8,7 @@ require_relative "cache/store"
 require_relative "config"
 require_relative "error"
 require_relative "paths"
+require_relative "tar"
 require_relative "target"
 require_relative "version"
 
@@ -18,10 +19,12 @@ module Zr
   # (`Paths.portable`), so a bundle that one install wrote serves another
   # install of the same zr at any path.
   #
-  # A bundle is a gzip stream: the line `zr-runtime 1`, one line of JSON
-  # (the manifest: zr's version, the target, each file's path, size and
-  # SHA-256, and the text of each root), then each file's bytes in the
-  # manifest's order. It holds the entries that the link and built roots
+  # A bundle is a tar archive in gzip (`Tar`), which `tar -xzf` unpacks:
+  # first `manifest.json` (the format, zr's version, the target, each
+  # file's path, size and SHA-256, and the text of each root), then each
+  # file of the store as `store/<path>`, in the manifest's order. The same
+  # tree unpacked serves as a bundle too: a platform gem holds one
+  # (`bundled`). It holds the entries that the link and built roots
   # of the target name (`ROOTS`): what a build reads when nothing has
   # changed. The lowerings and the packs of machine code (`LEFT_OUT`),
   # which only speed up a build after a change, stay out: half of a
@@ -33,7 +36,11 @@ module Zr
   # one, and checks each file against the manifest before the file goes
   # into the store.
   module Prebuilt
-    FORMAT = "zr-runtime 1"
+    FORMAT = "zr-runtime 2"
+
+    # The manifest's name in a bundle, and the directory of its files.
+    MANIFEST = "manifest.json"
+    STORE = "store/"
 
     # The roots of a target that a bundle holds, by their names after the
     # target's triple.
@@ -69,7 +76,7 @@ module Zr
 
     # The file name of the bundle of `target` for this zr.
     #: (Target target) -> String
-    def bundle_name(target) = "zr-runtime-#{VERSION}-#{target.triple}.zrr"
+    def bundle_name(target) = "zr-runtime-#{VERSION}-#{target.triple}.tar.gz"
 
     # The directory of this version's bundles.
     #: () -> String
@@ -161,17 +168,23 @@ module Zr
       Paths.publish(out) do |draft|
         Zlib::GzipWriter.open(draft) do |gz|
           gz.mtime = 0
-          gz.write("#{FORMAT}\n#{JSON.generate(manifest)}\n")
-          files.each { |rel| File.open(File.join(Cache::Store.dir, rel), "rb") { |io| IO.copy_stream(io, gz) } }
+          json = JSON.generate(manifest)
+          Tar.add(gz, MANIFEST, json.bytesize) { |io| io.write(json) }
+          files.each do |rel|
+            path = File.join(Cache::Store.dir, rel)
+            Tar.add(gz, STORE + rel, File.size(path)) { |io| File.open(path, "rb") { |src| IO.copy_stream(src, io) } }
+          end
+          Tar.finish(gz)
         end
       end
       manifest
     end
 
-    # Reads the bundle at `file` into this cache: each file the cache
-    # lacks, then the roots. With `sha256`, the bundle must have that
-    # digest. Returns the manifest. Raises Invalid for a bundle of another
-    # zr, a changed file, or a path that is no entry of the store.
+    # Reads the bundle at `file`, or the unpacked bundle in the directory
+    # `file`, into this cache: each file the cache lacks, then the roots.
+    # With `sha256`, the bundle must have that digest. Returns the
+    # manifest. Raises Invalid for a bundle of another zr, a changed file,
+    # or a path that is no entry of the store.
     #: (String file, ?sha256: String?) -> Hash[String, untyped]
     def import(file, sha256: nil)
       # @type var staging: String
@@ -183,19 +196,60 @@ module Zr
       # Beside the store, not in it, where no listing of the store's kinds
       # meets it; on the same file system, so each file renames into place.
       staging = File.join(Paths.cache, ".import-#{Process.pid}-#{rand(1 << 32).to_s(16)}")
-      manifest = {} #: Hash[String, untyped]
-      Zlib::GzipReader.open(file) do |gz|
-        manifest = header(gz)
-        Paths.mkdir_p(staging, 0o700)
-        manifest.fetch("files").each { |row| stage(gz, row, staging) }
-        manifest.fetch("files").each { |row| place(File.join(staging, row.fetch("path")), File.join(store, row.fetch("path"))) }
-        manifest.fetch("roots").each { |name, text| Paths.write_atomic(File.join(store, "roots", name), text) }
-      end
+      Paths.mkdir_p(staging, 0o700)
+      manifest = File.directory?(file) ? stage_tree(file, staging) : stage_archive(file, staging)
+      manifest.fetch("files").each { |row| place(File.join(staging, row.fetch("path")), File.join(store, row.fetch("path"))) }
+      manifest.fetch("roots").each { |name, text| Paths.write_atomic(File.join(store, "roots", name), text) }
       manifest
     rescue Zlib::Error, JSON::ParserError, KeyError, TypeError, ArgumentError => e
       raise Invalid, "#{file} is not a runtime bundle: #{e.message}"
     ensure
       FileUtils.rm_rf(staging) if staging
+    end
+
+    # Stages each file of the unpacked bundle in `dir`. Returns its
+    # manifest.
+    #: (String dir, String staging) -> Hash[String, untyped]
+    def stage_tree(dir, staging)
+      manifest = header(File.read(File.join(dir, MANIFEST)))
+      manifest.fetch("files").each do |row|
+        File.open(File.join(dir, STORE, row.fetch("path")), "rb") { |io| stage(io, row, staging) }
+      end
+      manifest
+    end
+
+    # Stages each file of the bundle archive `file`, which must hold the
+    # manifest first and then the files that it lists, in its order.
+    # Returns the manifest.
+    #: (String file, String staging) -> Hash[String, untyped]
+    def stage_archive(file, staging)
+      manifest = nil #: Hash[String, untyped]?
+      rows = [] #: Array[Hash[String, untyped]]
+      Zlib::GzipReader.open(file) do |gz|
+        first = gz.read(FORMAT.bytesize)
+        raise Invalid, "#{file} is a bundle of an older zr's format: fetch or export it again" if first&.start_with?("zr-runtime ")
+
+        gz.ungetc(first.to_s)
+        Tar.each(gz) do |name, size|
+          if manifest.nil?
+            raise Invalid, "the bundle does not begin with #{MANIFEST}" unless name == MANIFEST
+
+            manifest = header(gz.read(size).to_s)
+            rows = manifest.fetch("files").dup
+            next
+          end
+          row = rows.shift or raise Invalid, "the bundle holds #{name}, which its manifest does not list"
+          unless name == STORE + row.fetch("path") && size == Integer(row.fetch("size"))
+            raise Invalid, "the bundle holds #{name} (#{size} bytes) where its manifest lists #{row["path"]}"
+          end
+
+          stage(gz, row, staging)
+        end
+      end
+      raise Invalid, "the bundle holds no #{MANIFEST}" if manifest.nil?
+      raise Invalid, "the bundle lacks #{rows.first&.fetch("path")}, which its manifest lists" unless rows.empty?
+
+      manifest
     end
 
     # Builds a plain program and one with eval for `target` into this
@@ -278,14 +332,13 @@ module Zr
       { "path" => rel, "size" => bytes.bytesize, "sha256" => Digest::SHA256.hexdigest(bytes) }
     end
 
-    # The manifest, after the format line. A bundle of another zr or of a
+    # The manifest of the JSON `text`. A bundle of another zr or of a
     # format that this zr does not read is refused.
-    #: (Zlib::GzipReader gz) -> Hash[String, untyped]
-    def header(gz)
-      raise Invalid, "not a runtime bundle (no #{FORMAT} line)" unless gz.gets == "#{FORMAT}\n"
-
-      manifest = JSON.parse(gz.gets.to_s)
+    #: (String text) -> Hash[String, untyped]
+    def header(text)
+      manifest = JSON.parse(text)
       raise Invalid, "the manifest is no object" unless manifest.is_a?(Hash)
+      raise Invalid, "not a runtime bundle of format #{FORMAT} (#{manifest["format"].inspect})" unless manifest["format"] == FORMAT
       raise Invalid, "the bundle is of zr #{manifest["zr"]}; this is zr #{VERSION}" unless manifest["zr"] == VERSION
 
       files = manifest.fetch("files")
@@ -313,9 +366,9 @@ module Zr
       Target.all.any? { |target| name.start_with?(target.triple) && name.delete_prefix(target.triple).match?(ROOTS) }
     end
 
-    # Reads the next file of the bundle into `staging`, and checks its
-    # size and digest.
-    #: (Zlib::GzipReader gz, Hash[String, untyped] row, String staging) -> void
+    # Reads the next file of the bundle from `gz` into `staging`, and
+    # checks its size and digest.
+    #: (Zlib::GzipReader | File gz, Hash[String, untyped] row, String staging) -> void
     def stage(gz, row, staging)
       size = Integer(row.fetch("size"))
       digest = Digest::SHA256.new

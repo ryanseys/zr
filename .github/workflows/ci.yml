@@ -186,7 +186,7 @@ jobs:
       - name: Install the gem with this run's runtimes
         run: |
           imports=()
-          for triple in ${{ matrix.runtimes }}; do imports+=(--import "lane-$triple/runtime-$triple.zrr"); done
+          for triple in ${{ matrix.runtimes }}; do imports+=(--import "lane-$triple/runtime-$triple.tar.gz"); done
           ruby .github/scripts/smoke.rb "${imports[@]}" zr-*.gem
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -282,8 +282,8 @@ jobs:
             tier="$(echo "$LANES" | jq -r --arg t "$triple" '.[] | select(.triple == $t) | .tier')"
             if gh run download "$GITHUB_RUN_ID" -n "passed-$triple" -D "passed-$triple" 2> /dev/null &&
                gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "lane-$triple" 2> /dev/null &&
-               [ -f "lane-$triple/runtime-$triple.zrr" ]; then
-              mv "lane-$triple/runtime-$triple.zrr" "dist/zr-runtime-$version-$triple.zrr"
+               [ -f "lane-$triple/runtime-$triple.tar.gz" ]; then
+              mv "lane-$triple/runtime-$triple.tar.gz" "dist/zr-runtime-$version-$triple.tar.gz"
             elif [ "$tier" = 1 ]; then
               echo "::error::$triple, a tier 1 target, did not pass: no release"; exit 1
             else

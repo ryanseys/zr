@@ -423,7 +423,7 @@ class RubyModeDispatchTest < Minitest::Test
   end
 
   def test_a_bundle_export_tunes_at_once_and_no_other_cache_command_tunes
-    assert CLI.exports?(%w[cache export --target wasm32-wasi -o b.zrr])
+    assert CLI.exports?(%w[cache export --target wasm32-wasi -o b.tar.gz])
     refute CLI.exports?(%w[cache clean --days 1])
     refute CLI.compiles?(%w[cache export])
   end

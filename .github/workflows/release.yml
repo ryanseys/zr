@@ -158,14 +158,14 @@ jobs:
           run-id: ${{ needs.check.outputs.ci_run }}
           github-token: ${{ github.token }}
       - name: Take the bundle that CI built and tested
-        run: mv "ci/runtime-$TRIPLE.zrr" "zr-runtime-$VERSION-$TRIPLE.zrr"
+        run: mv "ci/runtime-$TRIPLE.tar.gz" "zr-runtime-$VERSION-$TRIPLE.tar.gz"
       - name: Import the bundle into an empty cache, and build from it alone
         if: ${{ !matrix.lane.container }}
         run: |
           gem install --local --no-document --install-dir "$RUNNER_TEMP/gems" "zr-$VERSION.gem"
           zr="$RUNNER_TEMP/gems/gems/zr-$VERSION/exe/zr"
           export ZR_CACHE="$RUNNER_TEMP/fresh"
-          ruby "$zr" cache import "zr-runtime-$VERSION-$TRIPLE.zrr"
+          ruby "$zr" cache import "zr-runtime-$VERSION-$TRIPLE.tar.gz"
           cd "$RUNNER_TEMP"
           echo 'puts eval("1 + 1")' > check.rb
           ruby "$zr" build --target "$TRIPLE" check.rb -o check 2> build.log || { cat build.log; exit 1; }
@@ -173,7 +173,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bundle-${{ matrix.lane.triple }}
-          path: zr-runtime-*.zrr
+          path: zr-runtime-*.tar.gz
 
   # The publish steps, in the release environment, which only v* tags may
   # use. A draft GitHub Release comes first and is published last, so a
@@ -208,7 +208,7 @@ jobs:
           merge-multiple: true
       # `zr cache fetch` checks a bundle against this list.
       - name: List the digests of the gem and the runtimes
-        run: sha256sum "zr-$VERSION.gem" zr-runtime-*.zrr > SHA256SUMS
+        run: sha256sum "zr-$VERSION.gem" zr-runtime-*.tar.gz > SHA256SUMS
 
       # The attestation names this repository, this workflow and this
       # commit, for the exact file that the next steps publish.
@@ -218,7 +218,7 @@ jobs:
         with:
           subject-path: |
             zr-${{ env.VERSION }}.gem
-            zr-runtime-*.zrr
+            zr-runtime-*.tar.gz
 
       - name: Create the GitHub Release as a draft
         if: env.ONLY == 'all' || env.ONLY == 'github-release'
@@ -227,7 +227,7 @@ jobs:
         run: |
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 ||
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --title "zr $VERSION" --notes-file notes.md --verify-tag
-          gh release upload "$TAG" "zr-$VERSION.gem" zr-runtime-*.zrr SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" "zr-$VERSION.gem" zr-runtime-*.tar.gz SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber
 
       # Trusted publishing: no API key. rubygems attests the push with
       # sigstore on its own under GitHub Actions; check the attestation on

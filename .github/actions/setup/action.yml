@@ -49,5 +49,5 @@ runs:
       run: |
         for triple in $RUNTIMES; do
           gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "$RUNNER_TEMP/runtimes"
-          bin/zr cache import "$RUNNER_TEMP/runtimes/runtime-$triple.zrr"
+          bin/zr cache import "$RUNNER_TEMP/runtimes/runtime-$triple.tar.gz"
         done
