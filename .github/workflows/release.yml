@@ -49,7 +49,7 @@ jobs:
       version: ${{ steps.notes.outputs.version }}
       sha256: ${{ steps.gem.outputs.sha256 }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: ${{ inputs.tag || github.ref }}
           persist-credentials: false
@@ -83,7 +83,7 @@ jobs:
           echo "sha256=$(sha256sum "zr-$VERSION.gem" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       # CI keeps its gem for 90 days. After that, run CI again on the tag:
       # gh workflow run ci.yml --ref vX.Y.Z
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: gem
           path: ci
@@ -99,7 +99,7 @@ jobs:
       - name: Run the gem with the user cache
         run: ruby .github/scripts/smoke.rb --user-cache "zr-$VERSION.gem"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release
           path: |
@@ -126,7 +126,7 @@ jobs:
       VERSION: ${{ needs.check.outputs.version }}
       TRIPLE: ${{ matrix.triple }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: ${{ inputs.tag || github.ref }}
           persist-credentials: false
@@ -134,7 +134,7 @@ jobs:
       - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
         with:
           ruby-version: .ruby-version
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release
       # The export builds the runtime and eval support first.
@@ -154,7 +154,7 @@ jobs:
           echo 'puts eval("1 + 1")' > check.rb
           ruby "$zr" build --target "$TRIPLE" check.rb -o check 2> build.log || { cat build.log; exit 1; }
           if grep -q "zr: building" build.log; then cat build.log; echo "the bundle did not hold the whole runtime"; exit 1; fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bundle-${{ matrix.triple }}
           path: zr-runtime-*.zrr
@@ -179,14 +179,14 @@ jobs:
     steps:
       - name: Run from the tag
         run: test "$GITHUB_REF_TYPE" = tag && test "$GITHUB_REF_NAME" = "$TAG"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release
       - name: The gem is the one that the check built
         env:
           SHA256: ${{ needs.check.outputs.sha256 }}
         run: test "$(sha256sum "zr-$VERSION.gem" | cut -d' ' -f1)" = "$SHA256"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: bundle-*
           merge-multiple: true
