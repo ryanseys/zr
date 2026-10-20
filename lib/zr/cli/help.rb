@@ -142,6 +142,9 @@ module Zr
         TEXT
         "cache" => <<~TEXT
           Usage: zr cache [path|size|clean [--days N | --all]]
+                 zr cache export [--target T] -o FILE
+                 zr cache import FILE [--sha256 HEX]
+                 zr cache fetch [--target T] [--sha256 HEX]
 
           path            print the cache directory (the default)
           size            what the cache holds, by kind
@@ -149,6 +152,14 @@ module Zr
           clean --days N  the same, but keep the files used in the last N days
           clean --all     delete every file in the cache, also this zr's own;
                           the next build makes them again
+          export          write the built runtime of a target to FILE, which
+                          serves this zr version at any path and on any machine
+          import          put a runtime that export wrote into this cache, so
+                          the first build does not build it; import only a
+                          file that you trust as you trust zr
+          fetch           download this zr release's runtime for a target
+                          (ZR_PREBUILT_URL names a mirror) and import it;
+                          zr downloads nothing unless you run this
 
           An installed zr also cleans its cache when it grows past
           ZR_CACHE_MAX_GB (default 5).

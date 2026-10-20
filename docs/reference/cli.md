@@ -298,9 +298,12 @@ prelinked images, machine code, parsed trees and the binaries of
 |---|---|
 | `zr cache` or `zr cache path` | Prints the cache directory. |
 | `zr cache size` | Prints what the cache holds, by kind. It also prints the size of wasmtime's own cache, if there is one. zr does not clean that cache. |
-| `zr cache clean` | Deletes the entries that this zr does not use, and the binaries that a build server left. The next build rebuilds nothing. |
+| `zr cache clean` | Deletes the entries that this zr does not use. The next build rebuilds nothing. |
 | `zr cache clean --days N` | Does the same as `zr cache clean`, but keeps the entries used in the last N days. In a checkout, `--days 1` keeps the entries of a branch that you used today. |
 | `zr cache clean --all` | Deletes every entry in the cache. The next build makes them again. |
+| `zr cache export [--target T] -o FILE` | Writes the built runtime of target T (default: this host's) to FILE, from this cache. FILE serves another install of the same zr version, at any path and on any machine. |
+| `zr cache import FILE [--sha256 HEX]` | Puts the runtime of a file that `zr cache export` wrote into this cache, so that the first build does not build the runtime. With `--sha256`, the file must have that digest. zr runs what the cache holds, so import only a file that you trust as you trust zr (SECURITY.md). |
+| `zr cache fetch [--target T] [--sha256 HEX]` | Downloads the runtime of target T for this zr version from its GitHub Release (or from `ZR_PREBUILT_URL`), checks it against the release's `SHA256SUMS` (or against `--sha256`), and imports it. It uses HTTPS only. zr downloads nothing unless you run this. |
 
 The cache is one content store, `<cache>/store/`. Each entry is at
 `<kind>/<first two characters of its key>/<key>`, where the key is a

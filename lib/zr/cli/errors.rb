@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../error"
+
 module Zr
   module CLI
     # What `zr` prints, and the status that it exits with, for an error: a
@@ -51,11 +53,11 @@ module Zr
       end
 
       # 2 for a bad setting or an unsafe cache, 1 for another error that
-      # the user can fix, DEFECT for any other error.
+      # the user can fix (each `Zr::Error`), DEFECT for any other error.
       #: (Exception error) -> Integer
       def status(error)
         return 2 if SETUP.include?(error.class.name)
-        return 1 if EXPECTED.include?(error.class.name) || error.is_a?(SystemCallError)
+        return 1 if EXPECTED.include?(error.class.name) || error.is_a?(Zr::Error) || error.is_a?(SystemCallError)
 
         DEFECT
       end
@@ -64,7 +66,7 @@ module Zr
       # of a defect.
       #: (Exception error, ?String? log) -> String
       def error_line(error, log = nil)
-        return error.message if EXPECTED.include?(error.class.name)
+        return error.message if EXPECTED.include?(error.class.name) || error.is_a?(Zr::Error)
         return "#{error.message}#{cache_hint(error)}" if error.is_a?(SystemCallError)
 
         report = log ? "the crash log #{log}" : "the output of 'zr doctor'"

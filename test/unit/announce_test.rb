@@ -22,7 +22,8 @@ class AnnounceTest < Minitest::Test
         Zr::Runtime.announce("the zr runtime", target)
         Zr::Runtime.announce("the zr runtime", target)
       end
-      assert_equal "zr: building the zr runtime for aarch64-apple-darwin. This occurs one time and takes some minutes.\n", err
+      assert_equal "zr: building the zr runtime for aarch64-apple-darwin. This occurs one time and takes some minutes.\n" \
+                   "zr: to download it in place of the build, stop zr (Ctrl-C) and run 'zr cache fetch --target aarch64-apple-darwin'.\n", err
     end
   end
 

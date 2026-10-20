@@ -106,11 +106,53 @@ jobs:
             zr-*.gem
             notes.md
 
+  # Each tested target's built runtime (`zr cache export`), from the gem
+  # that the check built, on a host that runs the target. `zr cache fetch`
+  # downloads them from the release, so a user's first build takes
+  # seconds, not minutes.
+  bundles:
+    needs: check
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { triple: aarch64-apple-darwin, os: macos-15 }
+          - { triple: x86_64-linux-gnu, os: ubuntu-24.04 }
+          - { triple: aarch64-linux-gnu, os: ubuntu-24.04-arm }
+          - { triple: wasm32-wasi, os: ubuntu-24.04 }
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      TRIPLE: ${{ matrix.triple }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+          sparse-checkout: .ruby-version
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
+        with:
+          ruby-version: .ruby-version
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+      # The export builds the runtime and eval support first.
+      - name: Build the runtime from the gem, and export it
+        run: |
+          gem install --local --no-document --install-dir "$RUNNER_TEMP/gems" "zr-$VERSION.gem"
+          ZR_CACHE="$RUNNER_TEMP/cache" ruby "$RUNNER_TEMP/gems/gems/zr-$VERSION/exe/zr" cache export --target "$TRIPLE" \
+            -o "zr-runtime-$VERSION-$TRIPLE.zrr"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bundle-${{ matrix.triple }}
+          path: zr-runtime-*.zrr
+
   # The publish steps, in the release environment, which only v* tags may
   # use. A draft GitHub Release comes first and is published last, so a
   # failure in between leaves a draft and the `only` choice to finish.
   publish:
-    needs: check
+    needs: [check, bundles]
     if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-24.04
     environment: release
@@ -133,6 +175,13 @@ jobs:
         env:
           SHA256: ${{ needs.check.outputs.sha256 }}
         run: test "$(sha256sum "zr-$VERSION.gem" | cut -d' ' -f1)" = "$SHA256"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: bundle-*
+          merge-multiple: true
+      # `zr cache fetch` checks a bundle against this list.
+      - name: List the digests of the gem and the runtimes
+        run: sha256sum "zr-$VERSION.gem" zr-runtime-*.zrr > SHA256SUMS
 
       # The attestation names this repository, this workflow and this
       # commit, for the exact file that the next steps publish.
@@ -140,7 +189,9 @@ jobs:
         if: env.ONLY == 'all'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: zr-${{ env.VERSION }}.gem
+          subject-path: |
+            zr-${{ env.VERSION }}.gem
+            zr-runtime-*.zrr
 
       - name: Create the GitHub Release as a draft
         if: env.ONLY == 'all' || env.ONLY == 'github-release'
@@ -148,7 +199,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 ||
-            gh release create "$TAG" "zr-$VERSION.gem" -R "$GITHUB_REPOSITORY" --draft --title "zr $VERSION" --notes-file notes.md --verify-tag
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --draft --title "zr $VERSION" --notes-file notes.md --verify-tag
+          gh release upload "$TAG" "zr-$VERSION.gem" zr-runtime-*.zrr SHA256SUMS -R "$GITHUB_REPOSITORY" --clobber
 
       # Trusted publishing: no API key. rubygems attests the push with
       # sigstore on its own under GitHub Actions; check the attestation on

@@ -5,6 +5,7 @@ require "fileutils"
 require "json"
 require "zlib"
 require_relative "cache/store"
+require_relative "config"
 require_relative "error"
 require_relative "paths"
 require_relative "target"
@@ -60,11 +61,11 @@ module Zr
 
     # The file name of the bundle of `target` for this zr.
     #: (Target target) -> String
-    def name(target) = "zr-runtime-#{VERSION}-#{target.triple}.zrr"
+    def bundle_name(target) = "zr-runtime-#{VERSION}-#{target.triple}.zrr"
 
     # The directory of this version's bundles.
     #: () -> String
-    def url = (ENV["ZR_PREBUILT_URL"] || "#{RELEASES}/v#{VERSION}").chomp("/")
+    def url = (Config.prebuilt_url || "#{RELEASES}/v#{VERSION}").chomp("/")
 
     # Downloads the bundle of `target` for this zr and imports it (`zr
     # cache fetch`). It checks the bundle against the release's SHA256SUMS,
@@ -74,8 +75,8 @@ module Zr
     def fetch(target, sha256: nil)
       require "tmpdir"
       Dir.mktmpdir("zr-fetch-") do |dir|
-        sha256 ||= listed_sha256(download("#{url}/SHA256SUMS", File.join(dir, "SHA256SUMS")), name(target))
-        import(download("#{url}/#{name(target)}", File.join(dir, name(target))), sha256: sha256)
+        sha256 ||= listed_sha256(download("#{url}/SHA256SUMS", File.join(dir, "SHA256SUMS")), bundle_name(target))
+        import(download("#{url}/#{bundle_name(target)}", File.join(dir, bundle_name(target))), sha256: sha256)
       end
     end
 

@@ -226,3 +226,7 @@ end
 module Zr::Obj::Relocs::X86_64
   extend Zr::Obj::Relocs::X86_64
 end
+
+module Zr::Prebuilt
+  extend Zr::Prebuilt
+end

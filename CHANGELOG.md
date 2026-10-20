@@ -18,6 +18,11 @@ The first public release.
   pinned ruby, 4.1.0-preview1. The gem has no dependencies: it carries the pinned ruby's
   standard library (`vendor/ruby`), so the install downloads only zr, and
   compiles nothing.
+- `zr cache fetch` downloads the runtime that the release built for a
+  target, so the first build takes seconds, not minutes. `zr cache
+  export` and `zr cache import` move a built runtime between machines.
+  A runtime names zr's files below `/zr`, not below the install's path,
+  so one runtime serves every install of a version.
 - `Zr.build` (`require "zr"`) builds a program from Ruby, as `zr build`
   does, and returns a `Zr::Result`. An error that the caller can fix
   includes `Zr::Error`. This, `Zr::Result` and the error classes are the

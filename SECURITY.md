@@ -28,6 +28,15 @@ and the CHANGELOG names the problem once the release is out.
   above it that has no sticky bit. Do not point `ZR_CACHE` at a
   directory that other users share. A CI cache that the job's own user
   restores is safe.
+- **Runtime bundles.** `zr cache import` and `zr cache fetch` put a
+  runtime that another machine built into the cache, so the same rule
+  applies: import only a bundle that you trust as you trust zr. `fetch`
+  downloads over HTTPS from this version's GitHub Release (or from
+  `ZR_PREBUILT_URL`) and checks the bundle against the release's
+  `SHA256SUMS`; `--sha256` pins a digest that you give. Each release
+  attests its bundles (`gh attestation verify FILE -R ryanseys/zr`). An
+  import checks every file against the bundle's manifest, takes only
+  paths of the cache's own layout, and writes the cache's roots last.
 - **`--native-ext`.** A build with `--native-ext` runs the gem's
   `extconf.rb` and `make`, as `gem install` does. Use it only with gems
   that you trust as much as you would to install them.

@@ -92,10 +92,15 @@ Each `warn` line says what zr cannot do here, and what to do. Only a
 $ echo 'puts "Hello from #{RUBY_PLATFORM}"' > hello.rb
 $ zr run hello.rb
 zr: building the zr runtime for aarch64-apple-darwin. This occurs one time and takes some minutes.
+zr: to download it in place of the build, stop zr (Ctrl-C) and run 'zr cache fetch --target aarch64-apple-darwin'.
 Hello from arm64-darwin23
 ```
 
-The first build fills zr's cache. The builds after it take seconds.
+The first build fills zr's cache. The builds after it take seconds. To
+skip the first build, run `zr cache fetch` before it: it downloads the
+runtime that this zr release built for your target, checks its SHA-256,
+and puts it in the cache. Add `--target T` for another target. zr
+downloads nothing unless you run it.
 `zr cache size` shows the cache, and `zr cache clean --all` frees all of
 it.
 

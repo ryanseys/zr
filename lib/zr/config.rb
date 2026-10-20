@@ -423,6 +423,11 @@ module Zr
     #: () -> bool
     def self.debug? = on?(given.fetch("ZR_DEBUG") { ENV["ZR_DEBUG"] }, false)
 
+    # The mirror that `zr cache fetch` downloads from (ZR_PREBUILT_URL),
+    # or nil for the release on GitHub. Only that command reads it.
+    #: () -> String?
+    def self.prebuilt_url = ENV["ZR_PREBUILT_URL"]&.then { |url| url.empty? ? nil : url }
+
     # Whether `value` is on: nil or empty gives `default`, "0" is off,
     # and any other value is on.
     #: (String? value, bool default) -> bool
