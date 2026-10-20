@@ -125,8 +125,10 @@ module Zr
       raise Refused, "--native-ext #{name}: this ruby runs without rubygems (--disable-gems), so it finds no installed gem" unless defined?(::Gem::Specification)
 
       specs = version ? Gem::Specification.find_all_by_name(name, version) : Gem::Specification.find_all_by_name(name)
-      # RubyGems' signatures leave out a specification's directories.
-      spec = specs.max_by(&:version) #: untyped
+      # RubyGems' signatures leave out a specification's directories. An
+      # installed gem wins over a default gem of its version: its directory
+      # has the ext/ that a build reads.
+      spec = specs.max_by { |s| [s.version, s.default_gem? ? 0 : 1] } #: untyped
       raise Refused, "--native-ext #{name}: the gem #{name}#{" #{version}" if version} is not installed in this ruby" unless spec
 
       dir = spec.gem_dir #: String
