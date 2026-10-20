@@ -50,6 +50,7 @@ require_relative "support/stubs"
 Minitest::Test.include(Zr::Test::Stubs)
 require_relative "support/history"
 require_relative "support/progress"
+require_relative "support/github"
 Minitest::Test.parallelize_me!
 
 ROOT = File.expand_path("..", __dir__)

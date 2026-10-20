@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# zr-test: on aarch64
 
 require "test_helper"
 require_relative "../support/harness/kernel_jit"

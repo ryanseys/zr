@@ -1,0 +1,286 @@
+name: Lane
+
+# One target's lane of CI (.github/scripts/lanes.rb), which ci.yml calls
+# once for each target: the runtime, built once on a runner of the
+# target's host and exported as a bundle, then the jobs that import it.
+# `test` runs the target's unit files and a slice of the programs on each
+# push. On the nightly run and a run by hand, `programs` runs every
+# program in shards, and darwin's lane builds the compiler with itself.
+# A lane of an experimental target (Target::SUPPORT) does not fail the
+# run.
+on:
+  workflow_call:
+    inputs:
+      lane:
+        description: The lane, as JSON (lanes.rb matrix).
+        type: string
+        required: true
+      full:
+        description: Whether to run every program.
+        type: boolean
+        default: false
+      ruby:
+        description: The pinned ruby, for the Alpine image.
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+# The wasmtime of every job (test/support/harness/wasmtime.rb, VERSION).
+env:
+  WASMTIME_VERSION: 49.0.2
+
+jobs:
+  # The bundle is cached under a key of every input of the runtime, so a
+  # run with no change under lib or vendor only uploads it again. A pull
+  # request reads the caches and writes none.
+  runtime:
+    runs-on: ${{ fromJSON(inputs.lane).os }}
+    timeout-minutes: ${{ fromJSON(inputs.lane).timeout }}
+    continue-on-error: ${{ fromJSON(inputs.lane).experimental }}
+    env:
+      ZR_VERIFY: ${{ fromJSON(inputs.lane).verify }}
+      ZR_TIMING: "1"
+      ZR_JOBS: ${{ fromJSON(inputs.lane).jobs }}
+      LANE_CONTAINER: ${{ fromJSON(inputs.lane).container && '1' || '' }}
+      BUILDS: ${{ join(fromJSON(inputs.lane).builds, ' ') }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - id: bundle
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bundles
+          key: bundle-${{ fromJSON(inputs.lane).triple }}-${{ hashFiles('lib/**', 'vendor/**', 'Gemfile.lock', '.ruby-version') }}
+      - if: steps.bundle.outputs.cache-hit != 'true' && !fromJSON(inputs.lane).container
+        uses: ./.github/actions/setup
+        with:
+          wasmtime: "false"
+      - if: steps.bundle.outputs.cache-hit != 'true'
+        uses: ./.github/actions/runtime-cache
+        with:
+          flavor: ${{ fromJSON(inputs.lane).triple }}
+      - if: steps.bundle.outputs.cache-hit != 'true' && fromJSON(inputs.lane).container
+        uses: ./.github/actions/alpine
+        with:
+          ruby: ${{ inputs.ruby }}
+      # The runner's memory in use every 10 s, and the largest processes
+      # above 8 GB, on Linux, where a build that runs out stops the runner
+      # with no word in the log.
+      - name: Build the runtime and export it
+        if: steps.bundle.outputs.cache-hit != 'true'
+        run: |
+          if command -v free > /dev/null; then (while sleep 10; do
+            used=$(free -m | awk 'NR == 2 { print $3 }'); echo "memory in use: $used MB"
+            if [ "$used" -gt 8000 ]; then ps -eo rss,etimes,args --sort=-rss | head -4 | cut -c1-200; fi
+          done) & fi
+          mkdir -p bundles
+          for triple in $BUILDS; do
+            .github/scripts/in_lane.sh bin/zr cache export --target "$triple" -o "bundles/runtime-$triple.zrr"
+          done
+      # A build that stops (a failure, a time limit, a newer push) keeps
+      # what it finished: each phase writes its entries and code when it
+      # ends, and the next run's restore takes the newest key.
+      - name: Keep the runtime cache of a build that did not finish
+        if: (failure() || cancelled()) && steps.bundle.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            tmp/cache/store/object
+            tmp/cache/store/image
+            tmp/cache/store/meta
+            tmp/cache/store/wasm
+            tmp/cache/store/source
+            tmp/cache/store/built
+            tmp/cache/store/code
+            tmp/cache/store/lowering
+            tmp/cache/store/kernel
+            tmp/cache/store/roots
+          key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ fromJSON(inputs.lane).triple }}-partial-${{ github.run_id }}-${{ github.run_attempt }}
+      - if: steps.bundle.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bundles
+          key: ${{ steps.bundle.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: runtime-${{ fromJSON(inputs.lane).triple }}
+          path: bundles/*.zrr
+          retention-days: 1
+          compression-level: 0
+      # The runtime cache saves only what this run read.
+      - name: Clean the cache of what this run did not use
+        if: steps.bundle.outputs.cache-hit != 'true'
+        run: .github/scripts/in_lane.sh bin/zr cache clean --days 1
+      - name: Give the cache back to the runner
+        if: always() && fromJSON(inputs.lane).container
+        run: sudo chown -R "$USER" tmp bundles || true
+
+  # The unit files of the target, and the programs of a push.
+  test:
+    needs: runtime
+    runs-on: ${{ fromJSON(inputs.lane).os }}
+    timeout-minutes: 90
+    continue-on-error: ${{ fromJSON(inputs.lane).experimental }}
+    env:
+      ZR_TARGET: ${{ fromJSON(inputs.lane).triple }}
+      LANE_CONTAINER: ${{ fromJSON(inputs.lane).container && '1' || '' }}
+      ZR_TEST_SECONDS: ${{ fromJSON(inputs.lane).test_seconds }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - if: ${{ !fromJSON(inputs.lane).container }}
+        uses: ./.github/actions/setup
+      - if: fromJSON(inputs.lane).container
+        uses: ./.github/actions/alpine
+        with:
+          ruby: ${{ inputs.ruby }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: runtime-${{ fromJSON(inputs.lane).triple }}
+          path: bundles
+      - name: Import the lane's runtimes
+        run: for bundle in bundles/*.zrr; do .github/scripts/in_lane.sh bin/zr cache import "$bundle"; done
+      # Some units read CRuby's sources (zr-dev's generators).
+      - name: Fetch the CRuby and prism sources that the generators read
+        run: .github/scripts/in_lane.sh ruby .github/scripts/fetch_sources.rb
+      - name: Units (${{ fromJSON(inputs.lane).triple }})
+        run: .github/scripts/in_lane.sh ruby .github/scripts/lanes.rb units "$ZR_TARGET" --run
+      - name: "Programs: cli"
+        env:
+          ZR_PROGRAMS: cli
+        run: .github/scripts/in_lane.sh bin/minitest test/programs_test.rb
+      # Where a libc, an ISA or a link difference would show.
+      - name: "Programs: slice"
+        env:
+          ZR_PROGRAMS: ${{ fromJSON(inputs.lane).slice }}
+        run: .github/scripts/in_lane.sh bin/minitest test/programs_test.rb
+      # Every hit of the method cache checked against a fresh lookup.
+      - name: "Programs: dispatch, with the method cache verified"
+        if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
+        env:
+          ZR_MCACHE: verify
+          ZR_PROGRAMS: compiler/cache,compiler/fusion,lang/methods,lang/singleton,lang/refinements
+        run: bin/minitest test/programs_test.rb
+      # Each generated file is what its generator writes from the committed
+      # inputs. The darwin generators read this runner's macOS and ruby,
+      # outside bundler, as a user's ruby has its default gems.
+      - name: The generated files are current
+        if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
+        run: ruby tool/zr-dev.rb gen all --check
+      # The gem is the same bytes on macOS as on Linux (ci-ok compares).
+      - name: Build the gem on macOS
+        if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
+        run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec && shasum -a 256 zr-*.gem | cut -d' ' -f1 > gem-macos.sha256
+      - if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gem-macos-sha256
+          path: gem-macos.sha256
+      # The glibc symbol versions that a binary built here needs: each
+      # must be at most the floor (GlibcFloorTest).
+      - name: The glibc versions that a binary needs
+        if: fromJSON(inputs.lane).glibc
+        continue-on-error: true
+        run: |
+          mkdir -p tmp && echo 'puts [3, 1, 2].sort.inspect' > tmp/glibc.rb
+          bin/zr build tmp/glibc.rb -o tmp/glibc
+          objdump -T tmp/glibc | grep -o 'GLIBC_[0-9.]*  *[A-Za-z_0-9]*' | sort -t_ -k2 -V | uniq | tail -20
+      # Each file of vendor/ hashes to its line of vendor/vendor.lock, which
+      # `zr-dev vendor` writes from upstream (hours, so CI checks the lock
+      # and writes nothing). Then the linux tables, written again.
+      - name: Check vendor/ against its lock, and the linux tables
+        if: fromJSON(inputs.lane).vendor
+        run: |
+          .github/scripts/in_lane.sh ruby tool/zr-dev.rb vendor --check
+          .github/scripts/in_lane.sh ruby tool/zr-dev.rb gen tables --check
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: log-${{ fromJSON(inputs.lane).triple }}-test
+          path: log/minitest
+          retention-days: 7
+      - name: Give the cache back to the runner
+        if: always() && fromJSON(inputs.lane).container
+        run: sudo chown -R "$USER" tmp bundles log || true
+
+  # Every program of the target, in shards (ZR_TEST_SHARD,
+  # test/support/shard.rb), each IR function checked; on a lane outside a
+  # container, also the C extension tests with their reference gems.
+  programs:
+    name: programs ${{ matrix.shard }}/${{ fromJSON(inputs.lane).of }}
+    needs: runtime
+    if: inputs.full
+    runs-on: ${{ fromJSON(inputs.lane).os }}
+    timeout-minutes: 120
+    continue-on-error: ${{ fromJSON(inputs.lane).experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.lane).shards }}
+    env:
+      ZR_TARGET: ${{ fromJSON(inputs.lane).triple }}
+      LANE_CONTAINER: ${{ fromJSON(inputs.lane).container && '1' || '' }}
+      ZR_TEST_SECONDS: ${{ fromJSON(inputs.lane).test_seconds }}
+      ZR_TEST_SHARD: ${{ matrix.shard }}/${{ fromJSON(inputs.lane).of }}
+      ZR_VERIFY: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - if: ${{ !fromJSON(inputs.lane).container }}
+        uses: ./.github/actions/setup
+      - if: fromJSON(inputs.lane).container
+        uses: ./.github/actions/alpine
+        with:
+          ruby: ${{ inputs.ruby }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: runtime-${{ fromJSON(inputs.lane).triple }}
+          path: bundles
+      - name: Import the lane's runtimes
+        run: for bundle in bundles/*.zrr; do .github/scripts/in_lane.sh bin/zr cache import "$bundle"; done
+      - name: Install the reference gems of test/ext
+        if: ${{ !fromJSON(inputs.lane).container }}
+        run: ruby .github/scripts/reference_gems.rb
+      - name: Fetch the CRuby and prism sources that the generators read
+        run: .github/scripts/in_lane.sh ruby .github/scripts/fetch_sources.rb
+      - name: Programs, shard ${{ matrix.shard }} of ${{ fromJSON(inputs.lane).of }}
+        run: .github/scripts/in_lane.sh bin/minitest test/programs_test.rb ${{ !fromJSON(inputs.lane).container && 'test/ext' || '' }}
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: log-${{ fromJSON(inputs.lane).triple }}-programs-${{ matrix.shard }}
+          path: log/minitest
+          retention-days: 7
+      - name: Give the cache back to the runner
+        if: always() && fromJSON(inputs.lane).container
+        run: sudo chown -R "$USER" tmp bundles log || true
+
+  # The compiler compiled by itself (`zr-dev stage 1`), with no refusal,
+  # into a cache of its own that starts from the lane's runtime.
+  stage1:
+    name: stage 1
+    needs: runtime
+    if: inputs.full && fromJSON(inputs.lane).stage1
+    runs-on: ${{ fromJSON(inputs.lane).os }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          wasmtime: "false"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: runtime-${{ fromJSON(inputs.lane).triple }}
+          path: bundles
+      - name: Import the lane's runtimes into stage 1's cache
+        run: for bundle in bundles/*.zrr; do ZR_CACHE=tmp/stage1/cache bin/zr cache import "$bundle"; done
+      - name: "Stage 1: zr builds itself with no refusal"
+        run: bundle exec ruby tool/zr-dev.rb stage 1

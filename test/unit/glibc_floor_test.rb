@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# zr-test: on glibc
 
 require "test_helper"
 require_relative "../../lib/zr/obj/elf/image"

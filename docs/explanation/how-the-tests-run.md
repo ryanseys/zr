@@ -48,6 +48,25 @@ files does not build or load the runtime, and starts at once
 cache is warm, so a test passes or fails in the same way on every
 machine.
 
+A unit file whose tests need one kind of host names that kind, for
+example a Mach-O host or an aarch64 one (`Needs::KINDS`):
+
+```ruby
+# zr-test: on macho
+```
+
+Its tests still skip on another host. The comment tells CI where to run
+the file: CI has one lane for each target, on a runner of that target's
+host (`.github/scripts/lanes.rb`, `.github/workflows/lane.yml`).
+
+- A lane runs the files that name a kind of host that its target is.
+- A lane outside a container also runs each file that builds a program
+  and names no kind, because that file tests the lane's runtime.
+- One job on Linux runs the other files, which build nothing.
+
+A test checks that each file runs in at least one of these
+(`test/unit/ci_lanes_test.rb`).
+
 A run of program tests always needs the runtime. It also builds eval
 support when one of its programs evals.
 

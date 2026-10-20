@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 # zr-test: runtime
+# zr-test: on macho
 
 require "test_helper"
 require_relative "../support/harness/requirements"

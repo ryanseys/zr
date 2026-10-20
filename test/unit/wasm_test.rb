@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 # zr-test: runtime
+# zr-test: on wasm
 
 require "test_helper"
 require_relative "../../lib/zr/machine/lower"

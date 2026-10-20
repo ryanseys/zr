@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# zr-test: on elf
 
 require "test_helper"
 require "rbconfig"
