@@ -107,14 +107,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # A build cross-compiles and runs nothing that it builds, so
-          # darwin's runtime builds on Linux: a macos-15 runner has 3 cores
-          # and 7 GB, and its eval support build swapped there for 50
-          # minutes, where an arm64 Linux runner (4 cores, 16 GB) takes
-          # about 10. The macOS jobs import the bundle, and their `rake
-          # build` would build again if it were not the runtime they need.
           - triple: aarch64-apple-darwin
-            os: ubuntu-24.04-arm
+            os: macos-15
             experimental: false
           # Experimental: on an x86_64 Linux runner, with 2 workers, the
           # eval support build holds three processes of 5 to 6 GB, 15.2 GB
