@@ -169,9 +169,13 @@ jobs:
       # Each generated file is what its generator writes from the committed
       # inputs. The darwin generators read this runner's macOS and ruby,
       # outside bundler, as a user's ruby has its default gems.
+      # Not the darwin tables: `gen tables` reads them from the host ruby,
+      # and so from the SDK that built it. setup-ruby's ruby on macos-15 has
+      # an older SDK than a maintainer's Mac, with fewer errno and socket
+      # names. The linux lanes check their own tables.
       - name: The generated files are current
         if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
-        run: ruby tool/zr-dev.rb gen all --check
+        run: ruby tool/zr-dev.rb gen all --check --except tables
       # The gem is the same bytes on macOS as on Linux (ci-ok compares).
       - name: Build the gem on macOS
         if: fromJSON(inputs.lane).triple == 'aarch64-apple-darwin'
