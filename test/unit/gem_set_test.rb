@@ -89,6 +89,11 @@ class GemSetTest < Minitest::Test
                  Zr::GemSet.requests(%(gem "json", "2.19.1"\n  gem("rake", ">= 1", "< 99")\ngem 'csv'\nx.gem "no"\n# gem "no"\n)))
   end
 
+  # A heredoc that writes a Gemfile holds lines that look like calls.
+  def test_a_gem_call_with_an_interpolated_version_asks_for_none
+    assert_equal({ "rake" => ["13.0"] }, Zr::GemSet.requests(%(  gem "minitest", "\#{MINITEST}"\ngem "rake", "13.0"\n)))
+  end
+
   # The resolver runs under the ruby that ZR_HOST_RUBY names.
   def test_the_resolver_runs_under_the_host_ruby
     installed("rainbow", "3.1.1")

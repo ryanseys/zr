@@ -183,12 +183,16 @@ module Zr
 
     # The gems that `source` asks for by version, by name, each with its
     # requirements ([] for none): `gem "json", "2.19.1"` is
-    # {"json" => ["2.19.1"]}.
+    # {"json" => ["2.19.1"]}. A call with an interpolated argument (such
+    # as a line of a heredoc that writes a Gemfile) names no version that
+    # a build can know, so it asks for none.
     #: (String source) -> Hash[String, Array[String]]
     def self.requests(source)
-      source.scan(REQUEST).to_h do |_, name, rest|
+      source.scan(REQUEST).filter_map do |_, name, rest|
+        next if rest.include?('#{')
+
         [name, rest.scan(/(["'])([^"'\n]+)\1/).map(&:last)] #: [String, Array[String]]
-      end
+      end.to_h
     end
 
     # The gems of the environment `env`: a Gemfile's lock when
