@@ -62,7 +62,15 @@ class CodeCacheTest < Minitest::Test
   end
 
   def test_each_backend_keeps_its_code_in_its_own_directory
-    refute_equal Code.dir(:aarch64), Code.dir(:wasm32)
+    assert_equal 3, Code::ENTRIES.keys.map { |arch| Code.dir(arch) }.uniq.size
+  end
+
+  # x86_64 keeps its pieces and code too (Lowering::Core and EvalSupport
+  # take their code from it); wasm keeps its bodies apart (`Code.wasm`).
+  def test_each_native_target_has_a_code_cache_and_wasm_has_none
+    assert_kind_of Code, Code.for("runtime", Zr::Target.fetch("x86_64-linux-gnu"))
+    assert_kind_of Code, Code.for("runtime", Zr::Target::AARCH64_DARWIN)
+    assert_nil Code.for("runtime", Zr::Target.fetch("wasm32-wasi"))
   end
 
   # A lowering that made a piece keeps the code of its pieces itself: a
@@ -72,10 +80,10 @@ class CodeCacheTest < Minitest::Test
     Dir.mktmpdir("zr-code-cache-") do |dir|
       Zr::Session.current.set(:cache, dir)
       kept = %w[made taken].to_h do |kind|
-        lowering = Zr::Cache::Lowering.new("test-#{kind}", Zr::Target::AARCH64_DARWIN, Code.new("test-#{kind}"))
+        lowering = Zr::Cache::Lowering.new("test-#{kind}", Zr::Target::AARCH64_DARWIN, Code.new("test-#{kind}", :aarch64))
         lowering.known["zr_f"] = %w[key blob]
         lowering.send(:keep, [], [], kind == "made")
-        [kind, Code.new("test-#{kind}")]
+        [kind, Code.new("test-#{kind}", :aarch64)]
       end
 
       assert_equal "blob", kept.fetch("made").blob("key")

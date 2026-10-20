@@ -61,7 +61,7 @@ module Zr
         @kind = kind
         @target = target
         @code = code
-        @backend = Code.backend_digest
+        @backend = Code.backend_digest(target.arch)
       end
 
       # The fingerprint and the code of each function of the pieces, by

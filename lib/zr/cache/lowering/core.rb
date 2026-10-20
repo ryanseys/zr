@@ -20,8 +20,8 @@ module Zr
         # @rbs @prelude: IR::Function
         # @rbs @gem_hir: Hir::Program
 
-        # The core cache for `target`, or nil: only the aarch64 runtime object
-        # has a code cache to take the code from.
+        # The core cache for `target`, or nil: only a native runtime object
+        # has a code cache to take the code from (not wasm's).
         #: (Target target) -> Core?
         def self.for(target)
           code = Code.for("runtime", target)

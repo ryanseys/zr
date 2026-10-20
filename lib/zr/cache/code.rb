@@ -58,13 +58,14 @@ module Zr
       #: () -> String
       def self.mode = Config.current.code_cache
 
-      # The cache of aarch64 code for objects of `kind` (such as "runtime"),
-      # or nil when the cache is off or the target has another backend.
+      # The cache of machine code for objects of `kind` (such as "runtime")
+      # of `target`, or nil when the cache is off or the target has no
+      # native backend (wasm keeps its bodies through `wasm`).
       #: (String kind, Target target) -> Code?
       def self.for(kind, target)
-        return nil if mode == "0" || target.arch != :aarch64
+        return nil if mode == "0" || target.arch == :wasm32
 
-        new(kind)
+        new(kind, target.arch)
       end
 
       # The cache of wasm bodies for preludes of `kind`
@@ -73,8 +74,8 @@ module Zr
       def self.wasm(kind) = mode == "0" ? nil : new(kind, :wasm32)
 
       # The digests load here, not with this file (see `dir`).
-      #: (?Symbol arch) -> String
-      def self.backend_digest(arch = :aarch64)
+      #: (Symbol arch) -> String
+      def self.backend_digest(arch)
         Session.current.memo([:backend_digest, arch]) do
           require_relative "../digests"
           Digest::SHA256.new.tap do |d|
@@ -87,8 +88,8 @@ module Zr
       # The store (and `Paths`, which `keep` uses) loads here, not with
       # this file: a file that the backend loads is in `files`, and an edit
       # to the store must not make every pack a miss.
-      #: (?Symbol arch) -> String
-      def self.dir(arch = :aarch64)
+      #: (Symbol arch) -> String
+      def self.dir(arch)
         require_relative "store"
         key = backend_digest(arch)[0, 32] #: String
         Store.path(:code, key)
@@ -96,8 +97,8 @@ module Zr
 
       attr_reader :hits, :misses #: Integer
 
-      #: (String kind, ?Symbol arch) -> void
-      def initialize(kind, arch = :aarch64)
+      #: (String kind, Symbol arch) -> void
+      def initialize(kind, arch)
         @kind = kind
         @dir = self.class.dir(arch)
         @index = {}

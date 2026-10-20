@@ -237,7 +237,7 @@ module Zr
         target = runtime.target
         Cache::Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
                    [*objects, prelink_path(objects), skeleton_path(objects), RuntimeSources.symbols_path(runtime.digest),
-                    runtime.gem_prelude_path, (evals.meta_path if evals), Cache::Code.dir])
+                    runtime.gem_prelude_path, (evals.meta_path if evals), Cache::Code.dir(target.arch)])
       rescue SystemCallError, SourceChanged
         nil # a root that is not written protects less; the link goes on
       end
