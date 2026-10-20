@@ -147,7 +147,9 @@ jobs:
   smoke:
     name: gem (${{ matrix.host }})
     needs: [checks, lane]
-    if: ${{ !cancelled() && needs.checks.outputs.code == 'true' }}
+    # Not after a failed `checks`: then no lane ran, and there is no gem
+    # or runtime to install. ci-ok names the failed `checks`.
+    if: ${{ !cancelled() && needs.checks.result == 'success' && needs.checks.outputs.code == 'true' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -177,7 +179,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh run download "$GITHUB_RUN_ID" -n gem
-          for triple in ${{ matrix.runtimes }}; do gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "lane-$triple"; done
+          for triple in ${{ matrix.runtimes }}; do
+            gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "lane-$triple" ||
+              { echo "::error::no runtime-$triple artifact: the $triple runtime job did not pass"; exit 1; }
+          done
       - name: Install the gem with this run's runtimes
         run: |
           imports=()
