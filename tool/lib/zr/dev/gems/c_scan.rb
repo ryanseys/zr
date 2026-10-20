@@ -308,7 +308,8 @@ module Zr
         # Compiles `file` into `object`; the first error line, or nil.
         def compile(file, object, work, headers)
           cxx = !file.end_with?(".c")
-          argv = [cxx ? RbConfig::CONFIG["CXX"] : RbConfig::CONFIG["CC"], *flags(file, work, cxx),
+          # The compiler's words: setup-ruby's CXX is `clang++ -std=gnu++11`.
+          argv = [*(cxx ? RbConfig::CONFIG["CXX"] : RbConfig::CONFIG["CC"]).split, *flags(file, work, cxx),
                   *headers.map { |dir| "-I#{dir}" }, "-c", file, "-o", object]
           answer, = Harness::Child.run(argv, cwd: work, seconds: COMPILE_SECONDS, megabytes: COMPILE_MB)
           return nil if answer.code == 0 && File.file?(object)
