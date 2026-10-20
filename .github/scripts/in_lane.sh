@@ -13,7 +13,7 @@ if [ -z "${LANE_CONTAINER:-}" ]; then
 fi
 
 passed=(-e GITHUB_ACTIONS=true)
-for name in ZR_TARGET ZR_JOBS ZR_VERIFY ZR_TIMING ZR_PROGRAMS ZR_TEST_SHARD ZR_TEST_SECONDS ZR_MCACHE; do
+for name in ZR_TARGET ZR_JOBS ZR_VERIFY ZR_TIMING ZR_PROGRAMS ZR_TEST_SHARD ZR_TEST_SECONDS ZR_TEST_TIMEOUT ZR_MCACHE; do
   if [ -n "${!name:-}" ]; then passed+=(-e "$name=${!name}"); fi
 done
 summary=tmp/step-summary.md

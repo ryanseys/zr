@@ -11,8 +11,10 @@ require "rubygems"
 source = File.read(File.expand_path("../../test/support/c_ext.rb", __dir__))
 # A literal Hash of this repository's own file.
 gems = eval(source[/REFERENCE_GEMS = (\{[^}]*\})/, 1] || abort("reference_gems: no REFERENCE_GEMS in test/support/c_ext.rb"))
+# A default gem of the same version does not count: ruby built its C into
+# the arch directory, and the gem's own directory has no ext/ to build.
 gems.each do |name, version|
-  next puts("#{name} #{version}: installed") if Gem::Specification.find_all_by_name(name, version).any?
+  next puts("#{name} #{version}: installed") if Gem::Specification.find_all_by_name(name, version).any? { |spec| !spec.default_gem? }
 
   system(Gem.ruby, "-S", "gem", "install", "--no-document", name, "-v", version, exception: true)
 end
