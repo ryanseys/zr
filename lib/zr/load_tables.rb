@@ -177,10 +177,13 @@ module Zr
       # syntax_suggest do not load.
       names << (gems ? [] : ["off"])
       # The home that the build compiled ruby's library and the bundled
-      # gems from, the prefix of their paths in the table: the install
-      # prefix of a program that no zr runs (`ZR_PREFIX`), so its
-      # $LOAD_PATH names the files that it has compiled in.
-      names << [shown[Library::Layout::PREFIX]]
+      # gems from, as the table writes its paths (below /zr for an install,
+      # `Paths.portable`), then the home on the build machine, which a
+      # build with a path root leaves out. A program that no zr runs takes
+      # the second as its install prefix while it exists, else the first
+      # (core/env.rb), so its $LOAD_PATH names the files that it has
+      # compiled in, and a file that it loads from disk is there.
+      names << [shown[Library::Layout::PREFIX], *(Library::Layout::PREFIX unless Paths.root)]
     end
   end
 end

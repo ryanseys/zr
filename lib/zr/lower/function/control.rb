@@ -557,7 +557,10 @@ module Zr
           at_node(node)
           base = reserve(2)
           @f.store(node.recv ? expr(node.recv) : @self, @rec, value_offset(base))
-          name = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(node.feature))), imm(node.feature.bytesize))
+          # A feature that names a file (`"#{__dir__}/x"`) is written as the
+          # build writes paths, as `__dir__` gives it at run time.
+          written = Paths.shown(node.feature)
+          name = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(written))), imm(written.bytesize))
           @f.store(name, @rec, value_offset(base + 1))
           shown = Paths.shown(node.path)
           path = kernel("zr_str_new", @f.symbol_value(@f.symbol(@l.literal(shown))), imm(shown.bytesize))

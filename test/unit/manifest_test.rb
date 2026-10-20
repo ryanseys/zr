@@ -117,7 +117,9 @@ class ManifestTest < Minitest::Test
 
     owners = Manifest.owners(files)
 
-    assert_equal [["abbrev", [abbrev]], ["fileutils", ["#{lib}/fileutils.rb"]], ["net-http", ["#{lib}/net/http.rb", "#{lib}/net/http/response.rb"]]],
+    shown = ->(path) { Zr::Paths.shown(path) }
+    assert_equal [["abbrev", [shown[abbrev]]], ["fileutils", [shown["#{lib}/fileutils.rb"]]],
+                  ["net-http", [shown["#{lib}/net/http.rb"], shown["#{lib}/net/http/response.rb"]]]],
                  owners.map { |owner| [owner["name"], owner["files"]] }
   end
 end

@@ -82,10 +82,25 @@ class PathsTest < Minitest::Test
     Zr::Paths.root = nil
   end
 
-  def test_no_path_root_writes_each_path_as_it_is
+  # With no path root, a file of the install (lib/, vendor/) is written
+  # below /zr, so two installs write the same bytes; any other path,
+  # also a checkout's tests, is written as it is.
+  def test_no_path_root_writes_the_install_s_files_below_zr
     Zr::Paths.root = nil
-    path = File.join(Zr::Paths::ROOT, "lib/zr/runtime/core/string.rb")
-    assert_same path, Zr::Paths.shown(path)
+    root = Zr::Paths::ROOT
+    assert_equal "/zr/lib/zr/runtime/core/string.rb", Zr::Paths.shown(File.join(root, "lib/zr/runtime/core/string.rb"))
+    assert_equal "/zr/vendor/ruby/lib/ruby/4.1.0+5/set.rb", Zr::Paths.shown(File.join(root, "vendor/ruby/lib/ruby/4.1.0+5/set.rb"))
+    test = File.join(root, "test/programs/a.rb")
+    assert_same test, Zr::Paths.shown(test)
+    assert_equal "#{root}/libx/a.rb", Zr::Paths.shown("#{root}/libx/a.rb")
+    assert_equal "a.rb", Zr::Paths.shown("a.rb")
+  end
+
+  def test_local_is_the_inverse_of_portable
+    path = File.join(Zr::Paths::ROOT, "vendor/ruby/lib/ruby/4.1.0+5/set.rb")
+    assert_equal path, Zr::Paths.local(Zr::Paths.portable(path))
+    assert_equal "/zr/test/a.rb", Zr::Paths.local("/zr/test/a.rb"), "only the install's own directories map back"
+    assert_equal "/elsewhere/a.rb", Zr::Paths.local("/elsewhere/a.rb")
   end
 
   # The longer of the two directories wins. Thus a gem inside the build

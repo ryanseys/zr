@@ -402,7 +402,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # from (lib/zr/load_tables.rb), as the roots that the build lists name it.
   def self.compiled_rubylibdir
     Primitive.attr! :hidden
-    "#{Primitive.zr_load_names(12)}/lib/ruby/#{Primitive.zr_hidden_get(Kernel, :__zr_ruby_lib_version__)}"
+    "#{built_home}/lib/ruby/#{Primitive.zr_hidden_get(Kernel, :__zr_ruby_lib_version__)}"
   end
 
   # The roots that the build lists, split once: the ports of C, then the
@@ -442,7 +442,63 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # does, so a require of it is a LoadError.
   def self.found(path)
     Primitive.attr! :hidden
-    path if Primitive.zr_unit_for(path) || loadable?(path)
+    built = as_built(path)
+    return built if !built.equal?(path) && Primitive.zr_unit_for(built)
+    return path if Primitive.zr_unit_for(path) || loadable?(path)
+
+    disk = on_disk(path)
+    disk if !disk.equal?(path) && loadable?(disk)
+  end
+
+  # `path` as the build wrote it, where it is under the home that the
+  # program runs with (ZR_HOME or ZR_PREFIX, core/env.rb) and that home is
+  # not the one that the build compiled from (`Paths::HOME_SHOWN`, /zr,
+  # for an install): the same file under the build's home. So a require
+  # by the path on this machine finds the file compiled in, and loads it
+  # once.
+  def self.as_built(path)
+    Primitive.attr! :hidden
+    built = built_home
+    home = Primitive.zr_hidden_get(ENV, :__zr_prefix__)
+    return path if home.nil? || home == built || !path.start_with?("#{home}/")
+
+    "#{built}#{path.byteslice(home.bytesize..)}"
+  end
+
+  # The inverse of `as_built`, for a file that the program does not carry
+  # and reads from disk (a require that rubygems leaves for the run time):
+  # a path below the build's root (/zr for an install) below the root of
+  # the home that the program runs with, where that is another root.
+  def self.on_disk(path)
+    Primitive.attr! :hidden
+    built = built_home.delete_suffix(HOME_TAIL)
+    home = Primitive.zr_hidden_get(ENV, :__zr_prefix__)
+    return path if home.nil? || !home.end_with?(HOME_TAIL) || !path.start_with?("#{built}/")
+
+    root = home.delete_suffix(HOME_TAIL)
+    root == built ? path : "#{root}#{path.byteslice(built.bytesize..)}"
+  end
+
+  # The home (ruby's tree) below a zr root.
+  HOME_TAIL = "/vendor/ruby"
+  private_constant :HOME_TAIL
+
+  # The home of ruby's library as the build wrote its paths
+  # (lib/zr/load_tables.rb). core/env.rb reads it at boot, before Regexp.
+  def self.built_home
+    Primitive.attr! :hidden
+    homes = Primitive.zr_load_names(12)
+    cut = homes.index("\n")
+    cut ? homes[0, cut] : homes
+  end
+
+  # The home on the machine that built the program, or nil for a build
+  # with a path root.
+  def self.build_home
+    Primitive.attr! :hidden
+    homes = Primitive.zr_load_names(12)
+    cut = homes.index("\n")
+    cut && cut + 1 < homes.size ? homes[(cut + 1)..] : nil
   end
 
   # rb_file_load_ok: a path that is there, readable and no directory; a

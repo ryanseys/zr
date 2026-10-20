@@ -135,13 +135,24 @@ module Zr
     #: () -> Hash[String, untyped]
     def meta
       @meta ||= begin
-        meta = JSON.parse(File.read(meta_path)) if File.exist?(meta_path)
+        meta = moved(JSON.parse(File.read(meta_path)), Paths.method(:local)) if File.exist?(meta_path)
         current = meta && meta["files_key"] == files_key(meta.fetch("files"), {}, meta.fetch(
           "absent",
           [] #: Array[String]
         ))
         current ? meta : lowered.fetch(:meta)
       end
+    end
+
+    # `meta` with each path in its lists of files through `to`: the cache
+    # keeps them portable (`Paths.portable`), so that eval support built
+    # at one install serves another (`zr cache export`).
+    #: (Hash[String, untyped] meta, Method to) -> Hash[String, untyped]
+    def moved(meta, to)
+      meta.merge("files" => meta.fetch("files").map { |path| to.call(path) },
+                 "absent" => meta.fetch("absent", []).map { |path| to.call(path) },
+                 "digests" => meta.fetch("digests").transform_keys { |path| to.call(path) },
+                 "units" => meta.fetch("units").transform_keys { |path| to.call(path) })
     end
 
     # The key of eval support: the runtime's eval digest and the bytes of
@@ -183,7 +194,7 @@ module Zr
                  "configures" => loader.configures?, "normalizes" => loader.normalizes?, "pretty_prints" => loader.pretty_prints?,
                  "irbs" => loader.irbs?, "gems" => loader.gems?,
                  "names" => symbols.names, "sites" => symbols.sites, "activations" => loader.activations }
-        Cache::Store.write_file(meta_path, JSON.generate(meta))
+        Cache::Store.write_file(meta_path, JSON.generate(moved(meta, Paths.method(:portable))))
         { functions: functions, data: data, meta: meta }
       end
     end

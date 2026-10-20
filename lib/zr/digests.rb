@@ -18,7 +18,7 @@ module Zr
     def link
       require_relative "runtime_sources"
       Session.current.memo(:link_digest) do
-        Digest::SHA256.new.tap { |d| RuntimeSources::LINK_ONLY.each { |path| d << path << "\0" << File.binread(path) } }.hexdigest
+        Digest::SHA256.new.tap { |d| RuntimeSources::LINK_ONLY.each { |path| d << Paths.portable(path) << "\0" << File.binread(path) } }.hexdigest
       end
     end
 
@@ -34,7 +34,7 @@ module Zr
           d << "root\0" << root << "\0"
         end
         d << "checked\0" if Config.current.kernel_checked?
-        files.each { |path| d << path << "\0" << file(path, stamps.fetch(path) { Paths.stamp(path) }) }
+        files.each { |path| d << Paths.portable(path) << "\0" << file(path, stamps.fetch(path) { Paths.stamp(path) }) }
       end.hexdigest
     end
 
@@ -153,13 +153,13 @@ end
         d << eval_digest << "\0lines"
         files.each do |path|
           source = bytes[path] || (File.exist?(path) ? File.binread(path) : "")
-          d << path << "\0" << (compiler_file?(path) ? code_digest(source, lines: true) : source)
+          d << Paths.portable(path) << "\0" << (compiler_file?(path) ? code_digest(source, lines: true) : source)
         end
         # The paths where a feature that the lowering stopped on would be:
         # each one that exists now changes the key. `absent` names the form
         # of the key, so a key from before the paths counted is stale.
         d << "\0absent"
-        absent.each { |path| d << "\0" << path if File.exist?(path) }
+        absent.each { |path| d << "\0" << Paths.portable(path) if File.exist?(path) }
       end.hexdigest
     end
 

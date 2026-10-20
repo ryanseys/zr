@@ -46,12 +46,44 @@ module Zr
       Session.current.set(:path_prefixes, root && [ROOT, Dir.pwd].uniq.sort_by { |prefix| -prefix.size })
     end
 
+    # The directory that a build writes for zr's root when no path root
+    # is given (`portable`). It is no real directory: the runtime maps it
+    # to the home that a program runs with (core/kernel.rb).
+    HOME_SHOWN = "/zr"
+
+    # The parts of zr's root that zr compiles from: the runtime, and ruby's
+    # library under vendor. An install holds only these, and a checkout's
+    # other files (its tests) keep their paths.
+    INSTALLED = %w[lib vendor].map { |dir| File.join(ROOT, dir) }.freeze #: Array[String]
+
+    # `path` with zr's root written as HOME_SHOWN where it names a file of
+    # the install, so that two installs of one zr at two places hash and
+    # write the same paths. A runtime built at one path then serves every
+    # path, and can be copied to another machine (`zr cache export`).
+    #: (String path) -> String
+    def self.portable(path)
+      return path unless INSTALLED.any? { |dir| path == dir || path.start_with?("#{dir}/") }
+
+      "#{HOME_SHOWN}#{path[ROOT.size..]}"
+    end
+
+    # The path on this machine of a path that `portable` wrote: the
+    # inverse, for the cache's own lists of files.
+    #: (String path) -> String
+    def self.local(path)
+      return path unless path == HOME_SHOWN || path.start_with?("#{HOME_SHOWN}/")
+
+      local = "#{ROOT}#{path[HOME_SHOWN.size..]}"
+      INSTALLED.any? { |dir| local == dir || local.start_with?("#{dir}/") } ? local : path
+    end
+
     # `path` as a build writes it into its output.
     #: (String path) -> String
     def self.shown(path)
       root = self.root
       prefixes = Session.current.memo(:path_prefixes) { nil } #: Array[String]?
-      return path unless root && prefixes && path.start_with?("/")
+      return portable(path) unless root && prefixes
+      return path unless path.start_with?("/")
 
       prefixes.each do |prefix|
         next unless path == prefix || path.start_with?("#{prefix}/")

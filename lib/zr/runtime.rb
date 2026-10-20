@@ -141,10 +141,12 @@ module Zr
     def gem_prelude_files
       @gem_prelude_files ||= begin
         path = gem_prelude_path
-        files = JSON.parse(File.read(path)) if File.exist?(path)
+        # The list keeps each path portable (`Paths.portable`), so that it
+        # serves another install of this zr.
+        files = JSON.parse(File.read(path)).map { |file| Paths.local(file) } if File.exist?(path)
         unless files&.all? { |file| File.file?(file) }
           files = [Library::Layout::GEM_PRELUDE, *Runtime.gem_prelude(target).units.map(&:file).select { |file| File.file?(file) }].uniq.sort
-          Cache::Store.write_file(path, JSON.generate(files))
+          Cache::Store.write_file(path, JSON.generate(files.map { |file| Paths.portable(file) }))
         end
         files
       end
@@ -331,6 +333,10 @@ module Zr
 
       announced[[what, target.triple]] = true
       warn "zr: building #{what} for #{target.triple}. This occurs one time and takes some minutes."
+      # An installed zr has a release whose runtimes `zr cache fetch` takes.
+      unless Paths.checkout?
+        warn "zr: to download it in place of the build, stop zr (Ctrl-C) and run 'zr cache fetch --target #{target.triple}'."
+      end
       Notice.start
     end
 

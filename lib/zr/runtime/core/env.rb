@@ -388,7 +388,8 @@ Primitive.zr_hidden_set(ENV, :__zr_home__, nil) if Primitive.zr_hidden_get(ENV, 
 Primitive.zr_hidden_set(
   ENV, :__zr_prefix__,
   Primitive.zr_environment_get(+"ZR_PREFIX") || Primitive.zr_hidden_get(ENV, :__zr_home__) ||
-    Primitive.zr_load_names(12).then { |home| home.empty? ? "/" : home }
+    Kernel.build_home&.then { |home| home if Primitive.zr_path_kind(home) == 1 } ||
+    Kernel.built_home.then { |home| home.empty? ? "/" : home }
 )
 
 # ruby's boot loads its tables of encodings and transcoders, which this

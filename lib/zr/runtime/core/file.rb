@@ -232,7 +232,12 @@ class File < IO
   # files on the load path (IRB::Locale) finds them.
   def self.compiled_in?(path)
     Primitive.attr! :hidden
-    path.start_with?("/") && (!Primitive.zr_unit_for(path).nil? || embedded.key?(path))
+    return false unless path.start_with?("/")
+
+    return true if !Primitive.zr_unit_for(path).nil? || embedded.key?(path)
+
+    built = Kernel.as_built(path)
+    !built.equal?(path) && (!Primitive.zr_unit_for(built).nil? || embedded.key?(built))
   end
 
   # The bytes of the file at `path` that the program carries, where the
@@ -242,7 +247,7 @@ class File < IO
     return nil if embedded.empty?
 
     path = File.expand_path(path_of(path))
-    bytes = embedded[path]
+    bytes = embedded[path] || embedded[Kernel.as_built(path)]
     bytes if bytes && Primitive.zr_path_kind(os_path(path)) == 0
   end
 

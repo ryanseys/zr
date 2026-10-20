@@ -156,7 +156,10 @@ module Zr
         meta = JSON.parse(File.read(meta_path))
         base = RuntimeSources.for(@target).eval_digest(@digest) or return false
         none = [] #: Array[String]
-        meta.fetch("key") == key && Digests.eval_files_key(base, meta.fetch("files"), {}, meta.fetch("absent", none)) == meta.fetch("files_key")
+        # The metadata keeps its paths portable (`EvalSupport#moved`).
+        files = meta.fetch("files").map { |path| Paths.local(path) }
+        absent = meta.fetch("absent", none).map { |path| Paths.local(path) }
+        meta.fetch("key") == key && Digests.eval_files_key(base, files, {}, absent) == meta.fetch("files_key")
       rescue JSON::ParserError, KeyError, SystemCallError
         false
       end

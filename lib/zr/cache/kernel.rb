@@ -41,7 +41,7 @@ module Zr
       #: (Target target, Array[[String, String]] files) -> String
       def key(target, files)
         Store.key(VERSION, target.triple, Paths.root, Config.current.kernel_checked?, loads_digest,
-                  *files.flat_map { |source, path| [path, source] })
+                  *files.flat_map { |source, path| [Paths.portable(path), source] })
       end
 
       #: () -> Array[String]

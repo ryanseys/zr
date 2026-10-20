@@ -237,7 +237,7 @@ module Zr
             lambda do |f|
               line!(f, word)
               target = @host.pin(recv.call(f))
-              feature = @host.pin(string(node.feature))
+              feature = @host.pin(string(Paths.shown(node.feature)))
               path = string(shown)
               fn = node.unit ? entry_in(units, node.unit) : 0
               check(@kern.zr_autoload(target, name, feature, fn, f.cref, kind, path))
