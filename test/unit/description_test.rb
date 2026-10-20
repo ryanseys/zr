@@ -18,8 +18,10 @@ class DescriptionTest < Minitest::Test
   # when the runtime object is known (lib/zr/native/build.rb:105). It
   # does this also on a warm cache. After that, a read of the IR is
   # refused and not lowered again. That is correct for a build, but a
-  # test that reads the IR then gets nothing.
-  def kernel(target) = Zr::Runtime.new(target).unit
+  # test that reads the IR then gets nothing. Each target's kernel
+  # lowers once for the file: no test changes it.
+  KERNELS = {}
+  def kernel(target) = KERNELS[target.triple] ||= Zr::Runtime.new(target).unit
 
   # The description as eval support reads it: the carried Ruby file of
   # the kernel's rows, parsed back.
@@ -71,10 +73,13 @@ class DescriptionTest < Minitest::Test
 
   # A build that runs first releases the shared IR. Seed 55324 found this:
   # the darwin test failed with "the runtime's IR was released". This test
-  # runs a build first, so that it always checks that order.
+  # runs a build first, so that it always checks that order. The build is
+  # for this host, whose runtime the lane imported: one for another
+  # target would build that target's runtime first.
   def test_a_build_leaves_this_file_a_kernel_to_read
-    Zr::Native::Build.lower("p 1\n", "description_test.rb", Zr::BuildOptions.new(target: TARGETS.first))
-    assert_predicate Zr::Machine::Description.of(kernel(TARGETS.first)).defs, :any?
+    host = Zr::Target.default
+    Zr::Native::Build.lower("p 1\n", "description_test.rb", Zr::BuildOptions.new(target: host))
+    assert_predicate Zr::Machine::Description.of(Zr::Runtime.new(host).unit).defs, :any?
   end
 
   ROWS = <<~ROWS
@@ -115,7 +120,7 @@ class DescriptionTest < Minitest::Test
   # A program's description ends with the count of the kernel's names,
   # the ids that a compile at run time keeps in its code.
   def test_the_carried_text_gives_the_count_of_the_kernel_s_names
-    runtime = Zr::Runtime.for(TARGETS.first)
+    runtime = Zr::Runtime.for(Zr::Target.default)
     text = runtime.carried_text[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, "")
 
     assert_equal runtime.fixed_ids.size, Zr::Machine::Description.parse(text).kernel_names
