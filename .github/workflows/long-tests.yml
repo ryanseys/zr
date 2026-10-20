@@ -37,3 +37,6 @@ jobs:
         run: bundle exec rake build
       - name: Run the long tests
         run: ZR_TEST_ALL=1 bin/minitest test/unit/core_cache_test.rb
+      - uses: ./.github/actions/runtime-cache
+        with:
+          save: "true"

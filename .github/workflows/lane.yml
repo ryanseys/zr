@@ -81,24 +81,23 @@ jobs:
           for triple in $BUILDS; do
             .github/scripts/in_lane.sh bin/zr cache export --target "$triple" -o "bundles/runtime-$triple.zrr"
           done
+      # The runtime cache saves only what this run read. The container's
+      # root wrote it; the saves read it as the runner.
+      - name: Clean the cache of what this run did not use
+        if: steps.bundle.outputs.cache-hit != 'true'
+        run: .github/scripts/in_lane.sh bin/zr cache clean --days 1
+      - name: Give the cache back to the runner
+        if: always() && fromJSON(inputs.lane).container
+        run: sudo chown -R "$USER" tmp bundles || true
       # A build that stops (a failure, a time limit, a newer push) keeps
       # what it finished: each phase writes its entries and code when it
       # ends, and the next run's restore takes the newest key.
       - name: Keep the runtime cache of a build that did not finish
-        if: (failure() || cancelled()) && steps.bundle.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: (failure() || cancelled()) && steps.bundle.outputs.cache-hit != 'true'
+        uses: ./.github/actions/runtime-cache
         with:
-          path: |
-            tmp/cache/store/object
-            tmp/cache/store/image
-            tmp/cache/store/meta
-            tmp/cache/store/wasm
-            tmp/cache/store/source
-            tmp/cache/store/built
-            tmp/cache/store/code
-            tmp/cache/store/lowering
-            tmp/cache/store/kernel
-            tmp/cache/store/roots
+          flavor: ${{ fromJSON(inputs.lane).triple }}
+          save: "true"
           key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ fromJSON(inputs.lane).triple }}-partial-${{ github.run_id }}-${{ github.run_attempt }}
       - if: steps.bundle.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -111,13 +110,11 @@ jobs:
           path: bundles/*.zrr
           retention-days: 1
           compression-level: 0
-      # The runtime cache saves only what this run read.
-      - name: Clean the cache of what this run did not use
-        if: steps.bundle.outputs.cache-hit != 'true'
-        run: .github/scripts/in_lane.sh bin/zr cache clean --days 1
-      - name: Give the cache back to the runner
-        if: always() && fromJSON(inputs.lane).container
-        run: sudo chown -R "$USER" tmp bundles || true
+      - if: steps.bundle.outputs.cache-hit != 'true'
+        uses: ./.github/actions/runtime-cache
+        with:
+          flavor: ${{ fromJSON(inputs.lane).triple }}
+          save: "true"
 
   # The unit files of the target, and the programs of a push. An example
   # has 600 s (ZR_TEST_TIMEOUT), not 180: a runner has fewer and slower

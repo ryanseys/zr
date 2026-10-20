@@ -1,6 +1,6 @@
 name: Runtime cache
 description: >-
-  Restores and saves the kinds of zr's cache store (lib/zr/cache/store.rb)
+  Restores, or saves, the kinds of zr's cache store (lib/zr/cache/store.rb)
   that a runtime build writes: the runtime and eval support objects, the
   prelinked images, their symbol tables, the wasm preludes, the kernel's
   lowering, the code packs, the compiler's comment-free digests, the test
@@ -8,19 +8,27 @@ description: >-
   input of the runtime's digest, so a run with no change under lib or
   vendor skips the build; a run with a change restores the newest entries
   and rebuilds only what changed. The parse, unit and binary caches are
-  not kept: they are gigabytes. Each job that uses this action ends with
-  `bin/zr cache clean --days 1`, so the saved cache holds only what the
-  run read (tar keeps the mtimes, and a read touches an entry).
+  not kept: they are gigabytes. A job saves at its end, after `bin/zr
+  cache clean --days 1`, so the saved cache holds only what the run read
+  (tar keeps the mtimes, and a read touches an entry). A pull request
+  only restores: a cache that it wrote would serve main.
 inputs:
   flavor:
     description: >-
       A name for the cache of one target or container, apart from the
       other jobs of the same OS and arch (for example aarch64-linux-musl).
     default: ""
+  save:
+    description: Whether to save the cache ("true"), not restore it.
+    default: "false"
+  key:
+    description: The key to save under, in place of the one of the inputs (a partial build's).
+    default: ""
 runs:
   using: composite
   steps:
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    - if: inputs.save != 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           tmp/cache/store/object
@@ -35,3 +43,18 @@ runs:
           tmp/cache/store/roots
         key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ inputs.flavor }}-${{ hashFiles('lib/**', 'vendor/**', 'Gemfile.lock', '.ruby-version') }}
         restore-keys: runtime-${{ runner.os }}-${{ runner.arch }}-${{ inputs.flavor }}-
+    - if: inputs.save == 'true' && github.event_name != 'pull_request'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          tmp/cache/store/object
+          tmp/cache/store/image
+          tmp/cache/store/meta
+          tmp/cache/store/wasm
+          tmp/cache/store/source
+          tmp/cache/store/built
+          tmp/cache/store/code
+          tmp/cache/store/lowering
+          tmp/cache/store/kernel
+          tmp/cache/store/roots
+        key: ${{ inputs.key || format('runtime-{0}-{1}-{2}-{3}', runner.os, runner.arch, inputs.flavor, hashFiles('lib/**', 'vendor/**', 'Gemfile.lock', '.ruby-version')) }}
