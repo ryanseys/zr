@@ -274,12 +274,13 @@ jobs:
             os: ubuntu-24.04-arm
             experimental: false
             vendor: true
-          # Eval support's build with 4 workers stopped the runner twice.
+          # As for x86_64-linux-gnu's runtime: eval support's build with 2
+          # workers or 4 stopped the runner, so it builds with one.
           - triple: x86_64-linux-musl
             os: ubuntu-24.04
             experimental: true
             vendor: false
-            jobs: "2"
+            jobs: "1"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
