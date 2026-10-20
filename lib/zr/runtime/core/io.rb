@@ -100,13 +100,14 @@ class IO
   end
 
   # rb_io_s_binread opens the file binary, so no default encoding
-  # converts what it reads.
+  # converts what it reads. The path converts once (`to_path`).
   def self.binread(path, length = nil, offset = nil)
+    path = File.send(:path_of, path)
     if (bytes = File.send(:embedded_bytes, path))
       return carried(bytes.b, length, offset)
     end
 
-    File.open(File.send(:path_of, path), "rb") do |file|
+    File.open(path, "rb") do |file|
       file.seek(offset) if offset
       length ? file.read(length) : file.read
     end
@@ -115,15 +116,17 @@ class IO
   def self.binwrite(path, content, offset = nil, **options) = written(path, content, offset, true, options)
 
   # CRuby's rb_io_s_read takes a fourth argument, which the read it
-  # passes on then refuses.
+  # passes on then refuses. The offset is checked before the path
+  # converts, and the path converts once (`to_path`).
   def self.read(path, length = nil, offset = nil, extra = (none = true; nil), **options)
     raise ArgumentError, +"wrong number of arguments (given 3, expected 0..2)" unless none
     raise ArgumentError, "negative offset #{offset} given" if offset && (offset = IO.send(:offset_of, offset)).negative?
+    path = File.send(:path_of, path)
     if options.empty? && (bytes = File.send(:embedded_bytes, path))
       return carried(length ? bytes.b : bytes.dup.force_encoding(Encoding.default_external), length, offset)
     end
 
-    opened(File.send(:path_of, path), options[:mode].nil? ? "r" : nil, options) do |file|
+    opened(path, options[:mode].nil? ? "r" : nil, options) do |file|
       file.seek(offset) if offset
       length ? file.read(length) : file.read
     end
