@@ -80,8 +80,8 @@ module Zr
         module_function
 
         # Returns the bytes of the object file.
-        #: (Unit unit, ?arch: Symbol) -> String
-        def write(unit, arch: :aarch64)
+        #: (Unit unit, arch: Symbol) -> String
+        def write(unit, arch:)
           machine, relocs = MACHINES.fetch(arch)
           items = unit.items
           sections = [Section.new(name: "", type: 0, flags: 0, bytes: "".b, size: 0, align: 0, link: 0, info: 0, entsize: 0)]

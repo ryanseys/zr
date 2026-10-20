@@ -39,7 +39,7 @@ class ParallelTest < Minitest::Test
     one, three = [1, 3].map do |jobs|
       unit = Zr::Machine.unit(Zr::RuntimeSources.for.kernel_files)
       image = Zr::Native::Build.unit(unit.functions, unit.data, raw: unit.raw, export: true, jobs: jobs, floor: 0)
-      Zr::Native::Build.writer(Zr::Target.default).write(image)
+      Zr::Native::Build.writer(Zr::Target.default).write(image, arch: Zr::Target.default.arch)
     end
     assert_equal one.bytesize, three.bytesize
     assert_equal one, three, "the kernel object differs between one worker and three"

@@ -39,11 +39,11 @@ module Zr
 
       # Not `Kernel#load`: this loads a unit, with `syscalls` for its system
       # calls, and `arch` its machine code's architecture.
-      #: (Unit unit, syscalls: _Syscalls, ?arch: Symbol) -> Hash[String, Integer]
-      def self.load(unit, syscalls:, arch: :aarch64) = new(syscalls, arch).place(unit)
+      #: (Unit unit, syscalls: _Syscalls, arch: Symbol) -> Hash[String, Integer]
+      def self.load(unit, syscalls:, arch:) = new(syscalls, arch).place(unit)
 
-      #: (_Syscalls syscalls, ?Symbol arch) -> void
-      def initialize(syscalls, arch = :aarch64)
+      #: (_Syscalls syscalls, Symbol arch) -> void
+      def initialize(syscalls, arch)
         @syscalls = syscalls
         @stub = STUBS.fetch(arch)
         @relocs = RELOCS.fetch(arch)

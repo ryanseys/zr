@@ -27,7 +27,7 @@ module Zr
           File.write(defined, "module Zr::Kern\n#{constants.map { |name, value| "  #{name} = #{value}\n" }.join}end\n")
           lower = Machine.unit(files + [defined])
           unit = Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
-          @symbols = Obj::JIT.load(unit, syscalls: Obj::JIT::Fiddle.new)
+          @symbols = Obj::JIT.load(unit, syscalls: Obj::JIT::Fiddle.new, arch: Target.default.arch)
           @defs = lower.defs
         end
         @functions = {}

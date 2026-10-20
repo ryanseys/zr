@@ -54,7 +54,7 @@ class ElfTest < Minitest::Test
   end
 
   def test_every_item_is_a_section_of_its_own
-    sections, = read(Elf.write(unit))
+    sections, = read(Elf.write(unit, arch: :aarch64))
     by_name = sections.to_h { |s| [s.name, s] }
     assert_equal Elf::SHF_ALLOC | Elf::SHF_EXECINSTR, by_name.fetch(".text.main").flags
     assert_equal Elf::SHF_ALLOC, by_name.fetch(".rodata.msg").flags
@@ -65,7 +65,7 @@ class ElfTest < Minitest::Test
   end
 
   def test_the_symbols_are_locals_first_with_no_prefix
-    _, symbols, _, symtab = read(Elf.write(unit))
+    _, symbols, _, symtab = read(Elf.write(unit, arch: :aarch64))
     assert_equal "", symbols.first.name
     locals = symbols.take_while { |s| s.bind == Elf::STB_LOCAL }
     assert_equal symtab.info, locals.size, "sh_info is the first global"
@@ -78,7 +78,7 @@ class ElfTest < Minitest::Test
   end
 
   def test_relocations_include_type_symbol_and_addend
-    _, _, relocs = read(Elf.write(unit))
+    _, _, relocs = read(Elf.write(unit, arch: :aarch64))
     assert_equal [[4, Elf::RELOC.fetch(:branch26), "exit", 0]], relocs.fetch(".text.main")
     assert_equal [[0, Elf::RELOC.fetch(:abs64), "msg", 4]], relocs.fetch(".data.rel.ro.table")
   end
@@ -105,7 +105,7 @@ class ElfTest < Minitest::Test
     count = Elf::SHN_LORESERVE + 16
     count.times { |i| u.datum("d#{i}", :data, "\0" * 8, linkage: :export) }
     u.function("main", MAIN_EXIT_3, relocs: [Obj::Reloc.new(4, :branch26, "d#{count - 1}")])
-    sections, symbols, relocs = read(Elf.write(u))
+    sections, symbols, relocs = read(Elf.write(u, arch: :aarch64))
     last = symbols.find { |s| s.name == "d#{count - 1}" }
     assert_equal ".data.d#{count - 1}", sections[last.shndx].name
     assert_equal "d#{count - 1}", relocs.fetch(".text.main").first[2]
@@ -116,7 +116,7 @@ class ElfTest < Minitest::Test
     skip "no readelf" unless readelf
     Dir.mktmpdir("zr-elf-") do |dir|
       obj = File.join(dir, "u.o")
-      File.binwrite(obj, Elf.write(unit))
+      File.binwrite(obj, Elf.write(unit, arch: :aarch64))
       out = IO.popen([readelf, "-r", "-s", obj], err: %i[child out], &:read)
       assert_predicate $?, :success?, out
       assert_match(/R_AARCH64_CALL26\s+0+\s+exit/, out)
