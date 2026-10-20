@@ -107,9 +107,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # A macos-15 runner has 3 cores and 7 GB: with 3 workers, eval
+          # support's build swapped for 50 minutes (9,000 s of work), so it
+          # builds with one.
           - triple: aarch64-apple-darwin
             os: macos-15
             experimental: false
+            jobs: "1"
           # Experimental: on an x86_64 Linux runner, with 2 workers, the
           # eval support build holds three processes of 5 to 6 GB, 15.2 GB
           # of the runner's 16 GB. One worker holds about half of that.
