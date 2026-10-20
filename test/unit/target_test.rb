@@ -35,6 +35,17 @@ class TargetTest < Minitest::Test
     end
   end
 
+  # A glibc host is the gnu target whether ruby names its libc or not,
+  # so it never falls to the musl target that also runs there.
+  def test_a_glibc_host_is_the_gnu_target
+    { "linux" => "x86_64-linux-gnu", "linux-gnu" => "x86_64-linux-gnu", "linux-musl" => "x86_64-linux-musl" }.each do |os, triple|
+      stub_const_config(RbConfig::CONFIG.merge("host_cpu" => "x86_64", "host_os" => os)) do
+        assert_equal triple, Zr::Target.host_triple, os
+        assert_equal triple, Zr::Target.host.triple, os
+      end
+    end
+  end
+
   def test_the_default_is_the_host_or_darwin
     assert_equal Zr::Target.host || Zr::Target::AARCH64_DARWIN, Zr::Target.default
   end

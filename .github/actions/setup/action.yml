@@ -1,0 +1,46 @@
+name: Set up zr
+description: >-
+  The setup of a job that runs zr from the checkout: ruby (the pinned one,
+  with the bundle, unless the job says otherwise), wasmtime at the
+  workflow's WASMTIME_VERSION, and the runtime bundles that this run's
+  `runtime` jobs exported (`zr cache export`), imported into the
+  checkout's cache (tmp/cache). A test then builds no runtime: each job
+  reads the one runtime build of its target.
+inputs:
+  ruby:
+    description: The ruby-version of ruby/setup-ruby.
+    default: .ruby-version
+  bundle:
+    description: Whether to install the bundle ("true" or "false").
+    default: "true"
+  wasmtime:
+    description: Whether to install wasmtime ("true" or "false").
+    default: "true"
+  runtimes:
+    description: >-
+      The triples whose runtime bundles to import, separated by spaces,
+      from the artifacts runtime-<triple> of this run.
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+      with:
+        ruby-version: ${{ inputs.ruby }}
+        bundler-cache: ${{ inputs.bundle == 'true' }}
+    - if: inputs.wasmtime == 'true'
+      uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
+      with:
+        version: ${{ env.WASMTIME_VERSION }}
+    - if: inputs.runtimes != ''
+      name: Import this run's runtimes
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        RUNTIMES: ${{ inputs.runtimes }}
+      run: |
+        for triple in $RUNTIMES; do
+          gh run download "$GITHUB_RUN_ID" -n "runtime-$triple" -D "$RUNNER_TEMP/runtimes"
+          bin/zr cache import "$RUNNER_TEMP/runtimes/runtime-$triple.zrr"
+        done

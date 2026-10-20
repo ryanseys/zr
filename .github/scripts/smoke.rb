@@ -9,7 +9,7 @@
 # binary (status 3). CI and the release workflow run it on the .gem they
 # publish.
 #
-#   ruby .github/scripts/smoke.rb [--user-cache] [--no-wasmtime] zr-0.1.0.gem [DIR]
+#   ruby .github/scripts/smoke.rb [--user-cache] [--no-wasmtime] [--import BUNDLE]... zr-0.1.0.gem [DIR]
 #
 # DIR holds the gems, the cache and the outputs. Its default is /opt/zr:
 # the same path on every host, because the runtime carries its source
@@ -19,15 +19,25 @@
 # that path, and DIR defaults to $RUNNER_TEMP/zr. The install must
 # fetch nothing: the gem has no dependencies. --no-wasmtime skips the
 # runs of the module, on a host without wasmtime (an Alpine container).
+# Each --import BUNDLE is a runtime that `zr cache export` wrote from the
+# checkout: the installed gem imports it, and a build for its target
+# must then build no runtime, so a runtime has no path of its install.
 
 require "fileutils"
+require "json"
 require "open3"
 require "rbconfig"
 require "tmpdir"
+require "zlib"
 
 user_cache = !ARGV.delete("--user-cache").nil?
 wasmtime = ARGV.delete("--no-wasmtime").nil?
-gem_file = File.expand_path(ARGV.fetch(0) { abort "usage: ruby .github/scripts/smoke.rb [--user-cache] [--no-wasmtime] GEM [DIR]" })
+bundles = []
+while (at = ARGV.index("--import"))
+  bundles << File.expand_path(ARGV.delete_at(at + 1) || abort("smoke: --import needs a bundle"))
+  ARGV.delete_at(at)
+end
+gem_file = File.expand_path(ARGV.fetch(0) { abort "usage: ruby .github/scripts/smoke.rb [--user-cache] [--no-wasmtime] [--import BUNDLE]... GEM [DIR]" })
 root = ARGV.fetch(1) { user_cache ? File.join(ENV.fetch("RUNNER_TEMP", Dir.tmpdir), "zr") : "/opt/zr" }
 
 # A runner's user cannot write /opt without sudo; root in a container can.
@@ -37,6 +47,9 @@ rescue Errno::EACCES
   system("sudo", "mkdir", "-p", root, exception: true)
   system("sudo", "chown", ENV.fetch("USER"), root, exception: true)
 end
+# The cache below it must be this user's alone (Paths.trusted!), and a
+# runner's umask can leave a new directory open to every user.
+File.chmod(0o755, root)
 
 # GEM_PATH is ruby's own default gems only: no gem that the runner has
 # installed can satisfy the install.
@@ -47,13 +60,23 @@ smoke = File.join(root, "smoke")
 FileUtils.mkdir_p(smoke)
 File.write(File.join(smoke, "sum.rb"), "puts [1, 2, 3].sum\n")
 
+# The targets of the imported bundles (the manifest's second line).
+imported = bundles.map { |bundle| Zlib::GzipReader.open(bundle) { |gz| gz.gets && JSON.parse(gz.gets).fetch("target") } }
+
 # Runs a command in the smoke directory, shows it, and stops the run
-# when it fails. Returns its stdout.
+# when it fails. Returns its stdout. A build for an imported target must
+# build no runtime.
 run = lambda do |*argv|
   puts "$ #{argv.join(" ")}"
-  out, status = Open3.capture2(env, *argv, chdir: smoke)
+  out, err, status = Open3.capture3(env, *argv, chdir: smoke)
   print out
+  $stderr.print err
   abort "smoke: #{argv.first(2).join(" ")} exited #{status.exitstatus}" unless status.success?
+  target = argv[argv.index("--target") + 1] if argv.include?("--target")
+  target ||= argv.include?("wasm") ? "wasm32-wasi" : Zr::Target.default.triple if defined?(Zr::Target)
+  if argv[1] == "build" && imported.include?(target) && err.include?("zr: building")
+    abort "smoke: #{argv.join(" ")} built a runtime that #{target}'s bundle holds"
+  end
   out
 end
 
@@ -73,6 +96,7 @@ version = run.(zr, "version")
 want = "zr #{Zr::VERSION} (for ruby #{Zr::RUBY_PIN})\n"
 abort "smoke: zr version printed #{version.inspect}, not #{want.inspect}" unless version == want
 run.(zr, "doctor")
+bundles.each { |bundle| run.(zr, "cache", "import", bundle) }
 run.(zr, "--help")
 run.(zr, "help", "build")
 

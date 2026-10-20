@@ -31,6 +31,9 @@ module Zr
       ROOT = File.expand_path("..", __dir__)
       # The mark of a whole build is an empty entry of the store kind `built`.
       Zr::Cache::Store.register(Zr::Cache::Store::Kind.new(:built, :raw, "", nil))
+      # The memory for two builds at once. Linux has no compressed memory,
+      # and a 16 GB CI runner shut down under two builds of eval support.
+      AT_ONCE_GB = RUBY_PLATFORM.include?("linux") ? 24 : 12
 
       # The unit test files that this run loaded: each declares what it
       # needs (`Needs`). The program tests get theirs from ProgramsTest.
@@ -138,7 +141,7 @@ module Zr
 
       # Builds the caches of each target in `targets` that is not current,
       # and prints the time of each build. When the machine has the memory
-      # for two builds (12 GB), the targets build at the same time. Each
+      # for two builds (AT_ONCE_GB), the targets build at the same time. Each
       # build is a child process with half the jobs. A build runs with YJIT
       # (`GcTuning`): the plain wasm32-wasi prelude took 151 s with it and
       # 210 s without.
@@ -148,7 +151,7 @@ module Zr
         current.each { |target| say&.puts("zr runtime for #{target.triple} is up to date (cache: #{cache_dir})") }
         return if targets.empty?
 
-        at_once = targets.size > 1 && Native::Parallel.machine_bytes >= 12 * (1 << 30)
+        at_once = targets.size > 1 && Native::Parallel.machine_bytes >= AT_ONCE_GB * (1 << 30)
         jobs = at_once ? [Native::Build.jobs / 2, 1].max : Native::Build.jobs
         statuses = if at_once
                      targets.map { |target| start(target, jobs: jobs, say: say, evals: evals) }.map { |pid| Process.wait2(pid).last }

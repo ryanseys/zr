@@ -27,6 +27,18 @@
 # that zr does not port, or a port's gem outside the versions whose C zr
 # implements, has a refusal: a build stops only when a require reaches
 # one of its files, as ruby fails only when it loads one.
+
+# ruby 4.1 defines Monitor in its core, and its monitor.rb, which comes
+# first on this load path, expects that. An older host ruby (4.0) loads
+# its own monitor, which rubygems then finds as loaded.
+unless defined?(Monitor)
+  require "rbconfig"
+  require File.join(RbConfig::CONFIG["rubylibdir"], "monitor.rb")
+  $LOAD_PATH.each do |dir|
+    path = File.join(dir, "monitor.rb")
+    $LOADED_FEATURES << path if File.file?(path)
+  end
+end
 require "rubygems"
 require "json"
 

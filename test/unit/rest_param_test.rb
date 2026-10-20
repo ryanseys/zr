@@ -34,13 +34,31 @@ class RestParamTest < Minitest::Test
     assert_equal SHARED, rest_calls
   end
 
+  # A def's kwrest takes the call's KW_MUT flag as a word, which the
+  # strict checks of a build (ZR_VERIFY=1) see.
+  def test_each_def_passes_the_strict_checks
+    failures = defs.values.filter_map do |f|
+      Zr::IR::Passes.prepare(f, strict: true)
+      nil
+    rescue Zr::IR::Verify::Error => e
+      e.message
+    end
+
+    assert_empty failures
+  end
+
   private
+
+  # The functions of PROGRAM's defs, by the def's name.
+  def defs
+    Zr::Program.build(PROGRAM, "rest.rb").functions.filter_map do |f|
+      name = f.name[/\Azr_toplevel_def_\d+_(\w+)\z/, 1] or next
+      [name, f]
+    end.to_h
+  end
 
   # The shared-rest kernel calls of each def, by the def's name.
   def rest_calls
-    Zr::Program.build(PROGRAM, "rest.rb").functions.filter_map do |f|
-      name = f.name[/\Azr_toplevel_def_\d+_(\w+)\z/, 1] or next
-      [name, f.callees.map(&:symbol).grep(/\Azr_(?:rest_of|kw_rest_of_mut)\z/).sort]
-    end.to_h
+    defs.transform_values { |f| f.callees.map(&:symbol).grep(/\Azr_(?:rest_of|kw_rest_of_mut)\z/).sort }
   end
 end

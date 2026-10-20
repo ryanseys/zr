@@ -296,7 +296,10 @@ module Zr
         files = tree.files(%w[lib]).to_h { |rel| [rel, tree.read(rel)] }.merge(prism_rendered(tree, ""))
         files["LICENSE.md"] = tree.read("LICENSE.md")
         files.each { |rel, bytes| add(File.join(root, rel), bytes) unless excluded.key?(rel) }
-        spec = File.join(Gem.dir, "specifications", "prism-#{version}.gemspec")
+        # ruby's installer writes a bundled gem's specification below its
+        # default gem dir, which a GEM_HOME (a ruby image's /usr/local/bundle)
+        # does not change.
+        spec = File.join(Gem.default_dir, "specifications", "prism-#{version}.gemspec")
         @fail.call("the reference ruby has no #{spec}") unless File.file?(spec)
         add(File.join(Library::Layout::SPECIFICATIONS, File.basename(spec)), File.binread(spec))
       end

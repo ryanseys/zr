@@ -120,7 +120,7 @@ module Zr
     def self.all = ALL
 
     # This host as a triple: `aarch64-apple-darwin`, `aarch64-linux-musl`,
-    # or what ruby says. An x86_64 ruby that Rosetta runs on an Apple
+    # `x86_64-linux-gnu`, or what ruby says. An x86_64 ruby that Rosetta runs on an Apple
     # Silicon Mac is on an aarch64 host, which runs zr's binaries.
     #: () -> String
     def self.host_triple
@@ -130,6 +130,9 @@ module Zr
       cpu = "aarch64" if cpu == "arm64" || (cpu == "x86_64" && os.start_with?("darwin") && rosetta?)
       return "#{cpu}-apple-darwin" if os.start_with?("darwin")
       return "#{cpu}-linux-musl" if os.start_with?("linux-musl")
+      # A glibc ruby says `linux-gnu`, or `linux` where it was configured
+      # with no libc in its host (setup-ruby's builds).
+      return "#{cpu}-linux-gnu" if os == "linux" || os.start_with?("linux-gnu")
 
       "#{cpu}-#{os}"
     end

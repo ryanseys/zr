@@ -246,8 +246,9 @@ module Zr
           at = value_offset(reserve(1))
           kw = take_keyword_word
           # A Hash that the call built for this call alone (KW_MUT, 2) can
-          # be the def's kwrest (`bind_keywords`).
-          @kw_mut = @f.icmp("eq", kw, imm(2))
+          # be the def's kwrest (`bind_keywords`). The kernel takes the
+          # flag as a word.
+          @kw_mut = @f.uextend("i64", @f.icmp("eq", kw, imm(2)))
           table = @f.label
           hashed = @f.label
           have = @f.label

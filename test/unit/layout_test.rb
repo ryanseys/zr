@@ -49,27 +49,32 @@ class LayoutTest < Minitest::Test
   end
 
   # CI reads the ruby from `.ruby-version` and the record, and names no
-  # version itself.
+  # version itself. The setup action passes on the version that a job
+  # gives it, `.ruby-version` when the job gives none.
   def test_ci_names_no_ruby_version
     ci = Dir[File.join(ROOT, ".github/**/*.yml")].sum("") { |path| File.read(path) }
 
     others = Zr::RUBY_TESTED - [Zr::RUBY.split(".").first(2).join(".")]
-    assert_equal [".ruby-version", *others.map { %("#{_1}") }].sort, ci.scan(/ruby-version: (\S+)/).flatten.uniq.sort,
+    assert_equal [".ruby-version", *others.map { %("#{_1}") }].sort, ci.scan(/ruby-version: (?!\$\{\{)(\S+)/).flatten.uniq.sort,
                  "the ruby setup-ruby installs: the pinned one, and the other tested series"
     assert_empty ci.scan(/\bruby:\d/), "the container's ruby"
     assert_empty ci.scan(%r{ruby/ruby/\h{40}}), "the CRuby revision CI reads"
     assert_empty ci.scan(/--branch v\d/), "the prism tag CI reads"
   end
 
-  # Each workflow that installs wasmtime pins the version that the tests
-  # are run with.
+  # Each workflow that installs wasmtime, itself or through the setup
+  # action, pins the version that the tests are run with, and each setup
+  # takes it.
   def test_ci_installs_the_wasmtime_of_the_harness
     require_relative "../support/harness/wasmtime"
     Dir[File.join(ROOT, ".github/workflows/*.yml")].each do |path|
       yml = File.read(path)
-      next unless yml.include?("wasmtime/setup@")
+      next unless yml.include?("wasmtime/setup@") || yml.include?("./.github/actions/setup")
 
       assert_equal [Zr::Harness::Wasmtime::VERSION], yml.scan(/^\s*WASMTIME_VERSION: (\S+)$/).flatten, path.delete_prefix("#{ROOT}/")
+    end
+    Dir[File.join(ROOT, ".github/{workflows/*.yml,actions/*/action.yml}")].each do |path|
+      yml = File.read(path)
       assert_equal yml.scan("wasmtime/setup@").size, yml.scan("version: ${{ env.WASMTIME_VERSION }}").size, "each setup in #{path} takes the version"
     end
   end
@@ -83,18 +88,17 @@ class LayoutTest < Minitest::Test
   end
 
   # ci-ok is the one check that branch protection and the release
-  # (ci_passed.rb) require, so it needs every job but the report-only
-  # ones, and nothing needs those.
+  # (ci_passed.rb) require, so it needs every job, and RuboCop and Steep
+  # only report.
   def test_ci_ok_needs_every_job_that_can_fail_the_run
     require "yaml"
     jobs = YAML.load_file(File.join(ROOT, ".github/workflows/ci.yml")).fetch("jobs")
 
-    assert_equal (jobs.keys - %w[ci-ok lint types]).sort, jobs.fetch("ci-ok").fetch("needs").sort
+    assert_equal (jobs.keys - %w[ci-ok]).sort, jobs.fetch("ci-ok").fetch("needs").sort
     assert_equal "always()", jobs.fetch("ci-ok").fetch("if")
-    %w[lint types].each do |id|
-      assert(jobs.fetch(id).fetch("steps").select { |step| step["run"] }.all? { |step| step["continue-on-error"] }, id)
-      refute(jobs.values.any? { |job| Array(job["needs"]).include?(id) }, "#{id} reports only")
-    end
+    reports = jobs.fetch("checks").fetch("steps").select { |step| step["run"].to_s.match?(/rubocop|steep/) }
+    assert_equal 2, reports.size
+    assert(reports.all? { |step| step["continue-on-error"] })
   end
 
   # The release takes the newest full run of a commit that passed ci-ok.

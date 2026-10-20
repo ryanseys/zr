@@ -1,10 +1,12 @@
 name: CI
 
-# Fast checks first, then the build of zr on each target, then the gem as
-# a user installs it. A pull request also runs the unit tier. A push to
-# main, the nightly run and a run by hand run the full suite in four
-# shards. `ci-ok` is the one check that branch protection and the release
-# (.github/scripts/ci_passed.rb) require.
+# The checks and the gem first. Then each runtime builds once
+# (`runtime`), and every job that tests a target imports it: the
+# targets' slices, the unit tier and, on a push to main, the nightly run
+# and a run by hand, the full suite in four shards. The gem runs as a
+# user installs it on each kind of host. `ci-ok` is the one check that
+# branch protection and the release (.github/scripts/ci_passed.rb)
+# require.
 on:
   push:
     branches: [main]
@@ -13,8 +15,10 @@ on:
     - cron: "23 6 * * *"
   workflow_dispatch:
 
+# `actions: read` lets a job download this run's runtime bundles.
 permissions:
   contents: read
+  actions: read
 
 # The wasmtime of every job (test/support/harness/wasmtime.rb, VERSION).
 env:
@@ -28,13 +32,15 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # ---- stage 0: fast checks -------------------------------------------
-
-  # What this run checks: code (false for a docs-only pull request), full
-  # (the full suite) and the pinned ruby (.github/scripts/changes.rb).
-  changes:
+  # What this run checks (.github/scripts/changes.rb): code (false for a
+  # docs-only pull request), full (the full suite) and the pinned ruby.
+  # Then the docs, and RuboCop and Steep, which report their findings as
+  # annotations and never fail the run. Then the gem, as the release
+  # builds it: rubygems stamps a gem's files with SOURCE_DATE_EPOCH, so
+  # the same commit gives the same .gem.
+  checks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: read
@@ -42,65 +48,26 @@ jobs:
       code: ${{ steps.changes.outputs.code }}
       full: ${{ steps.changes.outputs.full }}
       ruby: ${{ steps.changes.outputs.ruby }}
+      gem: ${{ steps.gem.outputs.sha256 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
       - id: changes
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: ruby .github/scripts/changes.rb
-
-  # RuboCop and Steep report their findings as annotations, and never fail
-  # the run: nothing needs these jobs.
-  lint:
-    name: lint (report only)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup
         with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
-        with:
-          ruby-version: .ruby-version
-          bundler-cache: true
-      - name: RuboCop
+          wasmtime: "false"
+      - name: RuboCop (report only)
         continue-on-error: true
         run: bundle exec rubocop --format github --format progress
-
-  types:
-    name: types (report only)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
-        with:
-          ruby-version: .ruby-version
-          bundler-cache: true
       # A Steep worker that stops can leave the check waiting, hence the limit.
-      - name: Steep
+      - name: Steep (report only)
         continue-on-error: true
         timeout-minutes: 15
         run: ruby .github/scripts/steep.rb --format=github
-
-  # The docs and the files that describe the repository: cheap, and run
-  # for every change, also a docs-only one.
-  docs:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
-        with:
-          ruby-version: .ruby-version
-          bundler-cache: true
       - name: Check the links, the changelog, the layout and the notices
         run: >-
           bin/minitest
@@ -110,43 +77,74 @@ jobs:
         run: ruby .github/scripts/fetch_sources.rb
       - name: The generated pages are current
         run: for page in support capi perf targets; do ruby tool/zr-dev.rb gen "$page" --check || exit 1; done
-
-  # ---- stage 1: build zr ---------------------------------------------
-
-  # The gem, as the release builds it: rubygems stamps a gem's files with
-  # SOURCE_DATE_EPOCH, so the same commit gives the same .gem.
-  gem:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    outputs:
-      sha256: ${{ steps.build.outputs.sha256 }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
-        with:
-          ruby-version: .ruby-version
-      - id: build
+      - id: gem
+        if: steps.changes.outputs.code == 'true'
+        name: Build the gem
         run: |
           SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec
           echo "sha256=$(sha256sum zr-*.gem | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - if: steps.changes.outputs.code == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: gem
           path: zr-*.gem
           retention-days: 90
 
-  # The runtime of each target that builds on a GitHub runner of its own
-  # host, then the units that the target answers and a slice of the
-  # program tests. The Linux rows are experimental (Target::SUPPORT):
-  # their failure does not fail the run.
+  # Each runtime that the tests read, built once on a runner of its host
+  # and exported as a bundle (`zr cache export`, which builds what the
+  # cache lacks). The runtime cache keeps the build between runs, so a
+  # run with no change under lib or vendor builds nothing.
+  runtime:
+    name: runtime (${{ matrix.triple }})
+    needs: checks
+    if: needs.checks.outputs.code == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - triple: aarch64-apple-darwin
+            os: macos-15
+          - triple: x86_64-linux-gnu
+            os: ubuntu-24.04
+          - triple: aarch64-linux-gnu
+            os: ubuntu-24.04-arm
+          - triple: wasm32-wasi
+            os: ubuntu-24.04
+    # Each IR function is checked once, as the runtime builds: the bundle
+    # is the same with or without the check (Config#verify?).
+    env:
+      ZR_VERIFY: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          wasmtime: "false"
+      - uses: ./.github/actions/runtime-cache
+        with:
+          flavor: ${{ matrix.triple }}
+      - name: Build the runtime and export it
+        run: bin/zr cache export --target ${{ matrix.triple }} -o runtime-${{ matrix.triple }}.zrr
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-${{ matrix.triple }}
+          path: runtime-${{ matrix.triple }}.zrr
+          retention-days: 3
+          compression-level: 0
+      # The runtime cache saves only what this run read.
+      - name: Clean the cache of what this run did not use
+        run: bin/zr cache clean --days 1
+
+  # The units that each target answers and a slice of the program tests.
+  # The Linux rows are experimental (Target::SUPPORT): their failure does
+  # not fail the run. darwin's row also checks the method cache, the
+  # generated files and the gem's bytes.
   target:
     name: ${{ matrix.triple }}
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
+    needs: runtime
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     continue-on-error: ${{ matrix.experimental }}
@@ -157,51 +155,53 @@ jobs:
           - triple: aarch64-apple-darwin
             os: macos-15
             experimental: false
-            verify: "1"
+            runtimes: aarch64-apple-darwin
+            slice: lang/methods,core/string
             units: >-
               test/unit/macho_test.rb test/unit/target_test.rb test/unit/description_test.rb
               test/unit/exe_test.rb test/unit/api_test.rb
           - triple: x86_64-linux-gnu
             os: ubuntu-24.04
             experimental: true
-            verify: "0"
+            runtimes: x86_64-linux-gnu
+            slice: lang/methods,core/string
             units: >-
               test/unit/elf_test.rb test/unit/x86_64_assembler_test.rb test/unit/target_test.rb
               test/unit/os_api_test.rb test/unit/description_test.rb
           - triple: aarch64-linux-gnu
             os: ubuntu-24.04-arm
             experimental: true
-            verify: "0"
+            runtimes: aarch64-linux-gnu
+            slice: lang/methods,core/string
             units: >-
               test/unit/elf_test.rb test/unit/target_test.rb test/unit/os_api_test.rb
               test/unit/description_test.rb
+          # The dispatch, Array and Hash tests as modules under Winch: the
+          # whole tier is hours of wasmtime.
+          - triple: wasm32-wasi
+            os: ubuntu-24.04
+            experimental: false
+            runtimes: x86_64-linux-gnu wasm32-wasi
+            slice: lang/methods,core/array,core/hash
+            units: >-
+              test/unit/wasm_test.rb test/unit/wasm_locals_test.rb test/unit/os_api_test.rb
+              test/unit/target_test.rb test/unit/description_test.rb
     env:
       ZR_TARGET: ${{ matrix.triple }}
-      ZR_VERIFY: ${{ matrix.verify }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+      - uses: ./.github/actions/setup
         with:
-          ruby-version: .ruby-version
-          bundler-cache: true
-      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
-        with:
-          version: ${{ env.WASMTIME_VERSION }}
-      - uses: ./.github/actions/runtime-cache
-        with:
-          flavor: ${{ matrix.triple }}
-      - name: Build the runtime
-        run: bundle exec rake build
+          runtimes: ${{ matrix.runtimes }}
       - name: Run the units this target answers
         run: bin/minitest ${{ matrix.units }}
       - name: Build and run whole programs
         run: ZR_PROGRAMS=cli bin/minitest test/programs_test.rb
-      # The dispatch and the String tests, where a libc, an ISA or a link
-      # difference would show.
+      # Where a libc, an ISA or a link difference would show.
       - name: Run a slice of the program tests
-        run: ZR_PROGRAMS=lang/methods,core/string bin/minitest test/programs_test.rb
+        run: ZR_PROGRAMS=${{ matrix.slice }} bin/minitest test/programs_test.rb
       # Every hit of the method cache checked against a fresh lookup.
       - name: Run the dispatch tests with the method cache verified
         if: matrix.os == 'macos-15'
@@ -212,7 +212,7 @@ jobs:
       - name: The generated files are current
         if: matrix.os == 'macos-15'
         run: ruby .github/scripts/fetch_sources.rb && ruby tool/zr-dev.rb gen all --check
-      # The gem is the same bytes on macOS as on Linux (same-bytes).
+      # The gem is the same bytes on macOS as on Linux (ci-ok compares).
       - name: Build the gem on macOS
         if: matrix.os == 'macos-15'
         run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec && shasum -a 256 zr-*.gem | cut -d' ' -f1 > gem-macos.sha256
@@ -221,54 +221,16 @@ jobs:
         with:
           name: gem-macos-sha256
           path: gem-macos.sha256
-      # The runtime cache saves only what this run read.
-      - name: Clean the cache of what this run did not use
-        run: bin/zr cache clean --days 1
 
-  wasm:
-    name: wasm32-wasi (wasmtime)
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
-        with:
-          ruby-version: .ruby-version
-          bundler-cache: true
-      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
-        with:
-          version: ${{ env.WASMTIME_VERSION }}
-      - uses: ./.github/actions/runtime-cache
-        with:
-          flavor: wasm32-wasi
-      - name: Build this host's runtime and the wasm32-wasi one
-        run: bundle exec rake build:all
-      - name: Run the units this target answers
-        run: >-
-          bin/minitest
-          test/unit/wasm_test.rb test/unit/wasm_locals_test.rb test/unit/os_api_test.rb
-          test/unit/target_test.rb test/unit/description_test.rb
-      - name: Build and run whole programs for this target
-        run: ZR_TARGET=wasm32-wasi ZR_PROGRAMS=cli bin/minitest test/programs_test.rb
-      # The dispatch, Array and Hash tests as modules under Winch: the whole
-      # tier is hours of wasmtime.
-      - name: Run a slice of the program tests for this target
-        run: ZR_TARGET=wasm32-wasi ZR_PROGRAMS=lang/methods,core/array,core/hash bin/minitest test/programs_test.rb
-      - name: Clean the cache of what this run did not use
-        run: bin/zr cache clean --days 1
-
-  # Static musl binaries, built and run where musl is the libc.
+  # Static musl binaries, built and run where musl is the libc. The
+  # runtime builds in the container, the only job that reads it.
   # JavaScript actions do not run inside an Alpine container on an arm
   # runner, so the job keeps one Alpine container beside it and runs each
   # step in it. The workspace, and so tmp/cache, is the container's /zr.
   musl:
     name: ${{ matrix.triple }} (Alpine)
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
+    needs: checks
+    if: needs.checks.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     continue-on-error: ${{ matrix.experimental }}
@@ -293,210 +255,113 @@ jobs:
           flavor: ${{ matrix.triple }}
       # BUNDLE_WITHOUT and ZR_TARGET hold for each `docker exec`.
       - name: Start the pinned ruby on Alpine
-        run: >-
-          docker run -d --name alpine -e BUNDLE_WITHOUT=development -e ZR_TARGET=${{ matrix.triple }}
-          -v "$PWD:/zr" -w /zr "ruby:${{ needs.changes.outputs.ruby }}-alpine" sleep infinity
-      - name: Install the C toolchain and git
-        run: docker exec alpine apk add --no-cache build-base git
-      - name: Let git read the checkout, which another user owns
-        run: docker exec alpine git config --global --add safe.directory /zr
-      - name: Install the bundle
-        run: docker exec alpine bundle install
+        run: |
+          docker run -d --name alpine -e BUNDLE_WITHOUT=development -e ZR_TARGET=${{ matrix.triple }} \
+            -v "$PWD:/zr" -w /zr "ruby:${{ needs.checks.outputs.ruby }}-alpine" sleep infinity
+          docker exec alpine apk add --no-cache build-base git
+          docker exec alpine git config --global --add safe.directory /zr
+          docker exec alpine bundle install
       # vendor/ must be upstream code, byte for byte: ruby's own library at
       # RUBY_REVISION, the .gem files that vendor/vendor.lock names, and
       # prism's templates at its locked commit.
-      - name: Check vendor/ against its lock
-        if: matrix.vendor
-        run: docker exec alpine ruby tool/zr-dev.rb vendor --check
-      - name: Write vendor/ again from the sources, and fail on a diff
+      - name: Check vendor/ against its lock, then write it again from the sources
         if: matrix.vendor
         run: |
+          docker exec alpine ruby tool/zr-dev.rb vendor --check
           docker exec alpine ruby .github/scripts/fetch_sources.rb
           docker exec alpine ruby tool/zr-dev.rb vendor
           docker exec alpine git diff --exit-code vendor lib/zr/library/stdlib.rb
-      - name: Build the runtime
-        run: docker exec alpine bundle exec rake build
-      - name: Run the units this target answers
-        run: >-
-          docker exec alpine bin/minitest
-          test/unit/target_test.rb test/unit/elf_test.rb test/unit/interp_test.rb
-          test/unit/os_api_test.rb test/unit/description_test.rb
-      - name: Build and run whole programs for this target
-        run: docker exec -e ZR_PROGRAMS=cli alpine bin/minitest test/programs_test.rb
-      - name: Run a slice of the program tests for this target
-        run: docker exec -e ZR_PROGRAMS=lang/methods,core/string alpine bin/minitest test/programs_test.rb
+      - name: Run the units this target answers, and the programs
+        run: |
+          docker exec alpine bin/minitest test/unit/target_test.rb test/unit/elf_test.rb test/unit/interp_test.rb \
+            test/unit/os_api_test.rb test/unit/description_test.rb
+          docker exec -e ZR_PROGRAMS=cli alpine bin/minitest test/programs_test.rb
+          docker exec -e ZR_PROGRAMS=lang/methods,core/string alpine bin/minitest test/programs_test.rb
       - name: Write the linux tables again and compare
         if: matrix.vendor
         run: docker exec alpine ruby tool/zr-dev.rb gen tables --check
-      - name: Clean the cache of what this run did not use
-        run: docker exec alpine bin/zr cache clean --days 1
       # The container's root wrote the cache; the cache step reads it as
       # the runner.
-      - name: Give the cache back to the runner
+      - name: Clean the cache of what this run did not use, and give it back to the runner
         if: always()
-        run: sudo chown -R "$USER" tmp
+        run: |
+          docker exec alpine bin/zr cache clean --days 1 || true
+          sudo chown -R "$USER" tmp
 
-  # ---- stage 2: the gem as a user installs it --------------------------
-
-  # The gem of the `gem` job on each kind of host. A stock-ruby row is a
-  # user's ruby: no Gemfile and no bundle, a clean GEM_HOME, and no
-  # ZR_CACHE, so zr uses the user cache under HOME. The install must
-  # fetch nothing.
+  # The gem of the `checks` job as a user installs it, on each kind of
+  # host, twice. First into /opt/zr with the runtimes of this run
+  # imported: a runtime has no path of its install, so a build for an
+  # imported target builds none (`--import`). Its outputs go to ci-ok,
+  # which compares the hosts. Then on a stock ruby: no Gemfile and no
+  # bundle, a clean GEM_HOME, and no ZR_CACHE, so zr builds its runtime
+  # in the user cache under HOME. Linux x86_64 runs that on ruby 4.0, the
+  # oldest that runs zr (Zr::RUBY_MINIMUM), and Linux arm64 in Alpine.
   smoke:
-    name: ${{ matrix.name }}
-    needs: gem
+    name: gem (${{ matrix.host }})
+    needs: [checks, runtime]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: gem (macOS arm64)
+          - host: macOS arm64
             os: macos-15
+            triple: aarch64-apple-darwin
             outputs: outputs-macos
-          - name: gem (x86_64 Linux)
+          - host: x86_64 Linux
             os: ubuntu-24.04
+            triple: x86_64-linux-gnu
             outputs: outputs-linux-x86_64
-          - name: gem (arm64 Linux)
+          - host: arm64 Linux
             os: ubuntu-24.04-arm
+            triple: aarch64-linux-gnu
             outputs: outputs-linux-aarch64
-          - name: stock ruby, user cache (macOS arm64)
-            os: macos-15
-            smoke: --user-cache
-          - name: stock ruby, user cache (Linux)
-            os: ubuntu-24.04
-            smoke: --user-cache
     steps:
-      # Only the smoke script: the gem under test comes from the gem job.
+      # Only the smoke script: the gem under test comes from `checks`.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+          sparse-checkout: .github
+      - uses: ./.github/actions/setup
         with:
-          ruby-version: .ruby-version
-      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
-        with:
-          version: ${{ env.WASMTIME_VERSION }}
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: gem
-      - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb ${{ matrix.smoke }} zr-*.gem
-      - if: matrix.outputs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          bundle: "false"
+      - name: Download the gem and this host's runtimes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" -n gem
+          for triple in ${{ matrix.triple }} wasm32-wasi; do gh run download "$GITHUB_RUN_ID" -n "runtime-$triple"; done
+      - name: Install the gem with this run's runtimes
+        run: ruby .github/scripts/smoke.rb --import runtime-${{ matrix.triple }}.zrr --import runtime-wasm32-wasi.zrr zr-*.gem
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.outputs }}
           path: |
             /opt/zr/smoke/sum.wasm
             /opt/zr/smoke/sum.darwin.o
-
-  # The oldest ruby that runs zr (Zr::RUBY_MINIMUM, Zr::RUBY_TESTED).
-  smoke-ruby-floor:
-    name: stock ruby 4.0, user cache (Linux)
-    needs: gem
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/scripts
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+      - name: Install the gem on a stock ruby, with a user cache
+        if: matrix.os == 'macos-15'
+        run: ruby .github/scripts/smoke.rb --user-cache zr-*.gem
+      - if: matrix.os == 'ubuntu-24.04'
+        uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
         with:
           ruby-version: "4.0"
-      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
-        with:
-          version: ${{ env.WASMTIME_VERSION }}
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: gem
-      - name: Install the gem and run it as a user would
+      - name: Install the gem on stock ruby 4.0, with a user cache
+        if: matrix.os == 'ubuntu-24.04'
         run: ruby .github/scripts/smoke.rb --user-cache zr-*.gem
-
-  smoke-alpine:
-    name: stock ruby, user cache (x86_64 Alpine)
-    needs: [changes, gem]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/scripts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: gem
-      - name: Install the gem and run it in Alpine
+      - name: Install the gem on stock ruby in Alpine, with a user cache
+        if: matrix.os == 'ubuntu-24.04-arm'
         run: >-
-          docker run --rm -v "$PWD:/w" -w /w "ruby:${{ needs.changes.outputs.ruby }}-alpine"
+          docker run --rm -v "$PWD:/w" -w /w "ruby:${{ needs.checks.outputs.ruby }}-alpine"
           sh -c 'apk add --no-cache build-base && ruby .github/scripts/smoke.rb --user-cache --no-wasmtime zr-*.gem /tmp/zr'
 
-  # The outputs of three hosts are the same bytes, and so is the gem that
-  # macOS and Linux build.
-  same-bytes:
-    name: output does not depend on the host
-    needs: [gem, smoke, target]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: outputs-macos
-          path: macos
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: outputs-linux-x86_64
-          path: linux-x86_64
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: outputs-linux-aarch64
-          path: linux-aarch64
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: gem-macos-sha256
-      - env:
-          LINUX_GEM: ${{ needs.gem.outputs.sha256 }}
-        run: |
-          sha256sum macos/* linux-*/*
-          for host in linux-x86_64 linux-aarch64; do
-            cmp macos/sum.wasm "$host/sum.wasm"
-            cmp macos/sum.darwin.o "$host/sum.darwin.o"
-          done
-          test "$(cat gem-macos.sha256)" = "$LINUX_GEM"
-
-  # A runtime has no path of its install, so the bundle that a release
-  # builds (`zr cache export`) serves every install: two installs of the
-  # gem at two paths build the same files. Two runtime builds, so a full
-  # run only.
-  portable:
-    name: a runtime does not depend on the install's path
-    needs: [changes, gem]
-    if: needs.changes.outputs.full == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-          sparse-checkout: |
-            .github/scripts
-            .ruby-version
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
-        with:
-          ruby-version: .ruby-version
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: gem
-      - run: ruby .github/scripts/portable.rb zr-*.gem
-
-  # ---- the test tiers --------------------------------------------------
-
-  # A pull request: the unit tier. A full run covers it.
+  # Each change to code: the unit tier, which reports sooner than the
+  # full suite's shards.
   unit:
     name: unit (${{ matrix.triple }})
-    needs: changes
-    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full != 'true'
+    needs: runtime
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     continue-on-error: ${{ matrix.experimental }}
@@ -514,18 +379,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+      - uses: ./.github/actions/setup
         with:
-          ruby-version: .ruby-version
-          bundler-cache: true
-      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
-        with:
-          version: ${{ env.WASMTIME_VERSION }}
-      - uses: ./.github/actions/runtime-cache
-        with:
-          flavor: ${{ matrix.triple }}
-      - name: Build the runtime
-        run: bundle exec rake build
+          runtimes: ${{ matrix.triple }} wasm32-wasi
       - name: Run the unit tier
         run: bin/minitest test/unit
       - if: failure()
@@ -534,110 +390,75 @@ jobs:
           name: unit-log-${{ matrix.triple }}
           path: log/minitest
 
-  # Every test, in four shards (ZR_TEST_SHARD, test/support/shard.rb), with
-  # the reference gems of test/ext. darwin's must pass; x86_64 glibc's is
-  # experimental.
+  # Every test on darwin, in four shards (ZR_TEST_SHARD,
+  # test/support/shard.rb), with the reference gems of test/ext and each
+  # IR function checked. Then the compiler compiled by itself, twice, to
+  # the same bytes: the proof that a build is a function of its inputs.
   full:
-    name: full (${{ matrix.triple }}, ${{ matrix.shard }}/4)
-    needs: changes
-    if: needs.changes.outputs.full == 'true'
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.shard == 'stage1' && 'stage 1 (macOS arm64)' || format('full ({0}/4)', matrix.shard) }}
+    needs: [checks, runtime]
+    if: needs.checks.outputs.full == 'true'
+    runs-on: macos-15
     timeout-minutes: 300
-    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
-        triple: [aarch64-apple-darwin, x86_64-linux-gnu]
-        include:
-          - triple: aarch64-apple-darwin
-            os: macos-15
-            experimental: false
-            verify: "1"
-          - triple: x86_64-linux-gnu
-            os: ubuntu-24.04
-            experimental: true
-            verify: "0"
+        shard: ["1", "2", "3", "4", stage1]
     env:
-      ZR_TEST_SHARD: ${{ matrix.shard }}/4
-      ZR_VERIFY: ${{ matrix.verify }}
+      ZR_VERIFY: "1"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+      - uses: ./.github/actions/setup
         with:
-          ruby-version: .ruby-version
-          bundler-cache: true
-      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
-        with:
-          version: ${{ env.WASMTIME_VERSION }}
-      - uses: ./.github/actions/runtime-cache
-        with:
-          flavor: ${{ matrix.triple }}
-      - name: Build this host's runtime and the wasm32-wasi one
-        run: bundle exec rake build:all
+          runtimes: aarch64-apple-darwin wasm32-wasi
+      - name: Build the compiler with itself, twice
+        if: matrix.shard == 'stage1'
+        run: bundle exec ruby tool/zr-dev.rb stage 1
       - name: Install the reference gems of test/ext
+        if: matrix.shard != 'stage1'
         run: ruby .github/scripts/reference_gems.rb
       - name: Run every test of this shard
+        if: matrix.shard != 'stage1'
+        env:
+          ZR_TEST_SHARD: ${{ matrix.shard }}/4
         run: bin/minitest
       - if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: full-log-${{ matrix.triple }}-${{ matrix.shard }}
+          name: full-log-${{ matrix.shard }}
           path: log/minitest
-      - name: Clean the cache of what this run did not use
-        run: bin/zr cache clean --days 1
 
-  # The compiler compiled by itself, twice, to the same bytes: the proof
-  # that a build is a function of its inputs.
-  stage1:
-    name: stage 1 (macOS arm64)
-    needs: changes
-    if: needs.changes.outputs.full == 'true'
-    runs-on: macos-15
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
-        with:
-          ruby-version: .ruby-version
-          bundler-cache: true
-      - uses: ./.github/actions/runtime-cache
-        with:
-          flavor: aarch64-apple-darwin
-      - name: Build the runtime
-        run: bundle exec rake build
-      - run: bundle exec ruby tool/zr-dev.rb stage 1
-      - name: Clean the cache of what this run did not use
-        run: bin/zr cache clean --days 1
-
-  # ---- the one required check -----------------------------------------
-
-  # Passes when each job that this run needs passed: the docs always; the
-  # build, the targets and the smoke tests for a change to code; the unit
-  # tier for a pull request; the full suite and stage 1 for a full run.
-  # An experimental row's failure does not count (continue-on-error).
+  # The one required check. It passes when no job that this run started
+  # failed: a job that a docs-only change or a run without the full suite
+  # skips is not a failure, and an experimental row's failure does not
+  # count (continue-on-error). Then the outputs of three hosts must be
+  # the same bytes, and so must the gem that macOS and Linux build.
   ci-ok:
     if: always()
-    needs: [changes, docs, gem, target, wasm, musl, smoke, smoke-ruby-floor, smoke-alpine, same-bytes, portable, unit, full, stage1]
+    needs: [checks, runtime, target, musl, smoke, unit, full]
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
-          CODE: ${{ needs.changes.outputs.code }}
-          FULL: ${{ needs.changes.outputs.full }}
         run: |
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.value.result)\t\(.key)"'
-          required="changes docs"
-          [ "$CODE" = true ] && required="$required gem target wasm musl smoke smoke-ruby-floor smoke-alpine same-bytes"
-          [ "$CODE" = true ] && [ "$FULL" != true ] && required="$required unit"
-          [ "$FULL" = true ] && required="$required full stage1 portable"
-          for job in $required; do
-            result="$(echo "$NEEDS" | jq -r --arg job "$job" '.[$job].result')"
-            [ "$result" = success ] || { echo "::error::$job: $result"; exit 1; }
+          bad="$(echo "$NEEDS" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | .key')"
+          [ -z "$bad" ] || { echo "::error::did not pass: $bad"; exit 1; }
+      - if: needs.checks.outputs.code == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: "{outputs-*,gem-macos-sha256}"
+      - if: needs.checks.outputs.code == 'true'
+        name: The output does not depend on the host
+        env:
+          LINUX_GEM: ${{ needs.checks.outputs.gem }}
+        run: |
+          sha256sum outputs-*/*
+          for host in outputs-linux-x86_64 outputs-linux-aarch64; do
+            cmp outputs-macos/sum.wasm "$host/sum.wasm"
+            cmp outputs-macos/sum.darwin.o "$host/sum.darwin.o"
           done
-          echo "ci-ok: $required"
+          test "$(cat gem-macos-sha256/gem-macos.sha256)" = "$LINUX_GEM"
