@@ -207,13 +207,16 @@ class ForkPoolTest < Minitest::Test
   # the pool would call this one in its place. The child gets a clean
   # bundler environment, because this process runs under bundler, and a
   # nested `bundle exec` refuses the load path that the test gives it.
-  # The child suite runs to its end, even under `ZR_TEST_FAIL_FAST=1`. It
-  # writes its run files (progress, failures, times) in `work`, not over
-  # the files of this run.
+  # The child suite runs to its end, even under `ZR_TEST_FAIL_FAST=1`, and
+  # all of it, even in a shard of this run (`ZR_TEST_SHARD`); its failures,
+  # which a test asks for, are no failures of this run on GitHub Actions.
+  # It writes its run files (progress, failures, times) in `work`, not
+  # over the files of this run.
   def child(source, work, env)
     file = File.join(work, "bounded_suite.rb")
     File.write(file, source)
-    out = IO.popen({ "ZR_TEST_FAIL_FAST" => nil, "ZR_TEST_TMP" => work, **env }, [RbConfig.ruby, "-I#{ROOT}/lib", "-I#{ROOT}/test", file],
+    own = { "ZR_TEST_FAIL_FAST" => nil, "ZR_TEST_SHARD" => nil, "GITHUB_ACTIONS" => nil, "ZR_TEST_TMP" => work }
+    out = IO.popen({ **own, **env }, [RbConfig.ruby, "-I#{ROOT}/lib", "-I#{ROOT}/test", file],
                    err: %i[child out], &:read)
     refute_empty Dir[File.join(work, "*.progress.log")], "the child suite writes its progress in its own directory"
     [out, $?]
