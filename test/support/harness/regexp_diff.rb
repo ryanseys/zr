@@ -18,6 +18,19 @@ module Zr
     # the error, the warnings, the position and the byte offsets of each
     # capture.
     module RegexpDiff
+      # Warning.warn, which gives each warning to the list of the thread's
+      # `warnings` call while one runs. It is prepended once: a warn that
+      # is defined again under $VERBOSE prints "method redefined".
+      module Collect
+        KEY = :zr_regexp_warnings
+
+        def warn(message, **)
+          out = Thread.current[KEY]
+          out ? out << message : super
+        end
+      end
+      Warning.singleton_class.prepend(Collect)
+
       IGNORECASE = 1
       EXTENDED = 2
       MULTILINE = 4
@@ -133,22 +146,16 @@ module Zr
         end
 
         # [block result, warnings]. It sets ruby's verbosity to `verbose`,
-        # and collects each warning instead of printing it.
+        # and collects each warning instead of printing it (Collect).
         def warnings(verbose)
           out = []
           was = $VERBOSE
           $VERBOSE = verbose
-          Warning.singleton_class.class_eval do
-            alias_method :warn_before_diff, :warn
-            define_method(:warn) { |message, **| out << message }
-          end
+          Thread.current[Collect::KEY] = out
           answer = yield
           [answer, out.map { |m| m.sub(/\A[^:]*:\d+: warning: /, "").chomp }]
         ensure
-          Warning.singleton_class.class_eval do
-            alias_method :warn, :warn_before_diff
-            remove_method :warn_before_diff
-          end
+          Thread.current[Collect::KEY] = nil
           $VERBOSE = was
         end
       end
