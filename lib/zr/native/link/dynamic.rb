@@ -25,6 +25,7 @@ module Zr
         # so a binary built on any glibc loads there. glibc 2.38 gave fmod
         # a new version when it dropped fmod's error wrapper.
         VERSIONS = { aarch64: { "fmod" => "GLIBC_2.17" }, x86_64: { "fmod" => "GLIBC_2.2.5" } }.freeze #: Hash[Symbol, Hash[String, String]]
+        NO_VERSIONS = {}.freeze #: Hash[String, String]
 
         # Removes code that nothing calls. Each item is in its own section.
         STRIP_FLAGS = ["-Wl,--gc-sections"].freeze #: Array[String]
@@ -48,12 +49,16 @@ module Zr
           return "ZR_LINKER=ruby: zr has no linker of its own for an ELF binary. Set ZR_LINKER=auto or cc" if linker == "ruby"
 
           obj = File.join(work, "unit.o")
-          File.binwrite(obj, Obj::Elf::ObjectFile.write(image, arch: target.arch, versions: VERSIONS.fetch(target.arch)))
+          File.binwrite(obj, Obj::Elf::ObjectFile.write(image, arch: target.arch, versions: versions(target)))
           list = File.join(work, "exports.list")
           File.write(list, exports)
           flags = FLAGS + ["-Wl,--dynamic-list=#{list}"] + (strip ? STRIP_FLAGS : []) + link + LIBRARIES
           Link.run(objects + [obj], out, flags: flags, target: target)
         end
+
+        # The versions that `target`'s imports bind: glibc's pins, or none.
+        #: (Target target) -> Hash[String, String]
+        def versions(target) = target.libc == :glibc ? VERSIONS.fetch(target.arch) : NO_VERSIONS
 
         # The dynamic list: the C API, which a C extension's undefined
         # `rb_*` names bind to. ld leaves out a name that no object

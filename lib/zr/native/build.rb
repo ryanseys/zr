@@ -78,6 +78,16 @@ module Zr
         writers.fetch(target.object_format) { raise ArgumentError, "no object writer for #{target}" }
       end
 
+      # The bytes of `unit`'s object file for `target`. An ELF object names
+      # the version of each import that a glibc pins (`Link::Dynamic.versions`):
+      # the runtime's and eval support's objects carry the kernel's imports.
+      #: (Obj::Unit unit, Target target) -> String
+      def object_bytes(unit, target)
+        return writer(target).write(unit, arch: target.arch) unless target.object_format == :elf
+
+        Obj::Elf::ObjectFile.write(unit, arch: target.arch, versions: Link::Dynamic.versions(target))
+      end
+
       # The linker for `target`.
       #: (Target target) -> (singleton(Link::Darwin) | singleton(Link::Static) | singleton(Link::Dynamic))
       def linker(target)
@@ -404,7 +414,7 @@ module Zr
           functions = nil # rubocop:disable Lint/UselessAssignment -- the frame would keep the IR alive
           release.call
         end
-        File.binwrite(obj, Timing.phase("writing the object file", "object file written") { writer(target).write(built, arch: target.arch) })
+        File.binwrite(obj, Timing.phase("writing the object file", "object file written") { object_bytes(built, target) })
         nil
       rescue Backend::Refused => e
         e.message

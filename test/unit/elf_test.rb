@@ -74,6 +74,19 @@ class ElfTest < Minitest::Test
     assert_equal "exit@GLIBC_2.17", relocs.fetch(".text.main").first[2]
   end
 
+  # Every object that a glibc build writes, the runtime's too, names the
+  # pinned versions; a musl one, which links libc statically, names none.
+  def test_a_glibc_object_names_the_pinned_versions_and_a_musl_one_none
+    u = Obj::Unit.new.function("main", MAIN_EXIT_3, relocs: [Obj::Reloc.new(4, :branch26, "fmod")])
+    names = lambda do |target|
+      _, symbols, = read(Zr::Native::Build.object_bytes(u, target))
+      symbols.map(&:name).grep(/fmod/)
+    end
+
+    assert_equal ["fmod@GLIBC_2.17"], names.call(Zr::Target::AARCH64_LINUX_GNU)
+    assert_equal ["fmod"], names.call(Zr::Target::AARCH64_LINUX_MUSL)
+  end
+
   def test_the_symbols_are_locals_first_with_no_prefix
     _, symbols, _, symtab = read(Elf.write(unit, arch: :aarch64))
     assert_equal "", symbols.first.name
