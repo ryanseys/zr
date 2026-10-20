@@ -77,7 +77,10 @@ None.
 | `cli/core/fiber/fiber_resume.rb` | can't allocate fiber stack: Function not implemented |
 | `cli/core/thread/threads_join.rb` | can't allocate fiber stack: Function not implemented |
 | `cli/core/thread/thread_queue_handoff.rb` | can't allocate fiber stack: Function not implemented |
+| `lang/methods/super_in_a_block_that_another_thread_runs_goes_on_from_the_def_s_node.rb` | can't allocate fiber stack: Function not implemented |
+| `lang/methods/a_def_in_a_define_method_body_defines_where_the_block_was_written.rb` | syntax_suggest runs in Timeout.timeout, which needs a Thread, so the report is prism's alone |
 | `cli/stdlib/ffi/ffi_libc_call.rb` | dlopen has no wasm form |
+| `lang/methods/a_block_parameter_of_nil_refuses_a_block_after_the_arity_and_keyword_checks.rb` | the backtrace label of an eval'd def is the tree walk's |
 | `cli/stdlib/socket/socket_loopback.rb` | cannot load such file -- socket/constants |
 | `core/math/a_float_or_an_integer_argument_is_answered_by_the_kernel_at.rb` | tan(1) is 1.5574077246549023 with musl, 1.557407724654902 with macOS |
 | `core/hash/thread_value_hash_tail.rb` | can't allocate fiber stack: Function not implemented |

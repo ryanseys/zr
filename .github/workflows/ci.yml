@@ -81,8 +81,17 @@ jobs:
           test/unit/environment_variables_test.rb test/unit/notices_test.rb
       - name: Fetch the CRuby and prism sources that the generators read
         run: ruby .github/scripts/fetch_sources.rb
-      - name: The generated pages are current
-        run: for page in support capi perf targets; do ruby tool/zr-dev.rb gen "$page" --check || exit 1; done
+      # Report only, as RuboCop and Steep: a page that its generator would
+      # write again is a warning to run `zr-dev gen`, not a reason to stop
+      # the gem, the lanes and the release.
+      - name: The generated pages are current (report only)
+        continue-on-error: true
+        run: |
+          stale=0
+          for page in support capi perf targets; do
+            ruby tool/zr-dev.rb gen "$page" --check || { echo "::warning::run 'bin/zr-dev gen $page': its page is out of date"; stale=1; }
+          done
+          exit "$stale"
       - id: gem
         if: steps.changes.outputs.code == 'true'
         name: Build the gem
