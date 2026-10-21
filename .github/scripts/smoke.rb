@@ -69,8 +69,9 @@ smoke = File.join(root, "smoke")
 FileUtils.mkdir_p(smoke)
 File.write(File.join(smoke, "sum.rb"), "puts [1, 2, 3].sum\n")
 
-# The targets of the imported bundles (the manifest's second line).
-imported = bundles.map { |bundle| Zlib::GzipReader.open(bundle) { |gz| gz.gets && JSON.parse(gz.gets).fetch("target") } }
+# The targets of the imported bundles (each manifest's), read once
+# the gem is installed: its Zr::Tar reads them.
+imported = [] #: Array[String]
 
 # Runs a command in the smoke directory, shows it, and stops the run
 # when it fails. Returns its stdout. A build for an imported target must
@@ -101,6 +102,12 @@ abort "smoke: the install fetched a gem; zr must have no dependencies" if instal
 lib = File.join(env["GEM_HOME"], "gems", File.basename(gem_file, ".gem"), "lib")
 require File.join(lib, "zr/version.rb")
 require File.join(lib, "zr/target.rb")
+require File.join(lib, "zr/tar.rb")
+imported.replace(bundles.map do |bundle|
+  Zlib::GzipReader.open(bundle) do |gz|
+    Zr::Tar.each(gz) { |name, size| break JSON.parse(gz.read(size)).fetch("target") if name == "manifest.json" }
+  end
+end)
 version = run.(zr, "version")
 want = "zr #{Zr::VERSION} (for ruby #{Zr::RUBY_PIN})\n"
 abort "smoke: zr version printed #{version.inspect}, not #{want.inspect}" unless version == want
