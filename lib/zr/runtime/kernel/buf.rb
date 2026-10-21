@@ -38,7 +38,7 @@ module Zr::Kern
   #: (ptr) -> void
   def zr_buf_free(b)
     if !zr_buf_inline_p(b)
-      zr_xfree(Buf[b].ptr)
+      zr_sized_xfree(Buf[b].ptr, Buf[b].capa)
     end
     Buf[b].ptr = 0
     Buf[b].len = 0
@@ -56,7 +56,7 @@ module Zr::Kern
       p = zr_xmalloc(capa)
       zr_memcpy(p, Buf[b].ptr, Buf[b].len)
       if !zr_buf_inline_p(b)
-        zr_xfree(Buf[b].ptr)
+        zr_sized_xfree(Buf[b].ptr, Buf[b].capa)
       end
       Buf[b].ptr = p
       Buf[b].capa = capa

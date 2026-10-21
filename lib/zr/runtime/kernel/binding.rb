@@ -580,7 +580,7 @@ module Zr::Kern
       REnv[env].slots = slots
       REnv[env].nslots = n + 1
       zr_xfree(old_names)
-      zr_xfree(old_slots)
+      zr_sized_xfree(old_slots, n * 8)
       return Machine.value(QNIL)
     end
     table = zr_xmalloc(16)

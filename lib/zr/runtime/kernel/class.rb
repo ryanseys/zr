@@ -3714,7 +3714,7 @@ end
     elsif t == T_REGEXP
       zr_release_regexp(v)
     elsif t == T_ENV
-      zr_xfree(REnv[v].slots)
+      zr_sized_xfree(REnv[v].slots, REnv[v].nslots * 8)
     elsif t == T_DATA
       zr_release_data(v)
     elsif t == T_FILE
