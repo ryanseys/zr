@@ -55,14 +55,16 @@ module Zr
           { all:, days: }
         end
 
-        # What the cache holds, by kind, and its total.
+        # What the cache holds, by kind, and its total. One walk of the
+        # store gives each entry with its bytes.
         #: () -> void
         def size
-          files = Zr::Cache::Janitor.all
-          files.group_by { |path| Zr::Cache::Janitor.kind(path) }.sort_by { |_, group| -Zr::Cache::Janitor.bytes(group) }.each do |kind, group|
-            puts format("%6d MB  %5d  %s", Zr::Cache::Janitor.megabytes(group), group.size, kind)
+          entries = Zr::Cache::Store.entries
+          mb = ->(group) { group.sum(&:bytes) >> 20 }
+          entries.group_by { |entry| entry.kind.to_s }.sort_by { |_, group| -group.sum(&:bytes) }.each do |kind, group|
+            puts format("%6d MB  %5d  %s", mb[group], group.size, kind)
           end
-          puts format("%6d MB  %5d  in all, in %s", Zr::Cache::Janitor.megabytes(files), files.size, Paths.cache)
+          puts format("%6d MB  %5d  in all, in %s", mb[entries], entries.size, Paths.cache)
           wasmtime
         end
 
@@ -80,7 +82,7 @@ module Zr
         # used in the last `days`. With `all`, it deletes every file.
         #: (all: bool, days: Float | Integer) -> void
         def clean(all:, days:)
-          sizes = Zr::Cache::Janitor.all.to_h { |path| [path, Zr::Cache::Janitor.bytes([path])] }
+          sizes = Zr::Cache::Store.entries.to_h { |entry| [entry.path, entry.bytes] }
           gone = all ? Zr::Cache::Janitor.clear : Zr::Cache::Janitor.prune(days: days)
           freed = gone.sum { |path| sizes.fetch(path, 0) }
           puts format("deleted %d file(s), %d MB", gone.size, freed >> 20)
