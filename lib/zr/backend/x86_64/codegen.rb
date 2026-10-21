@@ -32,7 +32,7 @@ module Zr
       # stores first, so `gates_set` and `gates_enter` emit nothing.
       class Codegen
         # @rbs @f: IR::Function
-        # @rbs @defined: Set[String] | Native::Spelled
+        # @rbs @defined: Set[String] | Native::Spelled | Native::Joined
         # @rbs @allocate: bool
         # @rbs @asm: Assembler
         # @rbs @relocs: Array[Obj::Reloc]

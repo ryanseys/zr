@@ -33,7 +33,7 @@ module Zr
 
         # Returns one function's machine code. `defined` returns true when a
         # symbol is defined in this unit.
-        #: (IR::Function function, Set[String] | Spelled defined, ?allocate: bool) -> Obj::Code
+        #: (IR::Function function, Set[String] | Spelled | Joined defined, ?allocate: bool) -> Obj::Code
         def assemble(function, defined, allocate: true)
           imported = function.callees.find(&:from)
           raise Refused, "#{imported.symbol} is a wasm import from #{imported.from}, which no native link has" if imported
@@ -61,6 +61,24 @@ module Zr
 
         #: (String name) -> bool
         def include?(name) = name == entry || name.start_with?("#{entry}_")
+
+        #: () -> self
+        def to_set = self
+      end
+
+      # The names of two sets, as one, with no copy: a lowering piece
+      # (Cache::Lowering#made) defines its own names and the kernel's, and
+      # a union copied the kernel's tens of thousands for each piece.
+      class Joined
+        #: (Set[String] own, Set[String] fixed) -> void
+        def initialize(own, fixed)
+          @own = own
+          @fixed = fixed
+          freeze
+        end
+
+        #: (String name) -> bool
+        def include?(name) = @own.include?(name) || @fixed.include?(name)
 
         #: () -> self
         def to_set = self

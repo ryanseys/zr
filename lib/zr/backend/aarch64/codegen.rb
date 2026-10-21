@@ -38,7 +38,7 @@ module Zr
       # parallel moves.
       class Codegen
         # @rbs @f: IR::Function
-        # @rbs @defined: Set[String] | Native::Spelled
+        # @rbs @defined: Set[String] | Native::Spelled | Native::Joined
         # @rbs @far: bool
         # @rbs @allocate: bool
         # @rbs @asm: Assembler
@@ -146,7 +146,7 @@ module Zr
         # reference for the allocator: both modes must give the same result,
         # and the tests check it.
         # @rbs function: IR::Function
-        # @rbs defined: Array[String] | Set[String] | Native::Spelled
+        # @rbs defined: Array[String] | Set[String] | Native::Spelled | Native::Joined
         # @rbs assembler: singleton(Assembler)
         # @rbs far: bool
         # @rbs allocate: bool

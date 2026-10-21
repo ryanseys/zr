@@ -160,7 +160,7 @@ module Zr
         inliner.run
         called = functions.flat_map { |f| inliner.calls(f.name) }.uniq.select { |sym| @fixed.key?(sym) }
         named = (functions.flat_map { |f| f.callees.map(&:symbol) + f.globals.map(&:symbol) }).uniq
-        defined = own | @fixed_names
+        defined = Backend::Native::Joined.new(own, @fixed_names)
         # A code cache is only for this backend (`Cache::Code.for`).
         emitter = Backend::Native.for(@target)
         blobs = {} #: Hash[String, String]
