@@ -9,7 +9,9 @@ p Socket.unpack_sockaddr_in(Socket.pack_sockaddr_in(443, "::1"))
 p Socket.unpack_sockaddr_in(Socket.pack_sockaddr_in(0, "2001:db8::1"))
 p Socket.unpack_sockaddr_un(Socket.pack_sockaddr_un("/tmp/zr.sock"))
 p Socket.getaddrinfo("127.0.0.1", 80, nil, Socket::SOCK_STREAM)
-p Socket.getaddrinfo("localhost", "http", Socket::AF_INET, Socket::SOCK_STREAM).map { |r| r[0, 4] }
+# /etc/hosts gives localhost's rows and canonical name, so only the
+# address and the port are the same on each machine.
+p Socket.getaddrinfo("localhost", "http", Socket::AF_INET, Socket::SOCK_STREAM).map { |r| r.values_at(0, 1, 3) }.uniq
 p Socket.getnameinfo(Socket.pack_sockaddr_in(80, "127.0.0.1"), Socket::NI_NUMERICHOST | Socket::NI_NUMERICSERV)
 p Socket.gethostname.is_a?(String)
 

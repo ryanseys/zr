@@ -4,7 +4,10 @@
 # password's change time, the login class and the account's expiry.
 require "etc"
 p Etc::Passwd.members
-p Etc.getpwnam("root").to_a
+# root's shell is the machine's choice (/bin/sh, or /bin/bash on a CI
+# runner), so the row gives only that it is a path.
+root = Etc.getpwnam("root").to_a
+p root.values_at(0, 1, 2, 3, 4, 5, 7, 8, 9), root[6].start_with?("/")
 pw = Etc.getpwuid
 p [pw.change.class, pw.uclass.class, pw.expire.class, pw.to_a.size]
 
