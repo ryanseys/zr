@@ -96,6 +96,7 @@ module Zr
         def cref_klass(cref) = cref.klass
         def cref_definee(cref) = cref.klass
         def cref_lexical(cref) = cref
+        def walk_cref(here, _outer) = here
 
         PRIVATE = %i[initialize initialize_copy initialize_clone initialize_dup respond_to_missing?].freeze
 

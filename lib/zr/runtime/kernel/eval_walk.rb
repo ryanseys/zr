@@ -62,6 +62,10 @@ module Zr::Kern
   WALK_KEYWORDS = 256
   # The bits of Frame.line that hold the line (the node id is above them).
   WALK_LINE_MASK = 4294967295
+  # The node id of a frame in a walked eval: the walker keeps no spots,
+  # so a Location there is one in an eval whose lines were not kept
+  # (zr_frame_place_id), as a compiled eval's is.
+  WALK_EVAL_NODE = 4294967296
 
   #: (value, value, value, value, value, value) -> value
   def zr_walk_send_m(at, recv, name, args, blk, mode)
@@ -76,8 +80,12 @@ module Zr::Kern
     rec = Machine.slot(Frame.size)
     t = zr_task()
     Frame[rec].prev = Task[t].top
-    Frame[rec].meta = Machine.ptr(zr_fix2long(zr_ary_at(at, 0)))
+    meta = Machine.ptr(zr_fix2long(zr_ary_at(at, 0)))
+    Frame[rec].meta = meta
     Frame[rec].line = zr_fix2long(zr_ary_at(at, 1)) & WALK_LINE_MASK
+    if FrameMeta[meta].evaled != 0
+      Frame[rec].line = Frame[rec].line | WALK_EVAL_NODE
+    end
     Frame[rec].serial = 0
     Frame[rec].self = zr_ary_at(at, 2)
     Frame[rec].cref = Machine.value(QNIL)
@@ -90,6 +98,33 @@ module Zr::Kern
     r = zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, m, blk)
     Task[t].top = Frame[rec].prev
     r
+  end
+
+  # The cref of a walked block that class_exec or instance_exec runs:
+  # the crefs that the exec pushed (`eval`), over `outer`, the block's own
+  # cref. Without it, they were over the walker's, so a `class` keyword
+  # in the block defined its class in the walker's module.
+  #: (value, value) -> value
+  def zr_walk_cref_m(here, outer)
+    if RCref[here].eval == 0
+      return here
+    end
+    zr_walk_cref_onto(here, outer)
+  end
+
+  #: (value, value) -> value
+  def zr_walk_cref_onto(here, outer)
+    if RCref[here].eval == 0
+      return outer
+    end
+    rest = zr_walk_cref_onto(RCref[here].next, outer)
+    c = zr_cref_push(RCref[here].klass, rest)
+    RCref[c].vis = RCref[here].vis
+    RCref[c].modfn = RCref[here].modfn
+    RCref[c].eval = RCref[here].eval
+    RCref[c].entry = RCref[here].entry
+    RCref[c].lazy = RCref[here].lazy
+    c
   end
 
   # Eval support's own require (Hir::Require :hidden) from walked code:

@@ -534,7 +534,9 @@ module Zr
         # Methods that read the frame of their caller. The interpreter runs
         # in frames of its own files, not of the string, so a usual call
         # would return data for `tree.rb`. `frame_method` returns what the
-        # context knows (FROM_THE_FRAME) and refuses the rest (NO_FRAME).
+        # context knows (FROM_THE_FRAME). The rest (NO_FRAME) read the
+        # frame that the call runs under (`frame_at`), and are refused
+        # where the world pushes none.
         FROM_THE_FRAME = %i[block_given? iterator? __method__ __callee__ local_variables binding __dir__].freeze
         NO_FRAME = %i[caller caller_locations].freeze
 
@@ -545,7 +547,7 @@ module Zr
 
         def send_node(node, ctx)
           refuse(node, "a call under a refinement") if node.using
-          return frame_method(node, ctx) if bare?(node) && (FROM_THE_FRAME.include?(node.name) || NO_FRAME.include?(node.name))
+          return frame_method(node, ctx) if bare?(node) && (FROM_THE_FRAME.include?(node.name) || (NO_FRAME.include?(node.name) && !ctx.meta))
           return body_visibility(node, ctx) if bare?(node) && (VISIBILITY.key?(node.name) || node.name == :module_function)
           recv = node.recv ? walk(node.recv, ctx) : ctx.self_
           return World.nesting(ctx.cref) if node.name == :nesting && recv.equal?(::Module) && node.args.empty? && node.block.nil?
@@ -728,7 +730,7 @@ module Zr
         # @rbs return: value
         def run_block(node, ctx, args, kwargs, blk, lambda:, home: nil, here: nil, self_: nil)
           World.walk_enter
-          ctx = ctx.with(self_: self_, cref: here, name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
+          ctx = ctx.with(self_: self_, cref: World.walk_cref(here, ctx.cref), name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
           tag = node.__id__
           scope = Scope.new(node.locals)
           # A `yield` in a block calls the block of the method that

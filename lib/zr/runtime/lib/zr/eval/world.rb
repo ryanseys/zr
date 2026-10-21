@@ -47,6 +47,9 @@ module Zr
       def class_define(base, name, sup, given, scoped) = Primitive.zr_class_define_m(base, name, sup, given, scoped)
       def module_define(base, name, scoped) = Primitive.zr_module_define_scoped_m(base, name, scoped)
       def cref_lexical(cref) = Primitive.zr_cref_lexical(cref)
+      # The cref of a walked block that an exec runs (`here`), over the
+      # block's own (`outer`) in place of the walker's.
+      def walk_cref(here, outer) = Primitive.zr_walk_cref_m(here, outer)
       # The visibility that a `def` under `cref` gets: 0 public, 1 private,
       # 2 protected; and whether `module_function` requests a copy on
       # the singleton class.
