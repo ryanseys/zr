@@ -14,7 +14,6 @@ cli/lang/require/a_cleared_load_path_finds_no_file_of_rubys_library.rb	IO.popen:
 cli/lang/require/with_gems_off_rubygems_defines_gem_over_nothing.rb	IO.popen: pipe has no wasm form
 cli/stdlib/rbconfig/ruby_is_bindir_and_ruby_install_name.rb	RbConfig.ruby: a wasm guest has no ruby executable
 
-
 # A method that an eval defines runs in the walk's frames: an error in it
 # names the walk's methods (Tree#bind), where ruby names the def. Its
 # parameters, arity and inspect are the def's (World.describe).
@@ -22,8 +21,8 @@ lang/methods/a_block_parameter_of_nil_refuses_a_block_after_the_arity_and_keywor
 
 # A build of these programs for wasm needs more memory than the limit.
 
-# socket has no wasi part yet: `socket/constants` has no wasi table.
-cli/stdlib/socket/socket_loopback.rb	cannot load such file -- socket/constants
+# WASI preview 1 opens no socket.
+cli/stdlib/socket/socket_loopback.rb	socket(2) fails with ENOTSUP on wasi
 
 # The spec examples of the slice that CI runs on wasm32-wasi
 # (lang/methods, core/array, core/hash).
@@ -32,7 +31,6 @@ cli/stdlib/socket/socket_loopback.rb	cannot load such file -- socket/constants
 # C ruby on WASI uses it. macOS's libm wrote the expected output, and its
 # tan is up to 2 ulp from the exact value where musl's is within 1.
 core/math/a_float_or_an_integer_argument_is_answered_by_the_kernel_at.rb	tan(1) is 1.5574077246549023 with musl, 1.557407724654902 with macOS
-
 
 # callcc needs the whole stack, and a WASI module cannot reach it.
 core/array/iterators_raise_when_a_continuation_reenters_them.rb	callcc where the stack is out of reach is not implemented yet
