@@ -47,6 +47,10 @@ module Zr
       # prism and its files, which zr's own ports require.
       INTERNAL_PRISM = %r{\Aprism(?:/|\z)}
 
+      # The files of a feature in a root: its Ruby file, or the port of its
+      # C extension (`<feature>.so.rb`).
+      FILE_EXTS = %w[.rb .so.rb].freeze #: Array[String]
+
       # The ruby features that no library root here contains, and that
       # ruby did not load before the program. A require of one stops with
       # a message. The roots follow the environment, so each session reads
@@ -56,7 +60,7 @@ module Zr
         Session.current.memo([:missing_features, target.triple]) do
           roots = Library::Roots.stdlib(target)
           FEATURES.reject do |feature|
-            PRELOADED.include?(feature) || roots.any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
+            PRELOADED.include?(feature) || roots.any? { |root| FILE_EXTS.any? { |ext| File.file?(File.join(root, "#{feature}#{ext}")) } }
           end.sort.freeze
         end
       end
