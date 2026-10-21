@@ -1,11 +1,20 @@
 module Zr::Kern
-  # WASI signals. wasi-libc defines 64 of them, but a module receives none,
-  # so each signal keeps its default handler.
+  # WASI signals. wasi-libc defines 64 of them, with Linux's numbers. A
+  # module receives none, but it keeps each signal's handler, so trap
+  # returns the handler that it replaced, as on Linux. KILL and STOP
+  # take no handler.
   NSIG = 65
+  SIGNAL_KILL = 9
+  SIGNAL_STOP = 19
 
   #: (i32, word, ptr) -> i32
   def zr_os_sigaction(signo, fn, old)
-    Machine.store64(old, 0, 0)
+    if signo <= Machine.i32(0) || signo >= Machine.i32(NSIG) || signo == Machine.i32(SIGNAL_KILL) || signo == Machine.i32(SIGNAL_STOP)
+      return zr_wasi_fail(WASI_EINVAL)
+    end
+    at = Machine.static(:wasi_signal_handlers, NSIG * 8) + (Machine.u32(signo) * 8)
+    Machine.store64(old, 0, Machine.load64(at, 0))
+    Machine.store64(at, 0, fn)
     Machine.i32(0)
   end
 
