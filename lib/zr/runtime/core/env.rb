@@ -43,8 +43,9 @@ def $LOAD_PATH.resolve_feature_path(feature)
     native = map { |dir| File.expand_path("#{name}.#{Kernel.dlext}", dir.to_s) }.find { |file| Primitive.zr_path_kind(file) == 2 }
     return native && [:so, File.realpath(native)]
   end
+  # A build with no computed require has no extension directory.
   ext = Primitive.zr_load_names(3)
-  return [:so, "#{path.delete_suffix('.rb')}.#{Kernel.dlext}"] if !name.end_with?(".rb") && path.start_with?("#{ext}/")
+  return [:so, "#{path.delete_suffix('.rb')}.#{Kernel.dlext}"] if !ext.empty? && !name.end_with?(".rb") && path.start_with?("#{ext}/")
 
   [:rb, path]
 end
