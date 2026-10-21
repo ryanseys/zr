@@ -54,4 +54,10 @@ module Zr::Kern
     zr_memcpy(b + n, Machine.bytes("-linux-musl"), 11)
     zr_str_new(b, n + 11)
   end
+
+  # Math.cbrt: the libm's cbrt, as ruby gives it here.
+  #: (f64) -> f64
+  def zr_os_cbrt(x)
+    Libc.cbrt(x)
+  end
 end

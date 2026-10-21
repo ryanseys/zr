@@ -1230,7 +1230,7 @@ module Zr::Kern
       c = zr_float_value(y)
     end
     if w == 1
-      return zr_float_new(Libc.cbrt(a))
+      return zr_float_new(zr_os_cbrt(a))
     elsif w == 2
       return zr_float_new(Libc.sin(a))
     elsif w == 3

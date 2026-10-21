@@ -9,4 +9,10 @@ module Zr::Kern
   def zr_os_sinpi(x)
     zr_sin_of_pi_times(x)
   end
+
+  # Math.cbrt: the libm's cbrt, as ruby gives it here.
+  #: (f64) -> f64
+  def zr_os_cbrt(x)
+    Libc.cbrt(x)
+  end
 end

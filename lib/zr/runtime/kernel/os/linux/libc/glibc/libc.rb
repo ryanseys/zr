@@ -70,4 +70,18 @@ module Zr::Kern
     zr_memcpy(b + n, Machine.bytes("-linux"), 6)
     zr_str_new(b, n + 6)
   end
+
+  # 3.0, for math_cbrt.
+  THREE_BITS = 4613937818241073152
+
+  # Math.cbrt: math_cbrt takes one Newton step after glibc's cbrt, which
+  # can be one ulp off (glibc gives 3.0000000000000004 for 27.0).
+  #: (f64) -> f64
+  def zr_os_cbrt(x)
+    r = Libc.cbrt(x)
+    if !zr_nan_p(r) && !zr_inf_p(r) && !(x == Machine.f64(0) && r == Machine.f64(0))
+      r = (r + r + x / r / r) / Machine.f64(THREE_BITS)
+    end
+    r
+  end
 end
