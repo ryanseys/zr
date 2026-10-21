@@ -423,13 +423,19 @@ module Kernel
     dir.encoding == file.encoding ? dir : dir.dup.force_encoding(file.encoding)
   end
 
-  # The real directory of `file`, a name from the starting directory.
+  # The real directory of `file`, a name from the starting directory. A
+  # file of ruby's library below the build's home (/zr/vendor/ruby for an
+  # install) keeps the build's spelling, as its frames' paths do:
+  # realpath would name the home on this machine (`Kernel.on_disk`), and
+  # debug.gem skips its own frames by `__dir__`. zr's own files (eval
+  # support's compiler) keep the real path, which they read from.
   def self.file_dir(file)
     Primitive.attr! :hidden
     start = Primitive.zr_start_dir
     FILE_DIRS[file] ||= begin
       path = File.expand_path(file, start.is_a?(String) ? start : "/")
-      File.dirname(File.realpath(path))
+      built = path.start_with?("#{Kernel.send(:built_home)}/") && !Kernel.on_disk(path).equal?(path)
+      File.dirname(built ? path : File.realpath(path))
     rescue SystemCallError
       File.dirname(path)
     end
