@@ -13,7 +13,7 @@ module Zr
           attr_reader homes: Array[untyped]
           attr_reader meta: Integer
           attr_reader params: Hir::Params?
-          attr_reader open: bool
+          attr_reader in_env: bool
           attr_reader line: Integer
           attr_reader values: Integer
           attr_reader blank: Array[Integer]
@@ -25,7 +25,7 @@ module Zr
                       | (**untyped) -> instance
         end
 
-        # `env` is nil when the locals are in the record, and `proc` is
+        # `env` is nil when the locals are in the record, and `block_proc` is
         # nil but in a block's run.
         class Frame < Struct[untyped]
           attr_accessor rec: Integer
@@ -33,7 +33,7 @@ module Zr
           attr_accessor self_: Integer
           attr_accessor cref: Integer
           attr_accessor blk: Integer
-          attr_accessor proc: Integer?
+          attr_accessor block_proc: Integer?
           attr_accessor outer: Integer
           attr_accessor stack: Stack
           attr_accessor opened: Symbol?

@@ -12,7 +12,7 @@ module Zr
         # the def or toplevel (`scopes`, innermost first), and the HIR node
         # of each (`homes`: a block reads from them how often each outer
         # local is bound). Its FrameMeta, its parameters, whether its locals
-        # are in an Env (`open`), and the first `line` word of its record.
+        # are in an Env (`in_env`), and the first `line` word of its record.
         # Its record holds `values` Values: the Env, or each local, which
         # starts as `blank` gives it. `names` is the id table of its locals,
         # which its Env holds.
@@ -24,7 +24,7 @@ module Zr
         # The fields of Scope and Frame are typed in
         # sig/zr/machine/host/walk/frames.rbs, the methods here.
         # @rbs skip
-        Scope = Data.define(:node, :unit, :def_node, :kind, :scopes, :homes, :meta, :params, :open, :line, :values, :blank, :names,
+        Scope = Data.define(:node, :unit, :def_node, :kind, :scopes, :homes, :meta, :params, :in_env, :line, :values, :blank, :names,
                             :loops, :rescues)
 
         class Scope
@@ -49,7 +49,7 @@ module Zr
         # Stack it runs on. `opened` and `ret_line` are for its TracePoint
         # events. A `return` throws to the Frame of its scope.
         # @rbs skip
-        Frame = Struct.new(:rec, :env, :self_, :cref, :blk, :proc, :outer, :stack, :opened, :ret_line)
+        Frame = Struct.new(:rec, :env, :self_, :cref, :blk, :block_proc, :outer, :stack, :opened, :ret_line)
 
         # The frames of the walker's code. Each run of a scope has a record
         # in the slot area, linked from the task, and a heap Env for its
@@ -103,7 +103,7 @@ module Zr
             loops = [] #: Array[untyped]
             rescues = [] #: Array[Integer]
             Scope.new(node: node, unit: unit, def_node: def_node, kind: kind, scopes: scopes, homes: homes, meta: meta,
-                      params: params, open: open, line: m[meta].line | (m[meta].node << 32), values: values,
+                      params: params, in_env: open, line: m[meta].line | (m[meta].node << 32), values: values,
                       blank: Array.new([values, 1].max, @qnil).freeze, names: id_table(scopes.first), loops: loops, rescues: rescues)
           end
 
@@ -208,7 +208,7 @@ module Zr
               @task_refine.call(t, @qnil)
               @task_set_top.call(t, rec)
               begin
-                if s.open
+                if s.in_env
                   env ||= k.zr_env_new(outer, s.locals.size, s.names)
                   Memory.set_word(rec + @record, env)
                 end
@@ -327,7 +327,7 @@ module Zr
           #: (Frame f, Symbol event) -> Integer
           def event_word(f, event)
             bit = EVENTS.fetch(event)
-            f.opened == :block && f.proc && lambda_proc?(f.proc) ? bit | LAMBDA : bit
+            f.opened == :block && f.block_proc && lambda_proc?(f.block_proc) ? bit | LAMBDA : bit
           end
 
           # The closing event of a scope that leaves with `v`: at the line of

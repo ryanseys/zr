@@ -422,7 +422,7 @@ module Zr
           def local_get(name, depth, s)
             i = s.scopes.fetch(depth).index(name) or return unsupported("no local #{name} at depth #{depth}")
             at = i * 8
-            if depth.zero? && !s.open
+            if depth.zero? && !s.in_env
               at += @record
               return ->(f) { Memory.word(f.rec + at) }
             end
@@ -451,7 +451,7 @@ module Zr
           def local_store(name, depth, s)
             i = s.scopes.fetch(depth).index(name) or return ->(_, _) { raise Unsupported, "no local #{name} at depth #{depth}" }
             at = i * 8
-            if depth.zero? && !s.open
+            if depth.zero? && !s.in_env
               at += @record
               return lambda do |f, v|
                 Memory.set_word(f.rec + at, v)

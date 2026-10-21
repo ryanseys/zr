@@ -56,7 +56,7 @@ module Zr
             block = block_store(p, s)
             at = @record
             slots = @env_slots
-            open = s.open
+            open = s.in_env
             lambda do |f, argc, argv|
               t = task
               kw = @task_kw.call(t)
@@ -136,7 +136,7 @@ module Zr
             guarded = spread && !p.simple?
             node = s.node
             lambda do |f, argc, argv, blk|
-              strict = lambda_proc?(f.proc)
+              strict = lambda_proc?(f.block_proc)
               t = task
               kw = @task_kw.call(t)
               @task_set_kw.call(t, 0)

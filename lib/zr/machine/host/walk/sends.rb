@@ -471,8 +471,8 @@ module Zr
             lambda do |f|
               p = f.stack.take(size)
               serial = @kern.zr_frame_serial(f.rec)
-              ret_home, ret_serial = if inner && !lambda_proc?(f.proc)
-                                       [Memory.word(f.proc + @proc_ret_home), Memory.word(f.proc + @proc_ret_serial)]
+              ret_home, ret_serial = if inner && !lambda_proc?(f.block_proc)
+                                       [Memory.word(f.block_proc + @proc_ret_home), Memory.word(f.block_proc + @proc_ret_serial)]
                                      else
                                        [f.rec, serial]
                                      end

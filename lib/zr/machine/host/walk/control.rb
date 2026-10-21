@@ -177,9 +177,9 @@ module Zr
               lambda do |f|
                 v = value.call(f)
                 line!(f, word)
-                jump(nil) { throw f, v } if lambda_proc?(f.proc)
+                jump(nil) { throw f, v } if lambda_proc?(f.block_proc)
 
-                check(@kern.zr_return(f.proc, v))
+                check(@kern.zr_return(f.block_proc, v))
               end
             else
               lambda do |f|
@@ -204,9 +204,9 @@ module Zr
 
             lambda do |f|
               v = value.call(f)
-              jump(nil) { throw f, v } if lambda_proc?(f.proc)
+              jump(nil) { throw f, v } if lambda_proc?(f.block_proc)
 
-              check(@kern.zr_break(f.proc, v))
+              check(@kern.zr_break(f.block_proc, v))
             end
           end
 
