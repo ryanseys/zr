@@ -1004,35 +1004,41 @@ module Zr::Kern
     end
     hidden = kind == 3 || zr_hidden_now()
     visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
+    # The name that the file is listed under: the path, or for the port of
+    # a C extension, ruby's name of the extension. The file runs, and
+    # rubygems activates it, by its path.
+    listed = path
     if kind != 2
-      while !hidden && zr_ary_has_string(visible, path)
-        r = zr_feature_wait(path)
+      listed = zr_port_feature(path)
+      return listed if listed == QUNDEF
+      while !hidden && zr_ary_has_string(visible, listed)
+        r = zr_feature_wait(listed)
         return r if r != QNIL
       end
-      if zr_ary_has_string(visible, path) || (hidden && zr_hidden_p(path))
+      if zr_ary_has_string(visible, listed) || (hidden && zr_hidden_p(listed))
         return Machine.value(QFALSE)
       end
       if hidden
-        zr_hidden_add(path)
+        zr_hidden_add(listed)
       else
-        if zr_hidden_p(path)
+        if zr_hidden_p(listed)
           if kind == 0
             r = zr_gem_activating(path)
             return r if r == QUNDEF
           end
-          zr_feature_reveal(path)
-          zr_autoload_provided(Machine.value(QNIL), path)
+          zr_feature_reveal(listed)
+          zr_autoload_provided(Machine.value(QNIL), listed)
           return Machine.value(QTRUE)
         end
-        real = zr_feature_real_path(path)
+        real = zr_feature_real_path(listed)
         if zr_real_feature_p(visible, real)
           return Machine.value(QFALSE)
         end
-        zr_real_feature_add(real, path)
+        zr_real_feature_add(real, listed)
         # A frozen list takes no entry; the file runs, then the require
         # raises where ruby's rb_provide_feature does.
         if !zr_frozen_p(visible)
-          zr_ary_push(visible, path)
+          zr_ary_push(visible, listed)
         end
       end
     end
@@ -1041,14 +1047,14 @@ module Zr::Kern
     # no loader, and its require returns false before the file runs.
     loading = kind != 2 && !hidden
     if loading
-      zr_ary_push(zr_global_list(G_LOADING_FEATURES), path)
+      zr_ary_push(zr_global_list(G_LOADING_FEATURES), listed)
       zr_ary_push(zr_global_list(G_LOADING_FEATURES), zr_fix(Machine.word(zr_task())))
     end
     if kind == 0 && !hidden
       r = zr_gem_activating(path)
       if r == QUNDEF
-        zr_feature_loaded(path) if loading
-        zr_ary_delete_string(visible, path)
+        zr_feature_loaded(listed) if loading
+        zr_ary_delete_string(visible, listed)
         return r
       end
     end
@@ -1058,7 +1064,7 @@ module Zr::Kern
     if !hidden
       r = zr_trace_required(path, kind, zr_unit_meta(fn))
       if r == QUNDEF
-        zr_feature_loaded(path) if loading
+        zr_feature_loaded(listed) if loading
         return r
       end
     end
@@ -1073,15 +1079,15 @@ module Zr::Kern
       mid = kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require))
     end
     r = zr_run_top(fn, mid)
-    zr_feature_loaded(path) if loading
+    zr_feature_loaded(listed) if loading
     Machine.store64(zr_loading(), 0, outer)
     Machine.store64(zr_hidden_loader(), 0, outer_hidden)
     if r == QUNDEF
       # The files that it required stay loaded.
       if kind != 2 && hidden
-        zr_hidden_forget(path)
+        zr_hidden_forget(listed)
       elsif kind != 2
-        zr_ary_delete_string(visible, path)
+        zr_ary_delete_string(visible, listed)
       end
       return r
     end
@@ -1098,12 +1104,31 @@ module Zr::Kern
         if zr_frozen_p(visible)
           return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("$LOADED_FEATURES is frozen; cannot append feature"), 49)
         end
-        zr_ary_delete_string(visible, path)
-        zr_ary_push(visible, path)
+        zr_ary_delete_string(visible, listed)
+        zr_ary_push(visible, listed)
       end
-      zr_autoload_provided(Machine.value(QNIL), path)
+      zr_autoload_provided(Machine.value(QNIL), listed)
     end
     Machine.value(QTRUE)
+  end
+
+  # The name that ruby lists the file at `path` under: for the port of a
+  # C extension (`<feature>.so.rb`), its `<archdir>/<feature>.<dlext>`
+  # (Kernel.port_feature); for any other file, `path`. QUNDEF when that
+  # raised. A value that is no String is its own name.
+  #: (value) -> value
+  def zr_port_feature(path)
+    if zr_special_p(path) || zr_type(path) != T_STRING
+      return path
+    end
+    len = RString[path].len
+    if len < 6 || !zr_bytes_eq(RString[path].ptr + len - 6, 6, Machine.bytes(".so.rb"), 6)
+      return path
+    end
+    args = Machine.slot(8)
+    Machine.store64(args, 0, Machine.word(path))
+    r = zr_send(zr_global(G_KERNEL), Machine.id(:port_feature), 1, args)
+    r == QNIL ? path : r
   end
 
   # Runs the file's toplevel under the frame of the Kernel method `mid`,

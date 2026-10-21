@@ -362,6 +362,23 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     nil
   end
 
+  # The name that ruby lists the C extension under whose port is at
+  # `path` (`<feature>.so.rb` under a root of ports): its file in ruby's
+  # archdir, `<archdir>/<feature>.<dlext>`, as rb_provide_feature lists
+  # it. nil for any other path.
+  def self.port_feature(path)
+    Primitive.attr! :hidden
+    return nil unless path.end_with?(".so.rb")
+
+    library_roots[0].each do |dir|
+      next unless dir.start_with?("*")
+
+      root = "#{dir.delete_prefix("*")}/"
+      return "#{archdir}/#{path.delete_prefix(root).delete_suffix(".so.rb")}.#{dlext}" if path.start_with?(root)
+    end
+    nil
+  end
+
   # `name` looked for as ruby looks: a path that says where it starts is
   # taken from there; any other name under each $LOAD_PATH directory and
   # the library the program was compiled against.
@@ -613,7 +630,8 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # is found once.
   def self.feature_file(feature)
     Primitive.attr! :hidden
-    feature_path(feature)
+    path = feature_path(feature)
+    path && (port_feature(path) || path)
   rescue LoadError
     nil
   end
@@ -635,8 +653,9 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # entry is pending. This is the same check, done once, where both the
     # name and its resolved file are available. A file that is still
     # loading is not provided yet.
-    if kind != 2 && Primitive.zr_table_member_p($LOADED_FEATURES, path) && Primitive.zr_feature_loader(path).nil?
-      Primitive.zr_autoload_provided(feature, path)
+    listed = kind == 2 ? path : port_feature(path) || path
+    if kind != 2 && Primitive.zr_table_member_p($LOADED_FEATURES, listed) && Primitive.zr_feature_loader(listed).nil?
+      Primitive.zr_autoload_provided(feature, listed)
       return false
     end
 
@@ -645,7 +664,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # A file that a require is running now goes on to the kernel, which
     # waits for that require as ruby does.
     loaded = Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
-    Primitive.zr_autoload_provided(feature, path) if kind != 2
+    Primitive.zr_autoload_provided(feature, listed) if kind != 2
     loaded
   end
 

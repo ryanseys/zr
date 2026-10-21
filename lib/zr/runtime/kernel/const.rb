@@ -1750,7 +1750,7 @@ module Zr::Kern
     # The file is loading in this task, and defines the name as it runs, as
     # autoload_load_needed declines for the thread that loads the feature.
     # For another task, the record waits until that load ends.
-    zr_feature_loader(zr_ary_at(rows, i + 5)) != zr_fix(Machine.word(zr_task()))
+    zr_feature_loader(zr_port_feature(zr_ary_at(rows, i + 5))) != zr_fix(Machine.word(zr_task()))
   end
 
   # rb_mod_init_copy: the copy of a module shares the autoload table of its
@@ -1828,8 +1828,10 @@ module Zr::Kern
       return
     end
     kept = zr_ary_at(rows, i + 2)
+    # A port's file is provided under ruby's name for it (zr_require_run).
+    listed = zr_port_feature(zr_ary_at(rows, i + 5))
     while seen < n && zr_fix2long(zr_ary_at(rows, i + 4)) != AUTOLOAD_DECLARED
-      if (zr_autoload_names(kept, zr_ary_at(provided, seen)) || zr_autoload_names(zr_ary_at(rows, i + 5), zr_ary_at(provided, seen + 1))) &&
+      if (zr_autoload_names(kept, zr_ary_at(provided, seen)) || zr_autoload_names(listed, zr_ary_at(provided, seen + 1))) &&
          !zr_autoload_read_in(kept, zr_fix2long(zr_ary_at(provided, seen + 2)))
         zr_ary_store(rows, i + 4, zr_fix(AUTOLOAD_DECLARED))
       end

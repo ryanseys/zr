@@ -36,6 +36,3 @@ core/math/a_float_or_an_integer_argument_is_answered_by_the_kernel_at.rb	tan(1) 
 core/array/iterators_raise_when_a_continuation_reenters_them.rb	callcc where the stack is out of reach is not implemented yet
 core/array/a_sort_that_a_continuation_reenters_raises_sort_reentered.rb	callcc where the stack is out of reach is not implemented yet
 
-# A port that stands in for a C extension is listed in $LOADED_FEATURES
-# under its own path (digest.so.rb, md5.rb), not as archdir/<name>.so.
-stdlib/digest/a_digest_named_at_run_time_loads_the_same_c_as_one_required_by_name.rb	ports are listed by their own path, not as <name>.so
