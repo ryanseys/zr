@@ -1468,6 +1468,13 @@ module Zr::Kern
     out
   end
 
+  # Whether zr_time_local gives the zone at any time, or only at a time
+  # that fits in an int (zr_os_localtime_wide).
+  #: () -> value
+  def zr_time_local_wide
+    zr_bool(zr_os_localtime_wide() != 0)
+  end
+
   # `exit!`: the process ends immediately, and no handler runs.
   #: (value) -> value
   def zr_exit_now(status)

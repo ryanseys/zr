@@ -21,6 +21,13 @@ module Zr::Kern
     0
   end
 
+  # Whether localtime_r gives the zone at any time: no, as on darwin,
+  # whose recordings the wasi target compares with (Time.zone_at).
+  #: () -> word
+  def zr_os_localtime_wide
+    0
+  end
+
   # WASI has no locale: the core gives the codeset that wasi-libc, a musl,
   # would give (Encoding.locale_charmap).
   #: () -> value

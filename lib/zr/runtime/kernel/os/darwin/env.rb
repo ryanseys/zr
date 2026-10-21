@@ -25,6 +25,13 @@ module Zr::Kern
     1
   end
 
+  # Whether localtime_r gives the zone at any time: no, ruby on darwin
+  # calls it only for a time that fits in an int (Time.zone_at).
+  #: () -> word
+  def zr_os_localtime_wide
+    0
+  end
+
   # The locale's codeset, as ruby's main sets it: setlocale(LC_CTYPE, "")
   # from the environment, then nl_langinfo(CODESET). LC_CTYPE is 2 and
   # CODESET is 0 in darwin's headers.

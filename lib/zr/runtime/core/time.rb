@@ -599,13 +599,15 @@ class Time
     end
 
     # The zone's offset, daylight flag and name at `secs`, as localtimew
-    # finds them. On this platform rb_localtime_r works only for a time
-    # that fits in an int, and guess_local_offset is used past that. No
-    # zone kept daylight time before 1916, so an earlier time takes the
-    # epoch's zone. A time past 2038 takes the zone of the year before
-    # 2038 whose month starts on the same day of the week.
+    # finds them. On Linux rb_localtime_r works for any time. On darwin it
+    # works only for a time that fits in an int, and guess_local_offset
+    # is used past that. No zone kept daylight time before 1916, so an
+    # earlier time takes the epoch's zone. A time past 2038 takes the
+    # zone of the year before 2038 whose month starts on the same day of
+    # the week.
     def zone_at(secs)
       return Primitive.zr_time_local(secs) if secs >= -0x8000_0000 && secs <= 0x7fff_ffff
+      return Primitive.zr_time_local(secs) if Primitive.zr_time_local_wide && secs.is_a?(Integer) && secs.bit_length < 62
 
       year, month, day = civil_from_days(secs.div(86_400))
       return Primitive.zr_time_local(0) if year < 1916

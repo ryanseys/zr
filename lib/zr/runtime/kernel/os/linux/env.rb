@@ -20,6 +20,14 @@ module Zr::Kern
     0
   end
 
+  # Whether localtime_r gives the zone at any time: it does on Linux,
+  # where ruby's localtimew calls it for each time that fits in a
+  # time_t, so a year before 1883 takes the zone's local mean time.
+  #: () -> word
+  def zr_os_localtime_wide
+    1
+  end
+
   # The locale's codeset, as ruby's main sets it: setlocale(LC_CTYPE, "")
   # from the environment, then nl_langinfo(CODESET). LC_CTYPE is 0 and
   # CODESET is 14 in musl's headers.
