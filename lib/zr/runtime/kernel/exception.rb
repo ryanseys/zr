@@ -299,12 +299,17 @@ end
     !zr_special_p(me) && (zr_type(me) == T_OBJECT || zr_type(me) == T_RATIONAL || zr_type(me) == T_COMPLEX) && me != Frame[helper].self
   end
 
-  # Whether `rec` runs a helper: a hidden def, or a block written in one.
+  # Whether `rec` runs a helper: a hidden def, a block written in one, or
+  # a frame that shows in no backtrace.
   # A block of the core library is also hidden, and its parent refers to
   # the def that contains it. A def has no parent.
   #: (ptr) -> bool
   def zr_frame_helper_p(rec)
     meta = Frame[rec].meta
+    # Eval support's own code is a helper too (Lower::Function#walker_frame?).
+    if FrameMeta[meta].frameless != 0
+      return true
+    end
     while FrameMeta[meta].kind == KIND_HIDDEN && FrameMeta[meta].parent != 0
       meta = FrameMeta[meta].parent
     end
@@ -1191,11 +1196,23 @@ end
     zr_frame_places(Task[t].top, zr_fix2long(start), zr_fix2long(limit))
   end
 
+  # The levels left to skip after `rec`, the frame that asks for its
+  # callers: it is level 0 even when it does not show, because eval
+  # support (`frameless`) called it, as `caller_locations` that the eval
+  # compiler calls. A private helper of the core library stays no level.
+  #: (ptr, word) -> word
+  def zr_frame_first_level(rec, start)
+    if rec == 0 || start == 0 || zr_frame_shown_p(rec) || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN
+      return start
+    end
+    start - 1
+  end
+
   # The places of the shown frames from `rec` down, past the first
   # `skip` levels, at most `room` of them (no limit when negative).
   #: (ptr, word, word) -> value
   def zr_frame_places(top, skip, room)
-    left = skip
+    left = zr_frame_first_level(top, skip)
     rec = top
     out = zr_ary_new(8)
     while rec != 0 && (room < 0 || RArray[out].len < room * 2)
@@ -1623,6 +1640,7 @@ end
     end
     out = zr_ary_new(8)
     rec = Frame[Task[zr_task()].top].prev
+    start = zr_frame_first_level(rec, start)
     while rec != 0
       if zr_frame_shown_p(rec)
         levels = zr_frame_levels(rec)

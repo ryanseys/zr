@@ -87,6 +87,8 @@ module Zr
       # The plain Ruby `World`.
       module Methods
         CALLER = :caller_cref
+        # A block with no locals around it (`bare_binding`).
+        BARE = proc { binding }
 
         def cref = CALLER
         def same?(a, b) = a.equal?(b) || a == CALLER || b == CALLER
@@ -111,8 +113,20 @@ module Zr
         end
 
         def set_module_function(cref) = cref.modfn = true
+        def require_hidden(path) = require(path)
+        def errinfo = $!
         def walk_enter = nil
         def walk_leave = nil
+        # CRuby shows the walker's own frames: there is no frame to push.
+        def walk_meta(_kind, _name, _owner, _parent, file:, evaled:) = nil
+        def eval_caller_meta = nil
+
+        def walk_send(_at, recv, name, args, kwargs:, blk:, private:)
+          kwargs ||= {}
+          private ? recv.__send__(name, *args, **kwargs, &blk) : recv.public_send(name, *args, **kwargs, &blk)
+        end
+
+        def bare_binding(obj) = obj.instance_exec(&BARE)
         def walk_signature(_method, _rows, _arity) = nil
 
         def singleton_of(obj)

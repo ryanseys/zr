@@ -97,12 +97,12 @@ module Zr
         # build exits with status 3 and gives the line. Here the program is
         # running, so it gets an error that it can rescue.
         syntax = SyntaxError.new(e.message)
-        syntax.set_backtrace(caller_locations(1))
+        syntax.set_backtrace(caller_locations(0))
         raise syntax
       rescue SyntaxError => e
         # The backtrace starts at the eval call, unless the error refers
         # only to the string (for example, a stray `yield`).
-        e.set_backtrace(caller_locations(1)) unless e.backtrace == [e.path]
+        e.set_backtrace(caller_locations(0)) unless e.backtrace == [e.path]
         raise e
       end
 

@@ -197,6 +197,11 @@ module Zr
       #: (Loader loader, ?Target target) -> Require
       def self.eval_require(loader, target = Target.default)
         path = Library::Roots.eval_file(target)
+        # A string that the walker runs and that names
+        # RubyVM::AbstractSyntaxTree requires the translator as it runs
+        # (`ast_translator`). The translator calls Primitive, which only
+        # compiled code can, so the program carries it compiled.
+        loader.hidden(SYNTAX_TREE) if path == Library::Roots::EVAL_INTERPRETER
         Require.new(:hidden, "zr/eval", path, loader.hidden(path), 0)
       end
 

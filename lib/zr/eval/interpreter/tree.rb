@@ -28,6 +28,7 @@ module Zr
         # @rbs @once: Hash[Hir::Once, value]?
         # @rbs @regexps: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]?
         # @rbs @svars: svars?
+        # @rbs @loaded: bool
 
         # A form that the interpreter does not support yet, with its
         # location. The contract lets zr refuse, but not guess.
@@ -146,17 +147,36 @@ module Zr
         # `next` and `redo` leave. `home` marks the method that a `return`
         # leaves; it is nil when there is no such method. `svars` is the
         # `[$~, $_]` cell of a method or body that the string defines; nil
-        # is the cell of the frame that called eval.
+        # is the cell of the frame that called eval. `meta` is the FrameMeta
+        # of the scope (`scope_meta`), under which a call from it runs.
         # @rbs skip -- typed in sig/zr/eval/interpreter/tree.rbs
-        Ctx = Data.define(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home, :svars)
+        Ctx = Data.define(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home, :svars, :meta)
 
         # `frame` is the Binding of the frame that called eval: the scope
         # that a `return`, `$~` and `binding` of the string belong to.
-        #: (String file, Binding frame) -> void
-        def initialize(file, frame)
+        # `loaded` marks a file that a require walks, which has an absolute
+        # path, where an eval's code has none.
+        #: (String file, Binding frame, ?loaded: bool) -> void
+        def initialize(file, frame, loaded: false)
           @file = file
           @frame = frame
+          @loaded = loaded
         end
+
+        # The FrameMeta of a scope of the walked code, as World.walk_meta
+        # gives it (nil on CRuby), made once for each scope: `kind` and
+        # `name` as the compiler gives them, the `owner` of a method, and
+        # the meta of the scope around a block (or of eval's caller).
+        #: (Symbol kind, Symbol? name, Module? owner, Integer? parent) -> Integer?
+        def scope_meta(kind, name, owner, parent)
+          key = [kind, name, owner, parent, @file, @loaded]
+          metas = Eval.walk_metas
+          metas.fetch(key) { metas[key] = World.walk_meta(kind, name, owner, parent, file: @file, evaled: !@loaded) }
+        end
+
+        # The frame of a call from the walked code at `line`, or nil.
+        #: (Ctx ctx, Integer line) -> Array[untyped]?
+        def frame_at(ctx, line) = ctx.meta && [ctx.meta, line, ctx.self_]
 
         # Runs `hir` in `ctx` and returns the value of its body.
         #: (Hir::Program hir, Ctx ctx) -> value
@@ -218,8 +238,8 @@ module Zr
           when Hir::AttrOpAssign then attr_op_assign(node, ctx)
           when Hir::Alias then alias_node(ctx, node.new_name, node.old_name)
           when Hir::AliasValue then alias_node(ctx, walk(node.new_name, ctx), walk(node.old_name, ctx))
-          when Hir::Undef then undef_node(ctx, node.names)
-          when Hir::UndefValue then undef_node(ctx, node.names.map { |n| walk(n, ctx) })
+          when Hir::Undef then undef_node(ctx, node.names, node.line)
+          when Hir::UndefValue then undef_node(ctx, node.names.map { |n| walk(n, ctx) }, node.line)
           when Hir::Core then ::Object.const_get(node.name)
           when Hir::Once then once(node, ctx)
           when Hir::Stop then raise ::NotImplementedError, "#{@file}:#{node.line}: #{node.what}"
@@ -321,6 +341,9 @@ module Zr
         def gvar_read(node, ctx)
           slot = FRAME_GLOBALS[node.name]
           return svars(ctx)[slot] if slot
+          # The task's raise, which the walker's rescue set, as compiled
+          # code reads it.
+          return World.errinfo if node.name == :$!
 
           World.gvar_get(node.name)
         end
@@ -532,7 +555,7 @@ module Zr
           args = elements(node.args, ctx)
           kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil
           block = block_for(node.block, ctx)
-          call(recv, node.name, args, kwargs, block, private: private_call?(node), vcall: node.vcall,
+          call(recv, node.name, args, kwargs, block, private: private_call?(node), at: frame_at(ctx, node.line), vcall: node.vcall,
                                                      breaks: node.block.is_a?(Hir::Block) && node.block,
                                                      svars: (svars(ctx) if svar_send?(recv, node.name)))
         end
@@ -578,7 +601,7 @@ module Zr
         # a later write in the string does not reach it.
         def scope_binding(ctx)
           caller = ctx.chain.any?(Held) && World.same?(ctx.self_, @frame.receiver)
-          scope = caller ? @frame.dup : ctx.self_.instance_exec(&BARE_BINDING)
+          scope = caller ? @frame.dup : World.bare_binding(ctx.self_)
           ctx.chain.each do |held|
             next if caller && held.is_a?(Held)
 
@@ -586,10 +609,6 @@ module Zr
           end
           scope
         end
-
-        # A Binding with no locals, of the self that `instance_exec` gives.
-        BARE_BINDING = proc { binding }
-        private_constant :BARE_BINDING
 
         def body_visibility(node, ctx)
           node.name == :module_function ? World.set_module_function(ctx.cref) : World.set_vis(ctx.cref, VISIBILITY.fetch(node.name))
@@ -626,15 +645,14 @@ module Zr
         # @rbs vcall: bool
         # @rbs breaks: Hir::Block | false | nil
         # @rbs svars: svars?
+        # @rbs at: Array[untyped]?
         # @rbs return: value
-        def call(recv, name, args, kwargs, block, private:, vcall: false, breaks: nil, svars: nil)
+        def call(recv, name, args, kwargs, block, private:, at: nil, vcall: false, breaks: nil, svars: nil)
           tag = breaks && breaks.__id__
           if svars
             svar_send(recv, name, args, kwargs, block, private, svars)
-          elsif kwargs.nil? || kwargs.empty?
-            private ? recv.__send__(name, *args, &block) : recv.public_send(name, *args, &block)
           else
-            private ? recv.__send__(name, *args, **kwargs, &block) : recv.public_send(name, *args, **kwargs, &block)
+            World.walk_send(at, recv, name, args, kwargs: kwargs.nil? || kwargs.empty? ? nil : kwargs, blk: block, private: private)
           end
         rescue Breaking => e
           raise unless tag && e.tag.equal?(tag)
@@ -716,7 +734,7 @@ module Zr
           # A `yield` in a block calls the block of the method that
           # contains the block. A block passed to the block itself is only
           # in its `&blk` parameter.
-          inner = ctx.with(chain: [scope, *ctx.chain], tag: tag)
+          inner = ctx.with(chain: [scope, *ctx.chain], tag: tag, meta: scope_meta(:block, nil, nil, ctx.meta))
           bind(node.params, scope, args, kwargs, blk, inner, strict: lambda, spread: !lambda)
           begin
             walk(node.body, inner)
@@ -740,9 +758,12 @@ module Zr
           tree = self
           cref = ctx.cref
           # The program gives the arguments, so Steep cannot type them.
-          owner.define_method(node.name) do |*args, **kwargs, &blk|
+          body = proc do |*args, **kwargs, &blk|
             tree.__send__(:run_method, node, self, owner, cref, args, kwargs, blk) # steep:ignore FallbackAny
           end
+          # Under the walked code's frame, so a warning of the definition
+          # (a redefined core method) names its line.
+          call(owner, :define_method, [node.name], nil, body, private: true, at: frame_at(ctx, node.line))
           World.walk_signature(owner.instance_method(node.name), node.params.rows, node.params.arity)
           visibility(owner, node, cref) unless node.receiver
           node.name
@@ -769,7 +790,8 @@ module Zr
           tag = node.__id__
           scope = Scope.new(node.locals)
           ctx = Ctx.new(self_: self_, cref: cref, chain: [scope], block: blk,
-                        name: node.name, owner: owner, args: args, kwargs: kwargs, tag: tag, home: tag, svars: [nil, nil])
+                        name: node.name, owner: owner, args: args, kwargs: kwargs, tag: tag, home: tag, svars: [nil, nil],
+                        meta: scope_meta(:def, node.name, owner, nil))
           bind(node.params, scope, args, kwargs, blk, ctx, strict: true, spread: false)
           begin
             walk(node.body, ctx)
@@ -804,8 +826,14 @@ module Zr
         # A class, module or singleton class body: its own scope, its own
         # self, and a lexical scope one level inside the enclosing scope.
         def run_body(node, mod, ctx)
+          kind = case node
+                 when Hir::ClassDef then :class
+                 when Hir::ModuleDef then :module
+                 else :sclass
+                 end
+          meta = scope_meta(kind, kind == :sclass ? nil : node.name, nil, nil)
           inner = Ctx.new(self_: mod, cref: World.cref_push(mod, ctx.cref), chain: [Scope.new(node.locals)],
-                          block: nil, name: nil, owner: nil, args: nil, kwargs: nil, tag: node.__id__, home: nil, svars: [nil, nil])
+                          block: nil, name: nil, owner: nil, args: nil, kwargs: nil, tag: node.__id__, home: nil, svars: [nil, nil], meta: meta)
           walk(node.body, inner)
         end
 
@@ -850,16 +878,21 @@ module Zr
 
         # Tests one `when` value against the subject, or tests its truth
         # when the `case` has no subject. A `*splat` tests each element.
+        # `===` is a send, so a program's own `===` answers, as in ruby.
         def matches?(value, subject, ctx)
+          at = frame_at(ctx, value.line)
           if value.is_a?(Hir::Splat)
-            return splat_array(walk(value.value, ctx)).any? { |v| subject ? truthy?(v === subject.first) : truthy?(v) }
+            return splat_array(walk(value.value, ctx)).any? { |v| truthy?(subject ? case_eq(v, subject.first, at) : v) }
           end
           v = walk(value, ctx)
           return truthy?(v) unless subject
           return truthy?(svar_send(v, :===, [subject.first], nil, nil, false, svars(ctx))) if v.is_a?(::Regexp)
 
-          truthy?(v === subject.first)
+          truthy?(case_eq(v, subject.first, at))
         end
+
+        #: (value pattern, value subject, Array[untyped]? at) -> value
+        def case_eq(pattern, subject, at) = call(pattern, :===, [subject], nil, nil, private: false, at: at)
 
         # A line event counts for Coverage, as compiled code's does;
         # TracePoint hears no walked code. The event of an ensure body that
@@ -933,7 +966,7 @@ module Zr
           # `o&.x = v` writes nothing when `o` is nil.
           return value if target.safe && recv.nil?
 
-          call(recv, target.name, args + [value], nil, nil, private: private_call?(target))
+          call(recv, target.name, args + [value], nil, nil, private: private_call?(target), at: frame_at(ctx, target.line))
           value
         end
 
@@ -944,8 +977,13 @@ module Zr
         # require, load or require_relative runs at run time with the
         # file's path, as the compiled require runs the file's unit.
         def require_node(node, ctx)
+          # Eval support's own require runs the file that the program
+          # carries, hidden from the program, as compiled code's does, by
+          # the path that the build wrote (Function#require_unit).
+          return World.require_hidden(Paths.shown(node.path)) if node.kind == :hidden
+
           name = node.kind == :load ? :load : :require
-          call(ctx.self_, name, [node.path], nil, nil, private: true)
+          call(ctx.self_, name, [node.path], nil, nil, private: true, at: frame_at(ctx, node.line))
         end
 
         def yield_node(node, ctx)
@@ -1099,11 +1137,11 @@ module Zr
           return nil if node.safe && recv.nil?
 
           none = [] #: Array[value]
-          current = call(recv, node.name, none, nil, nil, private: private_call?(node))
+          current = call(recv, node.name, none, nil, nil, private: private_call?(node), at: frame_at(ctx, node.line))
           return current if short_circuit?(node.op, current)
 
           value = combined(node.op, current, node.value, ctx)
-          call(recv, :"#{node.name}=", [value], nil, nil, private: private_call?(node))
+          call(recv, :"#{node.name}=", [value], nil, nil, private: private_call?(node), at: frame_at(ctx, node.line))
           value
         end
 
@@ -1121,9 +1159,11 @@ module Zr
           nil
         end
 
-        def undef_node(ctx, names)
+        # Each undef runs under the walked code's frame, so a warning of it
+        # (a core method's) names its line.
+        def undef_node(ctx, names, line)
           mod = World.cref_definee(ctx.cref)
-          names.each { |name| mod.send(:undef_method, name.to_sym) }
+          names.each { |name| call(mod, :undef_method, [name.to_sym], nil, nil, private: true, at: frame_at(ctx, line)) }
           nil
         end
 

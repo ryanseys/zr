@@ -58,6 +58,35 @@ module Zr
       def set_vis(cref, vis) = Primitive.zr_cref_set_vis(cref, vis)
       def set_module_function(cref) = Primitive.zr_cref_set_modfn(cref)
 
+      # The frames of walked code (kernel/eval_walk.rb). A FrameMeta for a
+      # scope of the string, as an Integer: `kind` is a key of KINDS.
+      KINDS = { def: 1, class: 3, module: 4, block: 5, sclass: 6, top: 8, eval: 9 }.freeze
+      # The scope of a block with no locals around it (`bare_binding`).
+      BARE = proc { Primitive.zr_own_binding }
+
+      #: (Symbol kind, Symbol? name, Module? owner, Integer? parent, file: String, evaled: bool) -> Integer?
+      def walk_meta(kind, name, owner, parent, file:, evaled:) = Primitive.zr_walk_meta_m(KINDS.fetch(kind), name, owner, file, parent, evaled)
+      # The meta of the frame that called eval, whose label an eval's
+      # code shows.
+      #: () -> Integer?
+      def eval_caller_meta = Primitive.zr_walk_caller_meta_m
+
+      # A call from walked code, under a frame of `at` (`[meta, line,
+      # self]`): a private call goes as one with no receiver, any other as
+      # one with a receiver, so a protected method sees the walked self.
+      #: (Array[untyped]? at, untyped recv, Symbol name, Array[untyped] args, kwargs: Hash[Symbol, untyped]?, blk: Proc?, private: bool) -> untyped
+      def walk_send(at, recv, name, args, kwargs:, blk:, private:)
+        mode = private ? 0 : 2
+        return Primitive.zr_walk_send_m(at, recv, name, args, blk, mode) unless kwargs
+
+        Primitive.zr_walk_send_m(at, recv, name, [*args, kwargs], blk, mode + 256)
+      end
+
+      # A Binding of `obj` with no locals: the frame of a block that sees
+      # none.
+      #: (untyped obj) -> Binding
+      def bare_binding(obj) = obj.instance_exec(&BARE)
+
       # While the walk runs, the caller of the runtime is the program,
       # not the interpreter's own file, which loaded hidden from the
       # program. So a constant that the string defines is the program's,
@@ -119,6 +148,12 @@ module Zr
       def cvar_set(cref, name, value) = Primitive.zr_cvar_set_m(cref, name, value)
 
       def gvar_get(name) = Primitive.zr_gvar_get_m(name)
+      # Eval support's own require of a file that the program carries.
+      #: (String path) -> bool
+      def require_hidden(path) = Primitive.zr_walk_require_hidden_m(path)
+      # `$!`, which no global table holds.
+      #: () -> Exception?
+      def errinfo = Primitive.zr_errinfo
       def gvar_defined?(name) = Primitive.zr_gvar_defined_m(name)
       def gvar_set(shown, name, value) = Primitive.zr_gvar_hooked_m(shown, name, value)
       def gvar_alias(new_name, old_name) = Primitive.zr_gvar_alias_m(new_name, old_name)

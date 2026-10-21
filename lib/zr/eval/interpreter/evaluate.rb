@@ -10,31 +10,50 @@ module Zr
       # string calls. `add` marks a `Binding#eval`: a new local of the
       # string becomes a local of the Binding, as in ruby. `loaded` marks a
       # file that a load or require walks (`walk_next`): Coverage measures
-      # it as a file, not as an eval.
+      # it as a file, not as an eval. The parser's warnings come before the
+      # walk, unless a compile gave them already (`quiet`).
       #
       # It reads the runtime only through `World`, so the tests run it on
       # CRuby over a `World` of plain Ruby (test/support/interpreter_world.rb).
       # @rbs (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped,
-      #        ?add: bool, ?loaded: bool) -> untyped
-      def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false)
+      #        ?add: bool, ?loaded: bool, ?quiet: bool) -> untyped
+      def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false, quiet: false)
         file = string(file)
         hir = built(string(source), file, line.to_int, scope, loaded)
+        hir.warnings.each { |text| parse_warning(text) } unless quiet
         own = Tree::Scope.new(hir.locals)
+        tree = Tree.new(file, scope, loaded: loaded)
+        # An eval's code shows the label of its caller; a required file's
+        # is `<top (required)>`.
+        caller = World.eval_caller_meta unless loaded
+        meta = caller ? tree.scope_meta(:eval, nil, nil, caller) : tree.scope_meta(:top, nil, nil, nil)
         ctx = Tree::Ctx.new(self_: self_, cref: cref, chain: [own, *held(scope)], block: block,
-                            name: nil, owner: nil, args: nil, kwargs: nil, tag: nil, home: nil, svars: nil)
+                            name: nil, owner: nil, args: nil, kwargs: nil, tag: nil, home: nil, svars: nil, meta: meta)
         World.walk_enter
         value = begin
-          Tree.new(file, scope).run(hir, ctx)
+          tree.run(hir, ctx)
         ensure
           World.walk_leave
         end
         keep(scope, own) if add
         value
       rescue Hir::Invalid => e
-        raise SyntaxError.new(e.message).tap { |syntax| syntax.set_backtrace(caller_locations(1)) }
+        warned(e) unless quiet
+        raise syntax_error(e.message)
       rescue SyntaxError => e
-        e.set_backtrace(caller_locations(1)) unless e.backtrace == [e.path]
+        warned(e) unless quiet
+        e.set_backtrace(caller_locations(0)) unless e.backtrace == [e.path]
         raise e
+      end
+
+      # Gives the parser's warnings that came before the syntax error
+      # `error`, as the eval compiler does (Compiler#warned).
+      #: (Exception error) -> void
+      def self.warned(error)
+        return unless error.instance_variable_defined?(:@zr_warnings)
+
+        warnings = error.remove_instance_variable(:@zr_warnings) #: Array[String]
+        warnings.each { |text| parse_warning(text) }
       end
 
       # Builds the tree one scope inside the scopes of the frame, as the
@@ -44,17 +63,43 @@ module Zr
       # after those already in use, as a compiled eval's does. A `loaded`
       # file gets them whenever Coverage measures, as a compiled file does
       # (Compiler#compiled_file).
+      #
+      # A string that runs again in a scope of the same shape walks the
+      # tree of its first build, as the eval compiler runs the code of its
+      # first compile (a loop of `eval("")`). Under Coverage each build
+      # takes counters of its own, so none is kept.
       #: (String source, String file, Integer line, Binding scope, bool loaded) -> Hir::Program
       def self.built(source, file, line, scope, loaded)
         # Hir only tests a name for membership, so a slot with no name
         # matches nothing.
         names = World.binding_scopes(scope) #: Array[Array[Symbol]]
-        own = [] #: Array[Symbol]
         params = World.binding_parameters(scope)
+        coverage = covering
+        key = [-source, source.encoding, -file, line, names, params, loaded] if coverage.nil?
+        trees = Eval.walk_trees
+        if key && (kept = trees[key])
+          return kept
+        end
+
+        hir = built_new(source, file, line, names, params, coverage: coverage, loaded: loaded)
+        if key
+          trees.shift if trees.size >= KEPT_TREES
+          trees[key] = hir
+        end
+        hir
+      end
+
+      # The trees that `built` keeps, at most: the strings that a program
+      # evals in a loop are few.
+      KEPT_TREES = 256
+
+      # @rbs (String source, String file, Integer line, Array[Array[Symbol]] names, untyped params, coverage: untyped,
+      #       loaded: bool) -> Hir::Program
+      def self.built_new(source, file, line, names, params, coverage:, loaded:)
+        own = [] #: Array[Symbol]
         # The front end joins, splits and reads lines with ruby's defaults,
         # as the eval compiler's does (`Eval.plainly`); the walk itself runs
         # with the program's separators.
-        coverage = covering
         measured = loaded ? !coverage.nil? : coverage&.send(:measures_evals?) || false
         hir = Runtime.plain_separators do
           Runtime.compiling do
@@ -80,8 +125,18 @@ module Zr
           Runtime.compiling { Hir.build(source, file, BuildOptions.new, program: false, line: line, scopes: [[]]) }
         end
         hir.warnings.each { |text| parse_warning(text) } if warn_now
-      rescue Hir::Invalid => e
-        raise SyntaxError.new(e.message).tap { |syntax| syntax.set_backtrace(caller_locations(1)) }
+      rescue Hir::Invalid, SyntaxError => e
+        warned(e) if warn_now
+        raise e.is_a?(SyntaxError) ? e.tap { |syntax| syntax.set_backtrace(caller_locations(0)) } : syntax_error(e.message)
+      end
+
+      # A SyntaxError whose backtrace starts at the eval call. The walker's
+      # own frames show in no backtrace, as ruby's compiler is C.
+      #: (String message) -> SyntaxError
+      def self.syntax_error(message)
+        error = SyntaxError.new(message)
+        error.set_backtrace(caller_locations(0))
+        error
       end
 
       # A warning of the parser, as the eval compiler gives it
@@ -112,7 +167,7 @@ module Zr
         names.each { |name| scope.local_variable_set(name, own.get(name)) }
       end
 
-      private_class_method :built, :held, :keep, :parse_warning
+      private_class_method :built, :built_new, :held, :keep, :parse_warning, :syntax_error, :warned
     end
   end
 end

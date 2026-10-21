@@ -4,6 +4,8 @@ module Zr
   class Eval
     self.@current: Eval?
     self.@backend: singleton(Eval)?
+    self.@walk_metas: Hash[Array[untyped], Integer?]?
+    self.@walk_trees: Hash[Array[untyped], Hir::Program]?
   end
 
   module Machine

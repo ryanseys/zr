@@ -67,7 +67,21 @@ module Zr
       # walk runs when the caller runs the code (`Kernel.run_code`). The
       # string is parsed now, so a syntax error and the parser's warnings
       # come from the compile, as in ruby.
-      Deferred = Struct.new(:source, :file, :line)
+      # `warned` marks a compile that gave the parser's warnings already.
+      class Deferred
+        attr_reader :source #: String
+        attr_reader :file #: String
+        attr_reader :line #: Integer
+        attr_reader :warned #: bool
+
+        #: (String source, String file, Integer line, bool warned) -> void
+        def initialize(source, file, line, warned)
+          @source = source
+          @file = file
+          @line = line
+          @warned = warned
+        end
+      end
 
       # @rbs (untyped source, untyped file, ?_ToInt line, ?Array[Array[Symbol]] scopes, ?untyped method,
       #        ?using: Integer?, ?warn_now: bool, ?debug_frozen: bool) -> Deferred
@@ -78,13 +92,13 @@ module Zr
         raise ArgumentError, "invalid source encoding" unless source.encoding.ascii_compatible?
 
         Interpreter.check(source, file, line.to_int, warn_now)
-        Deferred.new(source, file, line.to_int)
+        Deferred.new(source, file, line.to_int, warn_now)
       end
 
       # Walks code that `compile` deferred, in a new top-level `scope`.
       #: (Deferred code, untyped self_, untyped cref, Binding scope) -> untyped
       def walk_code(code, self_, cref, scope)
-        Interpreter.evaluate(code.source, scope, file: code.file, line: code.line, self_: self_, cref: cref, block: nil)
+        Interpreter.evaluate(code.source, scope, file: code.file, line: code.line, self_: self_, cref: cref, block: nil, quiet: code.warned)
       end
     end
   end

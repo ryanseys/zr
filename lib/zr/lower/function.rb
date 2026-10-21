@@ -406,6 +406,20 @@ module Zr
       #: () -> bool
       def hidden_def? = attributes.include?(:hidden)
 
+      # Whether this scope is eval support that is not the runtime's
+      # (prism, the front end, the eval compiler and walker): ruby's
+      # compiler and VM are C, so its frames show in no backtrace
+      # (FrameMeta `frameless`), and a call from walked code shows the
+      # walked code's own frame (kernel/eval_walk.rb). The frame keeps its
+      # kind, so `super`, `binding` and a bare `private` work in it.
+      # The eval forms (Kernel#eval, Module#class_eval) are ruby's C
+      # methods, whose frames show, so theirs show too.
+      #: () -> bool
+      def walker_frame? = @l.support? && !@l.internal? && !@l.file.match?(EVAL_FORMS) ? true : false
+
+      # The files of the eval forms (runtime/lib/zr/eval).
+      EVAL_FORMS = %r{/zr/eval/(?:interpreter_)?forms\.rb\z}
+
       # Whether this core def keeps its matches in its own `$~`
       # (`Hir::CoreDef.owns_backref?`).
       #: () -> bool
@@ -523,7 +537,7 @@ module Zr
                 else
                   words = Machine::FrameWords.new(line: line, end_line: end_line, node: node_id, arity: params ? params.arity : 0, env: @has_env,
                                          ruby: attributes.include?(:ruby), cover: method_cover, owns_backref: owns_backref?,
-                                         reads_backref: reads_backref?, frameless: attributes.include?(:frameless), blocks: @blocks,
+                                         reads_backref: reads_backref?, frameless: attributes.include?(:frameless) || walker_frame?, blocks: @blocks,
                                          using: own&.using, span: own&.span)
                   @l.meta(@name, kind, words, name: name, parent: @outer&.meta, params: params, locals: @locals, twin: @twin,
                                          lexical: @lexical&.meta)
