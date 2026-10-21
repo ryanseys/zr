@@ -298,13 +298,20 @@ class BasicSocket < IO
     end
   end
 
+  # Linux's MSG_CMSG_CLOEXEC, which Socket does not name: a descriptor
+  # that a message passes comes with close-on-exec set.
+  CMSG_CLOEXEC = RUBY_PLATFORM.include?("linux") ? 0x4000_0000 : 0
+  private_constant :CMSG_CLOEXEC
+
   # bsock_recvmsg_internal. Without both lengths given, the call peeks
   # with buffers that grow until the message fits, and then takes it.
+  # Where the OS has MSG_CMSG_CLOEXEC, ruby adds it, and the message's
+  # flags give it back.
   def receive_message(dlen, flags, clen, scm_rights, exception, nonblock)
     Primitive.attr! :hidden
     maxdatlen = dlen.nil? ? 4096 : Primitive.zr_index_operand_m(dlen)
     maxctllen = clen.nil? ? 4096 : Primitive.zr_index_operand_m(clen)
-    flags = Integer.send(:int_operand, flags)
+    flags = Integer.send(:int_operand, flags) | CMSG_CLOEXEC
     flags |= Socket::MSG_DONTWAIT if nonblock
     original = flags
     grow = dlen.nil? || clen.nil?
