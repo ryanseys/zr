@@ -14,7 +14,8 @@ module Zr
       #
       # It reads the runtime only through `World`, so the tests run it on
       # CRuby over a `World` of plain Ruby (test/support/interpreter_world.rb).
-      #: (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped, ?add: bool, ?loaded: bool) -> untyped
+      # @rbs (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped,
+      #        ?add: bool, ?loaded: bool) -> untyped
       def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false)
         file = string(file)
         hir = built(string(source), file, line.to_int, scope, loaded)
