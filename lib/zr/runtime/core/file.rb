@@ -1993,8 +1993,10 @@ class Dir
       Primitive.zr_warn_here_m("#{path}: #{SystemCallError.new(nil, errno).message}")
     end
 
+    # push_pattern elsewhere: rb_external_str_new_with_enc, which takes
+    # default_internal too.
     def emit(path)
-      @found << (@real_basename ? result_name(path.force_encoding(@enc)) : path.force_encoding(@result_enc))
+      @found << (@real_basename ? result_name(path.force_encoding(@enc)) : Dir.send(:external_name, path, @result_enc))
     end
 
     # push_pattern on darwin: a UTF-8 name in default_internal, else in
