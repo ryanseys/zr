@@ -173,9 +173,9 @@ module Ruby
     def eval(source)
       if Primitive.zr_hidden_get(self, :kind) == :main
         code = ::Zr::Eval.current.compile(source, "eval", 1, [])
-        Primitive.zr_box_compiled(code[1])
+        Primitive.zr_box_compiled(code[1]) if code.is_a?(Array)
         cref = Primitive.zr_hidden_get(self, :cref) || Primitive.zr_hidden_set(self, :cref, Primitive.zr_eval_cref_under(Object, nil))
-        return Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver, cref, nil, nil)
+        return Kernel.run_code(code, TOPLEVEL_BINDING.receiver, cref)
       end
 
       # The root and master boxes take their state at their first use.
@@ -240,11 +240,15 @@ module Ruby
 
     # The snippet runs IN the box: what it defines, what it reads and
     # what it writes are the box's own until the call is over.
+    # The tree-walking interpreter's code (Kernel.run_code) has no frames
+    # to stamp: its walk reads the box through @main and @cref alone.
     def run(code, _path)
       Primitive.attr! :hidden
-      Primitive.zr_box_stamp(code[4], self)
-      Primitive.zr_box_compiled(code[1])
-      Primitive.zr_eval_run(code, @main, @cref, nil, nil)
+      if code.is_a?(Array)
+        Primitive.zr_box_stamp(code[4], self)
+        Primitive.zr_box_compiled(code[1])
+      end
+      Kernel.run_code(code, @main, @cref)
     end
 
     # The constants that a require from the box made on Object go into

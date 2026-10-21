@@ -317,7 +317,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
       end
       top.singleton_class.send(:private, name)
     end
-    Primitive.zr_eval_run(code, top, Primitive.zr_wrap_cref(mod), nil, nil)
+    Kernel.run_code(code, top, Primitive.zr_wrap_cref(mod))
     true
   end
 
@@ -435,6 +435,23 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
       cut = lines.index("") || lines.size
       Primitive.zr_state_set(self, :library_roots, [lines[0, cut].freeze, (lines[(cut + 1)..] || []).freeze].freeze)
     end
+  end
+
+  # Runs code that the eval support compiled for a string (`compile`)
+  # with `self_` and `cref`, in a new top-level scope. The tree-walking
+  # interpreter gives no machine code but the string, which it walks
+  # now (Zr::Eval::Interpreter#walk_code).
+  def self.run_code(code, self_, cref)
+    Primitive.attr! :hidden
+    return Primitive.zr_eval_run(code, self_, cref, nil, nil) if code.is_a?(Array)
+
+    ::Zr::Eval.current.walk_code(code, self_, cref, top_scope)
+  end
+
+  # A scope with no locals, as a file's toplevel has.
+  def self.top_scope
+    Primitive.attr! :hidden
+    Primitive.zr_own_binding
   end
 
   # `name` under the directory `dir`, by the directory's real path as

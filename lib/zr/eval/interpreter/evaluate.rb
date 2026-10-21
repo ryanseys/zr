@@ -71,6 +71,29 @@ module Zr
         hir
       end
 
+      # Parses `source` for a compile whose walk comes later
+      # (Interpreter#compile): raises its SyntaxError now, and with
+      # `warn_now` gives the parser's warnings now.
+      #: (String source, String file, Integer line, bool warn_now) -> void
+      def self.check(source, file, line, warn_now)
+        hir = Runtime.plain_separators do
+          Runtime.compiling { Hir.build(source, file, BuildOptions.new, program: false, line: line, scopes: [[]]) }
+        end
+        hir.warnings.each { |text| parse_warning(text) } if warn_now
+      rescue Hir::Invalid => e
+        raise SyntaxError.new(e.message).tap { |syntax| syntax.set_backtrace(caller_locations(1)) }
+      end
+
+      # A warning of the parser, as the eval compiler gives it
+      # (Compiler#parse_warning).
+      #: (String text) -> void
+      def self.parse_warning(text)
+        verbose = text.start_with?(Hir::Build::Loader::VERBOSE_WARNING)
+        return if $VERBOSE.nil? || (verbose && !$VERBOSE)
+
+        Warning.warn("#{verbose ? text[1..] : text}\n")
+      end
+
       # The scopes of the frame, innermost first, in the order of lookup.
       #: (Binding scope) -> Array[Tree::Held]
       def self.held(scope)
@@ -89,7 +112,7 @@ module Zr
         names.each { |name| scope.local_variable_set(name, own.get(name)) }
       end
 
-      private_class_method :built, :held, :keep
+      private_class_method :built, :held, :keep, :parse_warning
     end
   end
 end

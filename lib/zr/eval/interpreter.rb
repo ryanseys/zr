@@ -61,12 +61,30 @@ module Zr
         Interpreter.evaluate(source, scope, file: path, line: 1, self_: scope.receiver, cref: cref, block: nil, loaded: true)
       end
 
-      # `RubyVM::InstructionSequence.compile` and the loader of a Ractor
-      # need code to run later. The interpreter cannot make such code.
+      # A string that runs later: `RubyVM::InstructionSequence.compile`, a
+      # box's eval and require, and a load with a wrap module. The
+      # interpreter has no code to make, so it keeps the string, and the
+      # walk runs when the caller runs the code (`Kernel.run_code`). The
+      # string is parsed now, so a syntax error and the parser's warnings
+      # come from the compile, as in ruby.
+      Deferred = Struct.new(:source, :file, :line)
+
       # @rbs (untyped source, untyped file, ?_ToInt line, ?Array[Array[Symbol]] scopes, ?untyped method,
-      #        ?using: Integer?, ?warn_now: bool, ?debug_frozen: bool) -> bot
-      def compile(_source, file, line = 1, _scopes = [], _method = nil, using: nil, warn_now: false, debug_frozen: false)
-        raise Tree::Refused, "#{file}:#{line}: compiling a string to code that runs later is not walked yet"
+      #        ?using: Integer?, ?warn_now: bool, ?debug_frozen: bool) -> Deferred
+      def compile(source, file, line = 1, _scopes = [], _method = nil, using: nil, warn_now: false, debug_frozen: false)
+        source = Eval.string(source)
+        file = Eval.string(file)
+        # eval_make_iseq: a source that is not ASCII compatible cannot be read.
+        raise ArgumentError, "invalid source encoding" unless source.encoding.ascii_compatible?
+
+        Interpreter.check(source, file, line.to_int, warn_now)
+        Deferred.new(source, file, line.to_int)
+      end
+
+      # Walks code that `compile` deferred, in a new top-level `scope`.
+      #: (Deferred code, untyped self_, untyped cref, Binding scope) -> untyped
+      def walk_code(code, self_, cref, scope)
+        Interpreter.evaluate(code.source, scope, file: code.file, line: code.line, self_: self_, cref: cref, block: nil)
       end
     end
   end
