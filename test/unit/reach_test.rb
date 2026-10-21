@@ -64,7 +64,7 @@ class ReachTest < Minitest::Test
 
   # `zr-dev test` joins each path to the root, so each one is below it.
   def test_each_path_is_below_the_root
-    tests = Reach.tests(%w[lib/zr/runtime/core/gc.rb lib/zr/runtime/ext/etc.rb tool/bench.rb test/unit/fork_pool_test.rb])
+    tests = Reach.tests(%w[lib/zr/runtime/core/gc.rb lib/zr/runtime/ext/etc.so.rb tool/bench.rb test/unit/fork_pool_test.rb])
 
     refute_empty tests
     tests.each { |path| assert_path_exists Zr::Dev.path(path), path }

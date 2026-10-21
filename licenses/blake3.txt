@@ -3,7 +3,7 @@ O'Connor and Samuel Neves.
 
 The digest gem 3.3.0 ships BLAKE3 1.8.5's C in ext/digest/blake3, with
 its three license files: LICENSE_CC0, LICENSE_A2 and LICENSE_A2LLVM.
-lib/zr/runtime/ext/digest/blake3.rb follows its portable C (blake3.c,
+lib/zr/runtime/ext/digest/blake3.so.rb follows its portable C (blake3.c,
 blake3_portable.c). BLAKE3 is in the public domain under CC0 1.0, or
 under the Apache License 2.0, or under the Apache License 2.0 with LLVM
 exceptions. The three texts follow, word for word.

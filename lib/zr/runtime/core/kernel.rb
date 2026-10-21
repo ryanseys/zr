@@ -323,8 +323,8 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   # The file that a require of `feature` runs, or nil, as the compiler
   # resolves a literal name. A name with no `.rb` refers to a file that
-  # ends in it. A native extension's name also refers to the Ruby file
-  # that replaces it in this runtime's native parts.
+  # ends in it. A native extension's name, or a name with no extension
+  # that no Ruby file has, also refers to the port of that extension.
   def self.feature_path(feature)
     Primitive.attr! :hidden
     return search(feature) if feature.end_with?(".rb")
@@ -336,9 +336,30 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # require gives it: `parser`, `parser.so` or `parser.bundle`.
     linked = native_file(feature)
     return linked if linked && Primitive.zr_unit_for(linked)
-    return nil unless feature.end_with?(".so", ".bundle", ".dylib", ".o")
+    return nil unless feature.end_with?(*NATIVE_EXTS) || File.extname(feature).empty?
 
-    found(File.join(Primitive.zr_load_names(3), "#{feature.delete_suffix(File.extname(feature))}.rb"))
+    port_file(feature)
+  end
+
+  # The suffixes of a native extension's name.
+  NATIVE_EXTS = %w[.so .bundle .dylib .o].freeze
+  private_constant :NATIVE_EXTS
+
+  # The port of the C extension `feature` (`digest/md5`, `digest/md5.so`):
+  # its `<feature>.so.rb` under a root of this runtime's ports (`*`), as
+  # the build's Loader#native finds it. ruby's archdir comes after its
+  # library, so this comes after every root's Ruby file.
+  def self.port_file(feature)
+    Primitive.attr! :hidden
+    ext = NATIVE_EXTS.find { |suffix| feature.end_with?(suffix) }
+    name = "#{ext ? feature.delete_suffix(ext) : feature}.so.rb"
+    library_roots[0].each do |dir|
+      next unless dir.start_with?("*")
+
+      path = linked_c?(name) ? nil : found_in(dir.delete_prefix("*"), name)
+      return path if path
+    end
+    nil
   end
 
   # `name` looked for as ruby looks: a path that says where it starts is

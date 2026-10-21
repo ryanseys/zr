@@ -1,5 +1,5 @@
 module Zr::Kern
-  # The system logger, for syslog_ext (lib/zr/runtime/ext/syslog_ext.rb). openlog
+  # The system logger, for syslog_ext (lib/zr/runtime/ext/syslog_ext.so.rb). openlog
   # keeps a pointer to its ident, not a copy. Thus the connection keeps
   # its own copy of the ident until closelog.
 

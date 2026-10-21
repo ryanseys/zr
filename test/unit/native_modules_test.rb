@@ -12,10 +12,10 @@ class NativeModulesTest < Minitest::Test
 
   # Each port's entry file, and the module that its C defines.
   GUARDED = {
-    "coverage.so.rb" => :Coverage, "digest.so.rb" => :Digest, "etc.rb" => :Etc, "fiddle.so.rb" => :Fiddle,
-    "json/ext/generator.rb" => :JSON, "json/ext/parser.rb" => :JSON, "nkf.so.rb" => :NKF, "openssl.so.rb" => :OpenSSL,
-    "os/darwin/fcntl.rb" => :Fcntl, "os/linux/fcntl.rb" => :Fcntl, "os/wasi/fcntl.rb" => :Fcntl, "psych.so.rb" => :Psych,
-    "pty.rb" => :PTY, "syslog_ext.rb" => :Syslog, "zlib.rb" => :Zlib
+    "coverage.so.rb" => :Coverage, "digest.so.rb" => :Digest, "etc.so.rb" => :Etc, "fiddle.so.rb" => :Fiddle,
+    "json/ext/generator.so.rb" => :JSON, "json/ext/parser.so.rb" => :JSON, "nkf.so.rb" => :NKF, "openssl.so.rb" => :OpenSSL,
+    "os/darwin/fcntl.so.rb" => :Fcntl, "os/linux/fcntl.so.rb" => :Fcntl, "os/wasi/fcntl.so.rb" => :Fcntl, "psych.so.rb" => :Psych,
+    "pty.so.rb" => :PTY, "syslog_ext.so.rb" => :Syslog, "zlib.so.rb" => :Zlib
   }.freeze
 
   GUARDED.each do |file, name|

@@ -32,9 +32,9 @@ class BinaryCacheTest < Minitest::Test
   def test_an_edit_to_a_library_port_is_a_miss
     root = File.join(@work, "root")
     FileUtils.mkdir_p(File.join(root, "lib/zr/runtime/ext"))
-    File.write(File.join(root, "lib/zr/runtime/ext/stringio.rb"), "# one\n")
+    File.write(File.join(root, "lib/zr/runtime/ext/stringio.so.rb"), "# one\n")
     before = Binaries.library_digest(root)
-    File.write(File.join(root, "lib/zr/runtime/ext/stringio.rb"), "# two\n")
+    File.write(File.join(root, "lib/zr/runtime/ext/stringio.so.rb"), "# two\n")
     refute_equal before, Binaries.library_digest(root)
 
     target = Zr::Target.default

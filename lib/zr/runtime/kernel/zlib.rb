@@ -4,7 +4,7 @@
 # zlib, through the kernel's own port (lib/zr/runtime/kernel/zlib_*.rb). A stream
 # is a malloc'd ZStream. The extension keeps its address as a Fixnum.
 # Each call here sets the fields that one zlib call reads, makes that
-# call, and returns its result. The extension (lib/zr/runtime/ext/zlib.rb)
+# call, and returns its result. The extension (lib/zr/runtime/ext/zlib.so.rb)
 # keeps the buffers, as zlib.c does, and gives the output space.
 #
 # The port is derived from zlib 1.3.1, (C) 1995-2024 Jean-loup Gailly

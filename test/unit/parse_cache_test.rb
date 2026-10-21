@@ -21,7 +21,7 @@ class ParseCacheTest < Minitest::Test
   def test_host_parses_with_ruby_port_and_no_c_extension
     parse, gem, node, native = compiler_process.lines(chomp: true)
 
-    assert_equal File.join(ROOT, "lib/zr/runtime/ext/prism/prism.rb"), parse
+    assert_equal File.join(ROOT, "lib/zr/runtime/ext/prism/prism.so.rb"), parse
     assert_equal File.join(Zr::Library::Ports.lib("prism"), "prism.rb"), gem
     assert_equal "true", node
     assert_equal "[]", native
@@ -44,7 +44,7 @@ class ParseCacheTest < Minitest::Test
     files = ParseCache.parser_files
     [
       "lib/zr/runtime/ext/prism/ruby/parser/core.rb", "lib/zr/runtime/ext/prism/ruby/lexer.rb",
-      "lib/zr/runtime/ext/prism/ruby/ast.rb", "lib/zr/runtime/ext/prism/prism.rb",
+      "lib/zr/runtime/ext/prism/ruby/ast.rb", "lib/zr/runtime/ext/prism/prism.so.rb",
       "lib/zr/prism_shim/prism/prism.rb", "lib/zr/parse.rb", "lib/zr/cache/parse.rb"
     ].each { |path| assert_includes files, File.join(ROOT, path) }
     gem = $LOAD_PATH.resolve_feature_path("prism").last

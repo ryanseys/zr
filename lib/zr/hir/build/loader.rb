@@ -1044,8 +1044,17 @@ module Zr
               next if (linked || unported) && native_root?(root)
 
               real = real_root(root)
-              found = candidate(File.join(real, feature)) || native(root, feature) || extension(real, feature)
+              found = candidate(File.join(real, feature)) || extension(real, feature)
               return found if found
+            end
+            # A port of a C extension comes after every root's Ruby, as ruby's
+            # archdir comes last on $LOAD_PATH: `digest` is digest.rb, and
+            # `digest/md5` is the port of digest/md5.so.
+            unless linked || unported
+              @roots.each do |root|
+                found = native(root, feature)
+                return found if found
+              end
             end
             return linked if linked
             # rb_f_load: a name that no root has is a path from the working
@@ -1073,12 +1082,14 @@ module Zr
         # A native extension's name: `strscan.so`, `date.bundle`.
         NATIVE = /\.(?:so|bundle|dylib|o)\z/
 
-        # The file in place of native extension `feature` under `root`:
-        # the extension's own Ruby (`strscan.rb`), if the root contains
-        # this runtime's native parts.
+        # The port of native extension `feature` under `root`, if the root
+        # holds this runtime's native parts: `strscan`, `strscan.so` and
+        # `strscan.bundle` find `strscan.so.rb`.
         #: (String root, String feature) -> String?
         def native(root, feature)
-          native_root?(root) && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
+          return unless native_root?(root) && (feature.match?(NATIVE) || File.extname(feature).empty?)
+
+          candidate(File.join(root, "#{feature.sub(NATIVE, "")}.so"))
         end
 
         # The library of a C extension that the build links in

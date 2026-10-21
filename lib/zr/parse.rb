@@ -23,7 +23,7 @@ module Zr
   # Whether a parse here wants the parse cache: on zr's port of prism, and
   # not in a binary. Ruby's own prism parses fast enough without a cache,
   # and a binary has no cache to write.
-  PARSE_CACHE = !Binary.running? && Prism.method(:parse).source_location&.first == File.join(Library::Layout::EXT, "prism/prism.rb")
+  PARSE_CACHE = !Binary.running? && Prism.method(:parse).source_location&.first == File.join(Library::Layout::EXT, "prism/prism.so.rb")
 
   # Prism.parse for the compiler, through the parse cache when there is
   # one.

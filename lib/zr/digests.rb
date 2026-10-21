@@ -67,7 +67,10 @@ def required(entries)
 
     seen << file
     File.foreach(file) do |line|
-      todo << File.expand_path("#{Regexp.last_match(1)}.rb", File.dirname(file)) if line =~ REQUIRE
+      next unless line =~ REQUIRE
+
+      name = Regexp.last_match(1).to_s
+      todo << File.expand_path(name.end_with?(".rb") ? name : "#{name}.rb", File.dirname(file))
     end
   end
   seen.map { |file| file.delete_prefix(COMPILER) }.sort

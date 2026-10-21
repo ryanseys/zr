@@ -154,7 +154,7 @@ module Zr
               rest.each { |name| out << "  #{name} = #{Fcntl.const_get(name)}\n" }
             end
             out << "end\n"
-            write("ext", "fcntl.rb", out)
+            write("ext", "fcntl.so.rb", out)
           end
 
           # musl's O_ACCMODE masks O_PATH (010000000) too, and glibc's is

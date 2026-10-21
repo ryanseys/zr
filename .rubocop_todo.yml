@@ -96,8 +96,8 @@ Lint/UnusedMethodArgument:
     - "lib/zr/runtime/ext/digest.so.rb"
     - "lib/zr/runtime/ext/ffi_c/function.rb"
     - "lib/zr/runtime/ext/objspace.so.rb"
-    - "lib/zr/runtime/ext/stringio.rb"
-    - "lib/zr/runtime/ext/zlib.rb"
+    - "lib/zr/runtime/ext/stringio.so.rb"
+    - "lib/zr/runtime/ext/zlib.so.rb"
     - "lib/zr/runtime/lib/zr/ast.rb"
 # - A class that a port declares empty, as its C defines it with no
 #   methods (an error class, a marker).
@@ -105,7 +105,7 @@ Lint/EmptyClass:
   Exclude:
     - "lib/zr/runtime/core/box.rb"
     - "lib/zr/runtime/core/rubyvm.rb"
-    - "lib/zr/runtime/ext/erb/escape.rb"
+    - "lib/zr/runtime/ext/erb/escape.so.rb"
     - "lib/zr/runtime/ext/openssl/ossl/bn.rb"
     - "lib/zr/runtime/ext/openssl/ossl/hmac.rb"
     - "lib/zr/runtime/ext/openssl/ossl/ns_spki.rb"
