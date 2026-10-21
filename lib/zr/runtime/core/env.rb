@@ -40,11 +40,11 @@ def $LOAD_PATH.resolve_feature_path(feature)
   unless path
     return nil if name.end_with?(".rb")
 
-    native = map { |dir| File.expand_path("#{name}.bundle", dir.to_s) }.find { |file| Primitive.zr_path_kind(file) == 2 }
+    native = map { |dir| File.expand_path("#{name}.#{Kernel.dlext}", dir.to_s) }.find { |file| Primitive.zr_path_kind(file) == 2 }
     return native && [:so, File.realpath(native)]
   end
   ext = Primitive.zr_load_names(3)
-  return [:so, "#{path.delete_suffix('.rb')}.bundle"] if !name.end_with?(".rb") && path.start_with?("#{ext}/")
+  return [:so, "#{path.delete_suffix('.rb')}.#{Kernel.dlext}"] if !name.end_with?(".rb") && path.start_with?("#{ext}/")
 
   [:rb, path]
 end
