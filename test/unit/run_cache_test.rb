@@ -33,6 +33,12 @@ class RunCacheTest < Minitest::Test
   # `zr run` of the program in a child, with each build phase on stderr.
   def zr_run = Checks.run([RbConfig.ruby, File.join(ROOT, "bin/zr"), "run", @main], env: { "ZR_TIMING" => "1" }, chdir: @work)
 
+  # How the `zr run` of `answer` ended, and all that it wrote to stderr.
+  def ended(answer)
+    how = Checks.killed(answer) || (answer.signal && "signal #{answer.signal}") || "status #{answer.code}"
+    "the run ended with #{how}:\n#{answer.stderr}"
+  end
+
   def build_and_keep
     program = Zr::Native::Build.lower(File.read(@main), @main, sources: true)
     out = File.join(@work, "program")
@@ -156,9 +162,11 @@ class RunCacheTest < Minitest::Test
     File.write(@main, "p (\n")
     first = zr_run
 
+    assert_equal 1, first.code, ended(first)
     assert_includes first.stderr, "hir built"
     second = zr_run
 
+    assert_equal 1, second.code, ended(second)
     refute_includes second.stderr, "hir built"
     assert_equal first.stderr.lines.grep_v(/\Azr: /), second.stderr.lines.grep_v(/\Azr: /)
     File.write(@main, "p [\n")
