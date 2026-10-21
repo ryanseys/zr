@@ -9,13 +9,16 @@ require "tmpdir"
 
 # json, whose own C extension a build for this host links in place of
 # zr's port (Library::Ports, `c_first`). Each program gives ruby's
-# output, also under ZR_GC_STRESS, where each allocation collects while
-# json's parser and generator hold Values, and with ZR_GC_VERIFY. The
+# output, also with a minor collection at each allocation after json
+# loads (`GC.stress = 1`, which STRESS turns on in zr's runs only), while
+# json's parser and generator hold Values, and with ZR_GC_VERIFY. Under
+# ZR_GC_STRESS, the load alone took over 600 s on a Linux runner. The
 # parser's state is an embeddable struct with a thread-safe free
 # (RUBY_TYPED_THREAD_SAFE_FREE).
 class CExtJsonTest < Minitest::Test
-  RUNS = { "" => {}, "_under_stress" => { "ZR_GC_STRESS" => "1" },
-           "_verified" => { "ZR_GC_STRESS" => "1", "ZR_GC_VERIFY" => "1" } }.freeze
+  RUNS = { "" => {}, "_under_stress" => { "STRESS" => "1" },
+           "_verified" => { "STRESS" => "1", "ZR_GC_VERIFY" => "1" } }.freeze
+  STRESS = %(GC.stress = 1 if ENV.key?("STRESS")\n)
 
   def self.same_as_ruby(name, program)
     RUNS.each { |suffix, env| define_method(:"test_#{name}#{suffix}") { assert_same_as_ruby(program, env) } }
@@ -28,6 +31,7 @@ class CExtJsonTest < Minitest::Test
   end
 
   def assert_same_as_ruby(program, env)
+    program = program.sub(%(require "json"\n)) { |line| line + STRESS }
     ruby, (zr,) = Zr::Test::CExt.gem_outputs("json", @version, program, [env])
     assert_equal 0, ruby.status, "ruby failed:\n#{ruby.stderr}"
     assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr's output differs from ruby's under #{env}\nzr stderr:\n#{zr.stderr}"
