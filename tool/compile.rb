@@ -197,8 +197,10 @@ module Zr
         end
 
         # Uses ruby to compile the compiler from this tree. Its cache gets a
-        # link to each entry of ruby's cache, except the unit entries. `rung`
-        # builds first with ruby, so that this tree's runtime is available.
+        # link to each file of ruby's cache store, except the unit entries,
+        # so it does not build the runtime again: that build forks workers
+        # of gigabytes each. `rung` builds first with ruby, so that this
+        # tree's runtime is available.
         def compiled!(rung)
           Dir.mktmpdir("zr-compile-") { |work| build(rung, File.join(work, "out")) }
           print "the compiled compiler ... "
@@ -208,12 +210,13 @@ module Zr
                    "-o", COMPILED, out: File::NULL, chdir: ROOT) or fail!("the compiler did not build")
           end
           puts format("%.1fs", took)
-          FileUtils.mkdir_p(COMPILED_CACHE)
-          Dir.children(Paths.cache).each do |name|
-            from = File.join(Paths.cache, name)
-            to = File.join(COMPILED_CACHE, name)
-            next if name.start_with?("unit-") || !File.file?(from) || File.exist?(to)
+          store = File.join(Paths.cache, "store")
+          Dir.glob("**/*", base: store).each do |rel|
+            from = File.join(store, rel)
+            to = File.join(COMPILED_CACHE, "store", rel)
+            next if rel.start_with?("unit/") || !File.file?(from) || File.exist?(to)
 
+            FileUtils.mkdir_p(File.dirname(to))
             File.link(from, to)
           end
         end
