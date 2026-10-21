@@ -62,8 +62,13 @@ module Zr
       # load there.
       def self.dlopen?(runner) = %i[dynamic darwin].include?(runner.target.link)
 
+      # True when the target can start a Fiber, and so a Thread, which runs
+      # on one: a wasm module cannot switch stacks, as WASI has no stack
+      # to allocate (no Asyncify yet, docs/explanation/roadmap.md).
+      def self.fibers?(runner) = !runner.wasm?
+
       CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?), "argv0" => method(:argv0?),
-                 "dlopen" => method(:dlopen?) }.freeze
+                 "dlopen" => method(:dlopen?), "fibers" => method(:fibers?) }.freeze
 
       def self.met?(name, runner) = CHECKS.fetch(name).call(runner)
     end
