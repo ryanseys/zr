@@ -75,12 +75,20 @@ module Zr
       # test's directory and environment.
       def exec = ENV["ZR_TEST_EXEC"]&.split&.then { |words| words.empty? ? nil : words }
 
+      # The variables that a WASI guest gets in place of the host's: it
+      # sees no variable that it is not given, and Dir.home, `ENV["PATH"]`
+      # and Etc.getlogin then fail where a binary's do not.
+      GUEST_ENV = { "TMPDIR" => "/tmp", "HOME" => "/tmp", "PATH" => "/usr/bin:/bin", "USER" => "zr",
+                    "LANG" => "C.UTF-8" }.freeze
+
       # The command that runs `out` with `args` under `env`, and the
       # environment for the process itself.
       #
       # A module must run under the same conditions as a binary. Thus the
-      # guest gets the test directory and its own temporary directory. A
-      # WASI guest sees only the directories and variables that it is
+      # guest gets the test directory, its own temporary directory, and
+      # zr's root at the path that the build wrote for it (/zr), where a
+      # require that the build left for the run time reads ruby's library.
+      # A WASI guest sees only the directories and variables that it is
       # given. Without a temporary directory, `Dir.tmpdir` fails, and a
       # program that writes a file fails where the binary does not. The
       # module is compiled first (`precompile`), so the memory limit of a
@@ -90,9 +98,9 @@ module Zr
         return [[*exec, out, *args], env] if exec && !wasm?
         return [[out, *args], env] unless wasm?
 
-        dirs = { "." => ".", Dir.tmpdir => "/tmp" }
+        dirs = { "." => ".", Dir.tmpdir => "/tmp", Zr::Paths::ROOT => Zr::Paths::HOME_SHOWN }
         compiled = precompile(out) if compiled == :here
-        env = { "TMPDIR" => "/tmp" }.merge(env)
+        env = GUEST_ENV.merge(env)
         if compiled.is_a?(Hash)
           return [Wasmtime.run(out, *args, dirs: dirs, env: env, compiler: split_compiler, preload: compiled.fetch(:preload)), {}]
         end

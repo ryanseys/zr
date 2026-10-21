@@ -155,6 +155,16 @@ class ProgramTestsTest < Minitest::Test
     end
   end
 
+  def test_a_wasi_guest_gets_zr_s_root_and_a_home
+    runner = Programs.new(target: Zr::Target.fetch("wasm32-wasi"), allowed: {}).runner
+    argv, = runner.run("a.wasm", %w[x], { "HOME" => "/h" }, compiled: nil)
+
+    assert_includes argv.each_cons(2).to_a, ["--dir", "#{Zr::Paths::ROOT}::/zr"]
+    assert_includes argv, "HOME=/h", "the test's own variables win"
+    assert_includes argv, "PATH=/usr/bin:/bin"
+    assert_equal %w[a.wasm x], argv.last(2)
+  end
+
   def test_zr_programs_picks_the_tests_below_its_paths
     picked = Selection.cases("core/gc, lang/blocks").map(&:rel)
 
