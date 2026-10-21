@@ -21,11 +21,6 @@ cli/core/thread/thread_queue_handoff.rb	can't allocate fiber stack: Function not
 lang/methods/super_in_a_block_that_another_thread_runs_goes_on_from_the_def_s_node.rb	can't allocate fiber stack: Function not implemented
 lang/methods/a_def_in_a_define_method_body_defines_where_the_block_was_written.rb	syntax_suggest runs in Timeout.timeout, which needs a Thread, so the report is prism's alone
 
-# On wasi, eval uses the tree-walking interpreter (lib/zr/eval/interpreter.rb).
-# These programs use eval, but eval support does not cause their
-# failure.
-cli/stdlib/ffi/ffi_libc_call.rb	dlopen has no wasm form
-
 # A method that an eval defines runs in the walk's frames: an error in it
 # names the walk's methods (Tree#bind), where ruby names the def. Its
 # parameters, arity and inspect are the def's (World.describe).

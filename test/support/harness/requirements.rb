@@ -55,7 +55,15 @@ module Zr
         !sh.nil? && File.basename(File.realpath(sh)) != "busybox"
       end
 
-      CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?), "argv0" => method(:argv0?) }.freeze
+      # True when the target's binary can open a library as it runs: a
+      # binary that ld.so or dyld loads. A static musl binary has no
+      # dynamic loader, and a wasm module none at all, so FFI and fiddle
+      # (and libffi, which FFI opens for its calls and callbacks) cannot
+      # load there.
+      def self.dlopen?(runner) = %i[dynamic darwin].include?(runner.target.link)
+
+      CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?), "argv0" => method(:argv0?),
+                 "dlopen" => method(:dlopen?) }.freeze
 
       def self.met?(name, runner) = CHECKS.fetch(name).call(runner)
     end
