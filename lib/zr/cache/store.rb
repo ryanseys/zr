@@ -167,6 +167,28 @@ module Zr
         Paths.write_atomic(path, bytes)
       end
 
+      # `write_file` for a file that is on disk at `from`: a rename puts it
+      # at `path`, with no copy in memory (the runtime object is 44 MB, eval
+      # support 115 MB). On another file system (EXDEV), it is copied
+      # beside `path` first, then renamed.
+      #: (String path, String from) -> String
+      def move_file(path, from)
+        SourceGuard.check!
+        Paths.mkdir_p(File.dirname(path))
+        begin
+          File.rename(from, path)
+        rescue Errno::EXDEV
+          fresh = "#{path}.#{Process.pid}.#{Thread.current.object_id}"
+          begin
+            IO.copy_stream(from, fresh)
+            File.rename(fresh, path)
+          ensure
+            File.unlink(fresh) if File.exist?(fresh)
+          end
+        end
+        path
+      end
+
       # Runs the block with the entry's path while this process holds the
       # entry's lock, unless the entry exists (`Paths.once`), and returns
       # the path. The block writes the file.

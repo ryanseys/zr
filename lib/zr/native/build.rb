@@ -348,7 +348,7 @@ module Zr
           end
           raise Failed, "the eval support for #{support.target} did not build: #{why}" if why
 
-          Cache::Store.write_file(obj, File.binread(fresh))
+          Cache::Store.move_file(obj, fresh)
         end
       end
 
@@ -383,7 +383,7 @@ module Zr
           end
           raise Failed, "the zr runtime for #{runtime.target} did not build: #{why}" if why
 
-          Cache::Store.write_file(obj, File.binread(fresh))
+          Cache::Store.move_file(obj, fresh)
         end
         obj
       end
