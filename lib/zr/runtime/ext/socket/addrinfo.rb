@@ -311,12 +311,14 @@ class Addrinfo
       return "too-short-sockaddr" if bytes.bytesize < 2
 
       family = Socket.sockaddr_family(bytes)
+      # AF_LINK is BSD's; Linux has no such family.
+      return inspect_dl(bytes) if Socket.const_defined?(:AF_LINK) && family == Socket::AF_LINK
+
       case family
       when Socket::AF_UNSPEC then "UNSPEC"
       when Socket::AF_INET then inspect_in(bytes)
       when Socket::AF_INET6 then inspect_in6(bytes)
       when Socket::AF_UNIX then inspect_un(bytes)
-      when Socket::AF_LINK then inspect_dl(bytes)
       else
         name = Socket.intern(family, /\AAF_/)
         name ? "#{name} address format unknown" : "unknown address family #{family}"

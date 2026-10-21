@@ -131,6 +131,8 @@ class Socket < BasicSocket
           when SO_TYPE
             " #{Socket.intern(bytes.unpack1("i"), /\ASOCK_/) || bytes.unpack1("i")}" if bytes.bytesize == 4
           when SO_LINGER then shown_linger(bytes)
+          # SO_PEERCRED is Linux's (and OpenBSD's); darwin has LOCAL_PEERCRED.
+          when (SO_PEERCRED if Socket.const_defined?(:SO_PEERCRED)) then shown_ucred(bytes)
           when SO_RCVTIMEO, SO_SNDTIMEO
             format(" %d.%06dsec", *bytes.unpack("q<l<")) if bytes.bytesize == 16
           end
@@ -151,7 +153,7 @@ class Socket < BasicSocket
         when [AF_INET, IPPROTO_TCP], [AF_INET6, IPPROTO_TCP]
           shown_int(bytes) if optname == TCP_NODELAY
         when [AF_UNIX, 0]
-          shown_xucred(bytes) if optname == LOCAL_PEERCRED
+          shown_xucred(bytes) if Socket.const_defined?(:LOCAL_PEERCRED) && optname == LOCAL_PEERCRED
         end
       end
 
@@ -171,6 +173,12 @@ class Socket < BasicSocket
                 else "on(#{onoff})"
                 end
         " #{state} #{secs}sec"
+      end
+
+      # struct ucred (inspect_peercred): the peer's process, user and group.
+      def shown_ucred(bytes)
+        Primitive.attr! :hidden
+        format(" pid=%u euid=%u egid=%u (ucred)", *bytes.unpack("L3")) if bytes.bytesize == 12
       end
 
       # struct xucred: its version, its user and its groups.
