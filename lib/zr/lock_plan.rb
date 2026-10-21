@@ -113,6 +113,9 @@ module Zr
 
       [:boot, :main, "the process's own stack, contexts, arguments and environment",
        %w[process_context program_context program_stack args_cell wasi_environ wasi_preopens]],
+      [:gvl, :main, "the WASI layer's process state: malloc's free lists, the working directory and the two paths it joins, " \
+                    "the signal handlers and syslog's mask; a WASI module runs one thread",
+       %w[wasi_bins wasi_cwd wasi_join wasi_join_turn wasi_signal_handlers wasi_logmask]],
       [:boot, :immutable, "the main thread's Task; each other thread allocates its own",
        %w[task]],
       [:boot, :immutable, "frame metadata of the kernel's own frames",
