@@ -15,7 +15,7 @@ class CExtDebugInspectorTest < Minitest::Test
 
     static VALUE send0(VALUE recv, const char *name) { return rb_funcall(recv, rb_intern(name), 0); }
 
-    static VALUE basename(VALUE path) {
+    static VALUE base_name(VALUE path) {
       return NIL_P(path) ? Qnil : rb_funcall(rb_cFile, rb_intern("basename"), 1, path);
     }
 
@@ -28,7 +28,7 @@ class CExtDebugInspectorTest < Minitest::Test
         VALUE location = RARRAY_AREF(locations, i);
         VALUE binding = rb_debug_inspector_frame_binding_get(dc, i);
         VALUE iseq = rb_debug_inspector_frame_iseq_get(dc, i);
-        VALUE row = rb_ary_new_from_args(8, basename(send0(location, "path")), send0(location, "lineno"), send0(location, "label"),
+        VALUE row = rb_ary_new_from_args(8, base_name(send0(location, "path")), send0(location, "lineno"), send0(location, "label"),
                                          send0(location, "base_label"), rb_obj_class(rb_debug_inspector_frame_self_get(dc, i)),
                                          rb_debug_inspector_frame_class_get(dc, i),
                                          NIL_P(binding) ? Qnil : send0(binding, "local_variables"),

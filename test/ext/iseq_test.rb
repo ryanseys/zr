@@ -24,7 +24,7 @@ class CExtIseqTest < Minitest::Test
     VALUE rb_iseq_type(const rb_iseq_t *iseq);
     VALUE rb_iseq_parameters(const rb_iseq_t *iseq, int is_proc);
 
-    static VALUE basename(VALUE path) {
+    static VALUE base_name(VALUE path) {
       return NIL_P(path) ? Qnil : rb_funcall(rb_cFile, rb_intern("basename"), 1, path);
     }
 
@@ -33,7 +33,7 @@ class CExtIseqTest < Minitest::Test
       int first = -1, last = -1;
       rb_iseq_code_location(iseq, &first, NULL, &last, NULL);
       VALUE again = rb_iseqw_new(iseq);
-      VALUE row = rb_ary_new_from_args(6, basename(rb_iseq_path(iseq)), basename(rb_iseq_realpath(iseq)), rb_iseq_label(iseq),
+      VALUE row = rb_ary_new_from_args(6, base_name(rb_iseq_path(iseq)), base_name(rb_iseq_realpath(iseq)), rb_iseq_label(iseq),
                                        rb_iseq_first_lineno(iseq), INT2NUM(first), INT2NUM(last));
       rb_ary_push(row, rb_iseq_type(iseq));
       rb_ary_push(row, rb_iseq_parameters(iseq, 0));

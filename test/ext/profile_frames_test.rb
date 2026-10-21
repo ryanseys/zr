@@ -18,14 +18,14 @@ class CExtProfileFramesTest < Minitest::Test
     #include <signal.h>
     #include <sys/time.h>
 
-    static VALUE basename(VALUE path) {
+    static VALUE base_name(VALUE path) {
       return NIL_P(path) ? Qnil : rb_funcall(rb_cFile, rb_intern("basename"), 1, path);
     }
 
     static VALUE describe(VALUE frame, int line) {
       VALUE abs = rb_profile_frame_absolute_path(frame);
       VALUE shown_abs = NIL_P(abs) ? Qnil : (rb_str_equal(abs, rb_str_new_cstr("<cfunc>")) == Qtrue ? abs : Qtrue);
-      VALUE row = rb_ary_new_from_args(6, basename(rb_profile_frame_path(frame)), shown_abs, rb_profile_frame_label(frame),
+      VALUE row = rb_ary_new_from_args(6, base_name(rb_profile_frame_path(frame)), shown_abs, rb_profile_frame_label(frame),
                                        rb_profile_frame_base_label(frame), rb_profile_frame_full_label(frame),
                                        rb_profile_frame_first_lineno(frame));
       rb_ary_push(row, rb_profile_frame_classpath(frame));

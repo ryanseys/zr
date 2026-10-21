@@ -16,7 +16,7 @@ class CExtTracepointTest < Minitest::Test
 
     static VALUE events_seen;
 
-    static VALUE basename(VALUE path) {
+    static VALUE base_name(VALUE path) {
       return NIL_P(path) ? Qnil : rb_funcall(rb_cFile, rb_intern("basename"), 1, path);
     }
 
@@ -52,7 +52,7 @@ class CExtTracepointTest < Minitest::Test
           extra = caught(call_return_value, (VALUE)arg); break;
       }
       VALUE self = rb_tracearg_self(arg);
-      VALUE row = rb_ary_new_from_args(9, rb_tracearg_event(arg), UINT2NUM(flag), basename(rb_tracearg_path(arg)),
+      VALUE row = rb_ary_new_from_args(9, rb_tracearg_event(arg), UINT2NUM(flag), base_name(rb_tracearg_path(arg)),
                                        rb_tracearg_lineno(arg), rb_tracearg_method_id(arg), rb_tracearg_callee_id(arg),
                                        rb_tracearg_defined_class(arg), rb_obj_class(self), extra);
       rb_ary_push(*(VALUE *)data, row);
