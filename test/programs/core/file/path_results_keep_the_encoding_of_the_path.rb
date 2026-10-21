@@ -3,16 +3,19 @@
 # "/" too, a realpath whose bytes do not convert is forced into it, and a
 # relative path of ASCII bytes joined to a directory takes the directory's.
 $stdout.sync = true
-dir = File.join(Dir.pwd, "realpath_あ_#{$$}")
+dir = File.join(Dir.pwd, "realpath_あ")
 Dir.mkdir(dir)
 f = File.join(dir, "file.txt")
 File.write(f, "x")
 e = f.encode("EUC-JP")
 p File.dirname(e).encoding, File.split(e).map(&:encoding), File.basename(e).encoding, File.extname(e).encoding
 p File.dirname("/a/b".encode("EUC-JP")).encoding, File.dirname("b".encode("EUC-JP")).encoding, File.dirname("/".encode("EUC-JP")).encoding
-p File.realpath(e).encoding, File.realdirpath(e).encoding
-p File.realpath("file.txt".encode("EUC-JP"), dir.encode("EUC-JP")).encoding
-p File.realdirpath("file.txt".encode("EUC-JP"), dir.encode("EUC-JP")).encoding
+# On macOS the path converts to UTF-8 and the file is there; Linux takes
+# the EUC-JP bytes as they are, and no such file is there.
+def encoding_of = yield.encoding rescue $!.class
+p encoding_of { File.realpath(e) }, encoding_of { File.realdirpath(e) }
+p encoding_of { File.realpath("file.txt".encode("EUC-JP"), dir.encode("EUC-JP")) }
+p encoding_of { File.realdirpath("file.txt".encode("EUC-JP"), dir.encode("EUC-JP")) }
 r = File.realpath(".".encode("ISO-8859-1"), dir)
 p r.encoding, r.b.include?(dir.b)
 r = File.realdirpath(".".encode("ISO-8859-1"), dir)

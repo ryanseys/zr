@@ -1,2 +1,3 @@
 ["name? "]
 "zr\r\nhello z"
+Errno::EIO
