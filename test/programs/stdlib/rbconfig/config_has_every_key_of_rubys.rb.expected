@@ -1,16 +1,13 @@
 []
 []
 ["THREAD_MODEL", "pthread"]
-["LIBPATHENV", "DYLD_LIBRARY_PATH"]
-["PRELOADENV", "DYLD_INSERT_LIBRARIES"]
-["SYMBOL_PREFIX", "_"]
 ["modular_gc_dir", ""]
 ["CROSS_COMPILING", "no"]
 ["PACKAGE", "ruby"]
 ["SHELL", "/bin/sh"]
 ["RM", "rm -f"]
-["GNU_LD", "no"]
-["COROUTINE_TYPE", "arm64"]
+true
+true
 true
 true
 true

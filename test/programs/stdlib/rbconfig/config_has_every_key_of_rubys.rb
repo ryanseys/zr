@@ -9,8 +9,12 @@ keys = %w[
 ]
 p keys.reject { |key| RbConfig::CONFIG.key?(key) }
 p keys.reject { |key| RbConfig::MAKEFILE_CONFIG.key?(key) }
-%w[THREAD_MODEL LIBPATHENV PRELOADENV SYMBOL_PREFIX modular_gc_dir
-   CROSS_COMPILING PACKAGE SHELL RM GNU_LD COROUTINE_TYPE].each { |key| p [key, RbConfig::CONFIG[key]] }
+%w[THREAD_MODEL modular_gc_dir CROSS_COMPILING PACKAGE SHELL RM].each { |key| p [key, RbConfig::CONFIG[key]] }
+# The loader's names and the linker's kind follow the OS, and the
+# coroutine the CPU.
+os = { "darwin" => %w[DYLD_LIBRARY_PATH DYLD_INSERT_LIBRARIES _ no], "linux" => %w[LD_LIBRARY_PATH LD_PRELOAD] + ["", "yes"] }
+p RbConfig::CONFIG.values_at("LIBPATHENV", "PRELOADENV", "SYMBOL_PREFIX", "GNU_LD") == os[RbConfig::CONFIG["host_os"][/darwin|linux/]]
+p RbConfig::CONFIG["COROUTINE_TYPE"] == { "x86_64" => "amd64", "aarch64" => "arm64", "arm64" => "arm64" }[RbConfig::CONFIG["host_cpu"]]
 # The names that carry the version follow it.
 api = RbConfig::CONFIG["RUBY_API_VERSION"]
 p api == RUBY_VERSION[/\A\d+\.\d+/]
