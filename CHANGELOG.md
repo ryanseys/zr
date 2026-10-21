@@ -7,6 +7,8 @@ can change the command line or the environment variables.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-20
+
 The first public release.
 
 ### Added
@@ -18,6 +20,10 @@ The first public release.
   pinned ruby, 4.1.0-preview1. The gem has no dependencies: it carries the pinned ruby's
   standard library (`vendor/ruby`), so the install downloads only zr, and
   compiles nothing.
+- On arm64 macOS and on x86_64 and aarch64 Linux (glibc and musl),
+  `gem install zr` selects a platform gem that carries the runtime for
+  that host, so the first build builds no runtime and takes seconds.
+  `gem install zr --platform ruby` installs the gem with no runtime.
 - Each commit on `main` that CI passes has a snapshot: a GitHub
   prerelease with the gem, of version `X.Y.Z.g<sha>` (the first 7
   characters of the commit's SHA), and its attestation.
@@ -246,4 +252,5 @@ The first public release.
   does) are carried in the binary. A library that searches the load path
   for files to `Kernel.load` (irb's locale messages) finds them too.
 
-[Unreleased]: https://github.com/ryanseys/zr/commits/main
+[Unreleased]: https://github.com/ryanseys/zr/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ryanseys/zr/releases/tag/v0.1.0

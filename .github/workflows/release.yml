@@ -248,24 +248,19 @@ jobs:
       # The platform gems first and the `ruby` gem last, as nokogiri
       # pushes: a host that resolves zr between the pushes then finds its
       # platform gem, not only the `ruby` one. A version's gem that is
-      # already there is skipped, so a run again finishes the rest.
+      # already there is skipped, so a run again finishes the rest. The
+      # status is gem push's own: a pipe into tee would give tee's, and the
+      # step's shell has no pipefail.
       - name: Push to rubygems.org
         if: env.ONLY == 'all' || env.ONLY == 'rubygems'
         run: |
           for gem in $(ls zr-"$VERSION"-*.gem 2> /dev/null) "zr-$VERSION.gem"; do
-            gem push "$gem" 2>&1 | tee push.log || grep -q "Repushing of gem versions is not allowed" push.log || exit 1
-          done
-
-      # gem.coop's own index mirrors rubygems.org; a direct push goes to a
-      # namespace. The key is a push-only key for it, in the release
-      # environment.
-      - name: Push to gem.coop (@ryanseys)
-        if: env.ONLY == 'all' || env.ONLY == 'gem-coop'
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.GEM_COOP_API_KEY }}
-        run: |
-          for gem in $(ls zr-"$VERSION"-*.gem 2> /dev/null) "zr-$VERSION.gem"; do
-            gem push --host https://gem.coop/@ryanseys "$gem"
+            if gem push "$gem" > push.log 2>&1; then
+              cat push.log
+            else
+              cat push.log
+              grep -q "Repushing of gem versions is not allowed" push.log || exit 1
+            fi
           done
 
       - name: Publish the GitHub Release
@@ -273,3 +268,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false
+
+      # gem.coop's own index mirrors rubygems.org, so it serves zr with no
+      # push. A direct push goes to the @ryanseys namespace, with a
+      # push-only key in the release environment. It comes after the
+      # Release is published, and in a full release its failure gives a
+      # warning and fails nothing: `only: gem-coop` runs it again, and that
+      # run fails as gem.coop does. With no key, it does nothing.
+      - name: Push to gem.coop (@ryanseys)
+        if: env.ONLY == 'all' || env.ONLY == 'gem-coop'
+        continue-on-error: ${{ env.ONLY == 'all' }}
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.GEM_COOP_API_KEY }}
+        run: |
+          if [ -z "$GEM_HOST_API_KEY" ]; then
+            echo "::notice::GEM_COOP_API_KEY is not set: gem.coop serves zr from its mirror of rubygems.org"
+            exit 0
+          fi
+          failed=0
+          for gem in $(ls zr-"$VERSION"-*.gem 2> /dev/null) "zr-$VERSION.gem"; do
+            if gem push --host https://gem.coop/@ryanseys "$gem" > push.log 2>&1; then
+              cat push.log
+            else
+              cat push.log
+              grep -qiE "repushing|already|exists" push.log && continue
+              echo "::warning::gem.coop did not take $gem"
+              failed=1
+            fi
+          done
+          exit "$failed"

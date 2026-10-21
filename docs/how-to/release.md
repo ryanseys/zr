@@ -46,6 +46,8 @@ the commit's SHA: `v0.1.0.geebf308`. It holds the files that the run
 tested, with no build of its own:
 
 - the gem of the `checks` job, `zr-<version>.gem`;
+- the platform gem of each target whose lane passed and that has one,
+  `zr-<version>-<platform>.gem`, with the target's runtime in it;
 - the runtime bundle of each target whose lane passed,
   `zr-runtime-<version>-<triple>.tar.gz`, by the name that `zr cache fetch`
   reads;
@@ -76,11 +78,13 @@ Do these by hand before the first release:
    workflow `release.yml` and the environment `release`. The first
    push makes it a normal trusted publisher. The workflow then needs no
    API key.
-3. On gem.coop, claim the namespace `@ryanseys`, and make a push-only
-   API key for it.
-4. In the repository settings, make the environment `release`, and add
-   the gem.coop key to it as the secret `GEM_COOP_API_KEY`. Limit the
-   environment to tags `v*`.
+3. Optional: on gem.coop, claim the namespace `@ryanseys`, and make a
+   push-only API key for it. gem.coop's own index mirrors rubygems.org,
+   so it serves zr with no key; the key adds a push to the namespace.
+4. In the repository settings, make the environment `release`. Limit it
+   to tags `v*`, and make yourself its required reviewer, so that the
+   publish job waits for your approval. With a gem.coop key, add it to
+   the environment as the secret `GEM_COOP_API_KEY`.
 5. Add a ruleset for the tags `v*`, with `v*.g*` excluded (the
    prereleases' tags, which CI makes): no deletion, no update
    and no force push, and only admins create one. Add a ruleset for `main`: no
@@ -152,10 +156,12 @@ The workflow then:
    and bundle, makes the GitHub Release as a draft with them and their
    `SHA256SUMS`, pushes each platform gem and then the `ruby` gem to
    rubygems.org with trusted publishing (rubygems attests the push too;
-   check the attestation on rubygems.org after the first release) and
-   to `https://gem.coop/@ryanseys`, and then publishes the draft. The
+   check the attestation on rubygems.org after the first release),
+   publishes the draft, and then pushes the gems to
+   `https://gem.coop/@ryanseys` when `GEM_COOP_API_KEY` is set. The
    `ruby` gem goes last: a host that resolves zr between the pushes
-   finds its platform gem.
+   finds its platform gem. A gem.coop failure gives a warning and does
+   not fail the release; run `only: gem-coop` again for it.
 
 A platform that a version left out comes back only as a gem built from
 the same tag: a gem of a version cannot be pushed again, and a fix
@@ -202,8 +208,9 @@ $ zr doctor
 $ echo 'puts "hello"' > hello.rb && zr run hello.rb
 ```
 
-Then look at <https://rubygems.org/gems/zr>, at the gem.coop page
-of `@ryanseys/zr`, and at the GitHub Release: each shows the version,
+Then look at <https://rubygems.org/gems/zr>, at gem.coop (`gem install
+zr --source https://gem.coop`, and the page of `@ryanseys/zr` when the
+key is set), and at the GitHub Release: each shows the version,
 and the Release has the gem and the notes.
 
 ## A bad release
@@ -220,7 +227,16 @@ A published version cannot change. If a release is broken:
 
 The gem contains the compiler, the runtime, the vendored library
 (`vendor/ruby`), ruby's headers and `rbconfig.rb` for each target that
-builds C extensions (`vendor/targets`), and the license texts. It contains no binary: a release ships the
-platform-independent gem only. The host ruby runs zr (`exe/zr`). On
-the first build, an installed gem builds the runtime into the user's
-cache, and tells the user (`lib/zr/runtime.rb`).
+builds C extensions (`vendor/targets`), and the license texts. The host ruby runs zr (`exe/zr`). A release
+ships two kinds of gem:
+
+- the `ruby` gem, `zr-X.Y.Z.gem`, which contains no binary. On the
+  first build, it builds the runtime into the user's cache, and tells
+  the user (`lib/zr/runtime.rb`); `zr cache fetch` downloads the
+  release's runtime in place of the build;
+- a platform gem for each of `arm64-darwin`, `x86_64-linux-gnu`,
+  `aarch64-linux-gnu`, `x86_64-linux-musl` and `aarch64-linux-musl`,
+  which also carries that host's runtime in `data/runtime/<triple>`
+  (`zr.gemspec`). The first build imports it into the cache
+  (`Zr::Prebuilt.bundled`), and builds no runtime. `gem install zr`
+  selects it on its host.
