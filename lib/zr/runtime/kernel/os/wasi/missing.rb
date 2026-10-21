@@ -1,3 +1,6 @@
+# Derived from the C of CRuby (Ruby or BSD-2-Clause); see
+# THIRD_PARTY_NOTICES.md.
+
 module Zr::Kern
   # The libc calls that the portable kernel makes and that WASI has no
   # form of: no processes, signals, sockets, terminals, users or dynamic
