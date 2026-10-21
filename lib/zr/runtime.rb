@@ -36,6 +36,7 @@ module Zr
     # @rbs @digest: String?
     # @rbs @stamps: Hash[String, [Rational, Integer]?]?
     # @rbs @gem_prelude_files: Array[String]?
+    # @rbs @gem_prelude_path: String?
     # @rbs @core_cache: Cache::Lowering::Core?
     # @rbs @lowered: [Array[Obj::Code | IR::Function], Array[Obj::Datum]]?
     # @rbs @carried_text: String?
@@ -129,9 +130,11 @@ module Zr
     end
 
     # The cache file that lists the files that the gem prelude loads,
-    # keyed on the digest of all other inputs.
+    # keyed on the digest of all other inputs. A link asks for it each
+    # time, and the digest stats each of the ~650 sources, so it is kept,
+    # as `digest` is: `moved` still finds a file that changed after it.
     #: () -> String
-    def gem_prelude_path = RuntimeSources.gem_prelude_list(Digests.sources(target, RuntimeSources.for(target).sources))
+    def gem_prelude_path = @gem_prelude_path ||= RuntimeSources.gem_prelude_list(Digests.sources(target, RuntimeSources.for(target).sources))
 
     # The files that the gem prelude loads. Only its loader knows them.
     # The list comes from the cache (`gem_prelude_path`), or from building
