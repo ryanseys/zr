@@ -1,4 +1,0 @@
-/usr/local/lib/ruby/4.1.0+5/socket.rb:243:in 'Addrinfo.getaddrinfo': getaddrinfo: Unrecognized service (Socket::ResolutionError)
-	from /usr/local/lib/ruby/4.1.0+5/socket.rb:243:in 'Addrinfo.foreach'
-	from /usr/local/lib/ruby/4.1.0+5/socket.rb:1228:in 'Socket.tcp_server_sockets'
-	from stdlib/socket/a_port_that_atoi_reads_as_zero_resolves_then_raises_rangeerror.rb:14:in '<main>'

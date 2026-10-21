@@ -316,13 +316,21 @@ class Socket < BasicSocket
         resolution_error("getaddrinfo", EAI_NONAME)
       end
 
-      rows = darwin_getaddrinfo(node, service, family, socktype, protocol, flags)
+      rows = if DARWIN
+        darwin_getaddrinfo(node, service, family, socktype, protocol, flags)
+      else
+        Primitive.zr_sock_getaddrinfo(node, service, family, socktype, protocol, flags)
+      end
       return rows unless rows.is_a?(Integer)
 
       raise SocketError, "newline at the end of hostname" if node&.end_with?("\n")
 
       resolution_error("getaddrinfo", rows)
     end
+
+    # ruby's getaddrinfo is ruby_getaddrinfo__darwin on darwin alone.
+    DARWIN = RUBY_PLATFORM.include?("darwin")
+    private_constant :DARWIN
 
     # ruby_getaddrinfo__darwin: a service of port 0 is given as no
     # service, and an entry with no kind or protocol takes the hint's.
