@@ -173,4 +173,10 @@ module Zr::Kern
     end
     Machine.sword(GetgroupsCall.call(Machine.ptr(Machine.load64(cell, 0)), Machine.i32(n), list))
   end
+
+  # Kernel#syscall: this OS has no raw system call for ruby to make.
+  #: (value) -> value
+  def zr_os_syscall(args)
+    zr_notimplement(Machine.bytes("syscall"), 7)
+  end
 end

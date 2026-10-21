@@ -16,6 +16,8 @@ module Zr::Kern
     def self.issetugid = Machine.import
     #: (word) -> word
     def self.getauxval(n) = Machine.import
+    #: (word, word, word, word, word, word, word, word) -> word
+    def self.syscall(n, a1, a2, a3, a4, a5, a6, a7) = Machine.import
 
     #: () -> ptr
     def self.__errno_location = Machine.import

@@ -60,7 +60,7 @@ t(:getpriority) { Process.getpriority(Process::PRIO_PROCESS, 0).class }
 t(:sleep_ret) { [sleep(0.01).class, sleep(0)] }
 t(:select_timeout) { IO.select(nil, nil, nil, 0.01) }
 t(:select_write) { r, w = IO.pipe; IO.select(nil, [w], nil, 0)[1].size }
-t(:syscall_kernel) { syscall(20) rescue $!.class }
+t(:syscall_kernel) { syscall(-1) rescue $!.class }
 t(:closed_stdin_read) { $stdin.read }
 t(:io_inspect) { File.open("a.txt") { _1.inspect } }
 t(:io_closed_inspect) { f = File.open("a.txt"); f.close; f.inspect }

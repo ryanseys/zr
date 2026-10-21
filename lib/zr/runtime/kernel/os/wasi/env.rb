@@ -428,4 +428,10 @@ module Zr::Kern
     end
     before + mday - 1
   end
+
+  # Kernel#syscall: this OS has no raw system call for ruby to make.
+  #: (value) -> value
+  def zr_os_syscall(args)
+    zr_notimplement(Machine.bytes("syscall"), 7)
+  end
 end

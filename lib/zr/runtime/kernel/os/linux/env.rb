@@ -150,4 +150,37 @@ module Zr::Kern
     Machine.sword(Libc.getgroups(Machine.i32(n), list))
   end
 
+  # Kernel#syscall: libc's syscall with the words of `args`, the number
+  # first. A String gives the address of its bytes, and an Integer its
+  # value as a long. The answer is the call's result, or -errno.
+  #: (value) -> value
+  def zr_os_syscall(args)
+    words = Machine.slot(64)
+    out = Machine.slot(8)
+    i = 0
+    while i < 8
+      w = 0
+      if i < RArray[args].len
+        v = zr_ary_at(args, i)
+        if zr_fixnum_p(v)
+          w = zr_fix2long(v)
+        elsif zr_big_p(v)
+          zr_big_to_long(v, out)
+          w = Machine.load64(out, 0)
+        else
+          zr_str_modified(v)
+          w = Machine.word(RString[v].ptr)
+        end
+      end
+      Machine.store64(words + (i * 8), 0, w)
+      i += 1
+    end
+    r = Machine.sword(Libc.syscall(Machine.load64(words, 0), Machine.load64(words, 8), Machine.load64(words, 16),
+                                   Machine.load64(words, 24), Machine.load64(words, 32), Machine.load64(words, 40),
+                                   Machine.load64(words, 48), Machine.load64(words, 56)))
+    if r == 0 - 1
+      return zr_fix(0 - zr_errno())
+    end
+    zr_int_from_word(r)
+  end
 end

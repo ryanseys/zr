@@ -1393,7 +1393,34 @@ module Kernel
 end
 
 module Kernel
-  # Darwin deprecates the raw system call, and ruby leaves it out.
-  Primitive.zr_define_notimplement(self, :syscall)
+  if Primitive.zr_os_ruby_platform.include?("linux")
+    # rb_f_syscall: the system call that `num` numbers, with up to seven
+    # arguments. A String gives its bytes, which the call may write, and
+    # anything else converts as C's long.
+    def syscall(num, *args)
+      raise ArgumentError, +"too many arguments for syscall" if args.size > 7
+
+      words = [num, *args].map.with_index do |arg, i|
+        text = String.try_convert(arg) unless i.zero?
+        if text
+          raise FrozenError.new("can't modify frozen String: #{text.inspect}", receiver: text) if text.frozen?
+          raise ArgumentError, +"string contains null byte" if text.include?("\0")
+
+          next text
+        end
+        long = Primitive.zr_index_operand_m(arg)
+        raise RangeError, +"bignum too big to convert into 'long'" unless long.bit_length < 64
+
+        long
+      end
+      result = Primitive.zr_os_syscall(words)
+      raise SystemCallError.new(nil, -result) if result.negative?
+
+      result
+    end
+  else
+    # Darwin deprecates the raw system call, and ruby leaves it out.
+    Primitive.zr_define_notimplement(self, :syscall)
+  end
   module_function :syscall
 end

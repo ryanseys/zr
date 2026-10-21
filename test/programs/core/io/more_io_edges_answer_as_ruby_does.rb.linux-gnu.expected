@@ -52,7 +52,7 @@ getpriority: Integer
 sleep_ret: [Integer, 0]
 select_timeout: nil
 select_write: 1
-syscall_kernel: Errno::EINVAL
+syscall_kernel: Errno::ENOSYS
 closed_stdin_read: ""
 io_inspect: "#<File:a.txt>"
 io_closed_inspect: "#<File:a.txt (closed)>"
