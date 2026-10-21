@@ -15,14 +15,14 @@ class PortVersionsTest < Minitest::Test
   CONSTANTS = {
     "bigdecimal" => [%w[bigdecimal.so.rb], :VERSION],
     "debug" => [%w[debug/debug.so.rb], :SO_VERSION],
-    "etc" => [%w[etc.rb], :VERSION],
-    "fcntl" => [%w[os/darwin/fcntl.rb os/linux/fcntl.rb os/wasi/fcntl.rb], :VERSION],
-    "io-console" => [%w[io/console.rb], :VERSION],
+    "etc" => [%w[etc.so.rb], :VERSION],
+    "fcntl" => [%w[os/darwin/fcntl.so.rb os/linux/fcntl.so.rb os/wasi/fcntl.so.rb], :VERSION],
+    "io-console" => [%w[io/console.so.rb], :VERSION],
     "nkf" => [%w[nkf.so.rb], :GEM_VERSION],
-    "stringio" => [%w[stringio.rb], :VERSION],
+    "stringio" => [%w[stringio.so.rb], :VERSION],
     "strscan" => [%w[strscan.so.rb], :Version],
-    "syslog" => [%w[syslog_ext.rb], :VERSION],
-    "zlib" => [%w[zlib.rb], :VERSION]
+    "syslog" => [%w[syslog_ext.so.rb], :VERSION],
+    "zlib" => [%w[zlib.so.rb], :VERSION]
   }.freeze
 
   # The ports whose version is in the gem's Ruby half, which vendor/ or
