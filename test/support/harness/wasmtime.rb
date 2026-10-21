@@ -132,8 +132,18 @@ module Zr
       # first compiles it under a lock and the others wait. Returns nil
       # when the compile fails.
       # The key leaves out `parallel-compilation`: the output is the same
-      # with it or without it, and MT_CPU changes it.
+      # with it or without it, and MT_CPU changes it. A process keeps the
+      # answer for each file by its size and time: the hash of a 68 MB
+      # runtime module took 50 to 100 ms, once for each test.
       def runtime(path, compiler: self.compiler)
+        stat = File.stat(path)
+        known = (@runtimes ||= {})[[path, stat.size, stat.mtime, compiler]]
+        return known if known && File.exist?(known)
+
+        @runtimes[[path, stat.size, stat.mtime, compiler]] = compiled_runtime(path, compiler)
+      end
+
+      def compiled_runtime(path, compiler)
         kept = flags(compiler: compiler).reject { |flag| flag.start_with?("parallel-compilation=") }
         key = Digest::SHA256.hexdigest([Digest::SHA256.file(path).hexdigest, VERSION, *kept].join("\n"))
         dir = File.join(Paths.cache, "wasmtime")
