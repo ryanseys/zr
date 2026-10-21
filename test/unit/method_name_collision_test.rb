@@ -44,6 +44,10 @@ class MethodNameCollisionTest < Minitest::Test
     shadows = under(Zr, { Zr => true }).each_key.flat_map do |mod|
       # A BasicObject proxy (Eval::OnMain) has no Object method to shadow.
       next [] if mod.is_a?(Class) && !(mod <= Object)
+      # Zr::Kern is the kernel that a Host loads (Machine::Host#kernel_module):
+      # its record views take the field names of the runtime's layouts
+      # (`RProc[p].lambda`), and only a record receives them.
+      next [] if mod.name.to_s.start_with?("Zr::Kern::")
 
       own = mod.instance_methods(false) + mod.private_instance_methods(false)
       (own & inherited - DELIBERATE).map { |name| "#{mod}##{name}" }
