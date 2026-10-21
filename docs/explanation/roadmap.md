@@ -14,3 +14,9 @@ did is in [the changelog](../../CHANGELOG.md).
   `NameError` for `Racc::VERSION`, which ruby's C does not read. Until
   this is fixed, do not build or run racc programs locally: a check of
   it stopped a 16 GB Mac.
+- Fibers and threads on wasm32-wasi: a module cannot allocate a stack
+  to switch to, so no Fiber or Thread starts there, and the program
+  tests that need one skip (`fibers`). CRuby's WASI build runs the
+  module through binaryen's Asyncify (`wasm-opt --asyncify`), which
+  saves and restores the wasm stack in linear memory. zr can do the
+  same as a pass on its own modules.
