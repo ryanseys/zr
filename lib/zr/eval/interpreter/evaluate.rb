@@ -8,14 +8,16 @@ module Zr
       # Walks `source` in `scope` (the Binding of the calling frame), with
       # `self_` and `cref`. `block` is the block that a `yield` in the
       # string calls. `add` marks a `Binding#eval`: a new local of the
-      # string becomes a local of the Binding, as in ruby.
+      # string becomes a local of the Binding, as in ruby. `loaded` marks a
+      # file that a load or require walks (`walk_next`): Coverage measures
+      # it as a file, not as an eval.
       #
       # It reads the runtime only through `World`, so the tests run it on
       # CRuby over a `World` of plain Ruby (test/support/interpreter_world.rb).
-      #: (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped, ?add: bool) -> untyped
-      def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false)
+      #: (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped, ?add: bool, ?loaded: bool) -> untyped
+      def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false)
         file = string(file)
-        hir = built(string(source), file, line.to_int, scope)
+        hir = built(string(source), file, line.to_int, scope, loaded)
         own = Tree::Scope.new(hir.locals)
         ctx = Tree::Ctx.new(self_: self_, cref: cref, chain: [own, *held(scope)], block: block,
                             name: nil, owner: nil, args: nil, kwargs: nil, tag: nil, home: nil, svars: nil)
@@ -38,9 +40,11 @@ module Zr
       # eval compiler does. A write to a name that the frame has goes to the
       # frame. A new name stays in the scope of the string. Under Coverage's
       # `eval: true`, the tree gets its line events and branch counters
-      # after those already in use, as a compiled eval's does.
-      #: (String source, String file, Integer line, Binding scope) -> Hir::Program
-      def self.built(source, file, line, scope)
+      # after those already in use, as a compiled eval's does. A `loaded`
+      # file gets them whenever Coverage measures, as a compiled file does
+      # (Compiler#compiled_file).
+      #: (String source, String file, Integer line, Binding scope, bool loaded) -> Hir::Program
+      def self.built(source, file, line, scope, loaded)
         # Hir only tests a name for membership, so a slot with no name
         # matches nothing.
         names = World.binding_scopes(scope) #: Array[Array[Symbol]]
@@ -50,7 +54,7 @@ module Zr
         # as the eval compiler's does (`Eval.plainly`); the walk itself runs
         # with the program's separators.
         coverage = covering
-        measured = coverage&.send(:measures_evals?) || false
+        measured = loaded ? !coverage.nil? : coverage&.send(:measures_evals?) || false
         hir = Runtime.plain_separators do
           Runtime.compiling do
             Hir.build(source, file, BuildOptions.new(trace: measured), program: false, line: line, scopes: [*names.reverse, own], method: params,
@@ -58,7 +62,11 @@ module Zr
                                                                     branch_base: (coverage.send(:next_branch_id) if measured))
           end
         end
-        cover_eval(coverage, hir, source, line) if coverage
+        if loaded
+          coverage&.send(:compiled_lines!, hir.coverable, hir.defs, false, hir.branches)
+        elsif coverage
+          cover_eval(coverage, hir, source, line)
+        end
         hir
       end
 
