@@ -33,7 +33,6 @@ t(:truncate) { File.write("t.txt", "12345"); File.truncate("t.txt", 2); File.rea
 t(:utime) { File.utime(Time.at(0), Time.at(100), "t.txt"); File.mtime("t.txt").to_i }
 t(:chmod) { File.chmod(0o600, "t.txt"); File.stat("t.txt").mode & 0o777 }
 t(:enoent) { File.read("nope.txt") }
-t(:eacces) { File.write("ro.txt", ""); File.chmod(0, "ro.txt"); File.read("ro.txt") }
 t(:eisdir) { File.read("d") }
 t(:closed) { f = File.open("a.txt"); f.close; f.read }
 t(:select) { r, w = IO.pipe; w << "x"; IO.select([r], nil, nil, 0)&.first&.size }

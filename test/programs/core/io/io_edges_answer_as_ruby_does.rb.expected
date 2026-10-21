@@ -25,7 +25,6 @@ truncate: "12"
 utime: 100
 chmod: 384
 enoent: !Errno::ENOENT: No such file or directory @ rb_sysopen - nope.txt
-eacces: !Errno::EACCES: Permission denied @ rb_sysopen - ro.txt
 eisdir: !Errno::EISDIR: Is a directory @ io_fread - d
 closed: !IOError: closed stream
 select: 1

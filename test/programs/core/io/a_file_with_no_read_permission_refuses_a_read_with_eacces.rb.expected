@@ -1,0 +1,1 @@
+[Errno::EACCES, "Permission denied @ rb_sysopen - ro.txt"]
