@@ -79,7 +79,8 @@ module Zr
         filled = calls.fetch(:list).call(PROC_PGRP_ONLY, pgid, pids, GROUP_MAX * 4)
         return nil if filled.negative?
 
-        pids[0, filled].unpack("l<*").reject(&:zero?)
+        ids = pids[0, filled].unpack("l<*") #: Array[Integer]
+        ids.reject(&:zero?)
       end
 
       # The footprint bytes of the process group `pgid`, summed, or nil.

@@ -70,6 +70,9 @@ module Zr
       # (Cache::Lowering#made) defines its own names and the kernel's, and
       # a union copied the kernel's tens of thousands for each piece.
       class Joined
+        # @rbs @own: Set[String]
+        # @rbs @fixed: Set[String]
+
         #: (Set[String] own, Set[String] fixed) -> void
         def initialize(own, fixed)
           @own = own
