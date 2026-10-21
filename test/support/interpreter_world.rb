@@ -113,6 +113,7 @@ module Zr
         def set_module_function(cref) = cref.modfn = true
         def walk_enter = nil
         def walk_leave = nil
+        def walk_signature(_method, _rows, _arity) = nil
 
         def singleton_of(obj)
           obj.singleton_class

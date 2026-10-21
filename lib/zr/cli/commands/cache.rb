@@ -87,10 +87,10 @@ module Zr
         end
 
         # `zr cache export [--target T] -o FILE`: the target's built runtime
-        # as one file (lib/zr/prebuilt.rb).
+        # as one file (lib/zr/prebuilt_export.rb).
         #: (Array[String] argv) -> void
         def export(argv)
-          require_relative "../../prebuilt"
+          require_relative "../../prebuilt_export"
           out = option(argv, "-o") or usage_error("export needs -o FILE")
           target = target_of(argv)
           no_more!(argv)

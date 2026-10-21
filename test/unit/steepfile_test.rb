@@ -52,6 +52,7 @@ class SteepfileTest < Minitest::Test
 
   # The modules of the checked files whose body calls a bare
   # `module_function`.
+  # A module that spans files (Zr::Prebuilt) is named once.
   def module_function_modules
     checked = compiler_files.select { |file| level(file) }
     checked.flat_map do |file|
@@ -69,7 +70,7 @@ class SteepfileTest < Minitest::Test
       end
       walk.call(Prism.parse_file(File.join(ROOT, file)).value, [])
       found
-    end
+    end.uniq
   end
 
   def compiler_files = Dir.glob("lib/**/*.rb", base: ROOT).reject { |file| file.start_with?("lib/zr/runtime/") }

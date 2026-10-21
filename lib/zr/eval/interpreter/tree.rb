@@ -743,7 +743,7 @@ module Zr
           owner.define_method(node.name) do |*args, **kwargs, &blk|
             tree.__send__(:run_method, node, self, owner, cref, args, kwargs, blk) # steep:ignore FallbackAny
           end
-          World.describe(owner.instance_method(node.name), node.params.rows, node.params.arity)
+          World.walk_signature(owner.instance_method(node.name), node.params.rows, node.params.arity)
           visibility(owner, node, cref) unless node.receiver
           node.name
         end

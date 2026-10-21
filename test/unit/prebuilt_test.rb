@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/prebuilt"
+require_relative "../../lib/zr/prebuilt_export"
 
 # A target's built runtime as one file (lib/zr/prebuilt.rb): what export
 # writes, import puts back, and every bundle that import refuses.

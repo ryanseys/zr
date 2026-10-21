@@ -74,7 +74,7 @@ module Zr
     # none of them, and that it lists each compiler file that they do not
     # load.
     DRIVER_ONLY = (%w[api.rb cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb diff.rb doctor.rb ext/target_rbconfig.rb prebuilt.rb
-                      lock_plan.rb machine/host.rb]
+                      prebuilt_export.rb tar.rb lock_plan.rb machine/host.rb]
                      .map { |name| File.join(__dir__, name) } +
                    Dir[File.join(__dir__, "machine/host/**/*.rb")]).sort.freeze
 

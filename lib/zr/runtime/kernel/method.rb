@@ -452,7 +452,7 @@ module Zr::Kern
     out
   end
 
-  # A method that the tree walk defines (Zr::Eval::World.describe) is a
+  # A method that the tree walk defines (Zr::Eval::World.walk_signature) is a
   # define_method of `|*args, **kwargs, &blk|`. Its body keeps the
   # parameters and the arity of the def that the string wrote, which
   # `parameters`, `arity` and `inspect` give in place of the block's.

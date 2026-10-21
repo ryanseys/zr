@@ -55,6 +55,7 @@ class ConstantLayoutTest < Minitest::Test
     "lower/function/sends/refinements.rb" => ["Zr::Lower::Function::Sends", "the refinement part of Sends"],
     "obj/macho/libsystem.rb" => ["Zr::Obj::MachO::Executable", "the libSystem table of Executable"],
     "obj/model.rb" => ["Zr::Obj", "the object model: Reloc, Code, Datum and Unit are one unit"],
+    "prebuilt_export.rb" => ["Zr::Prebuilt", "the export part of Prebuilt, apart so that a build does not load the API"],
   }.freeze
 
   # Files that cannot follow the rule. A nil constant means that the file

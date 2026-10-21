@@ -203,6 +203,10 @@ module Zr::SymbolNumbering
   extend Zr::SymbolNumbering
 end
 
+module Zr::Tar
+  extend Zr::Tar
+end
+
 module Zr::Timing
   extend Zr::Timing
 end

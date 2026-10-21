@@ -15,7 +15,6 @@ require_relative "symbol_numbering"
 require_relative "gc_tuning"
 require_relative "source_guard"
 require_relative "cache/store"
-require_relative "prebuilt"
 require_relative "cache/kernel"
 require_relative "runtime_sources"
 require_relative "cache/lowering/core"
@@ -318,6 +317,7 @@ module Zr
     #: (?Target target) -> Runtime
     def self.for(target = Target.default)
       loaded[target.triple] ||= begin
+        require_relative "prebuilt"
         Prebuilt.take_bundled(target)
         new(target)
       end
