@@ -96,11 +96,12 @@ module Zr
 
       # Builds with `zr build` in its own process, from the run directory.
       # A ZR_EVAL in the test's .env picks the back end of its eval support,
-      # as it picks it for a user's build. Returns nil, or `[:build, why]`.
+      # as it picks it for a user's build, and a ZR_WASM_SPLIT the form of
+      # a wasm module. Returns nil, or `[:build, why]`.
       def cli(test, run, bin, runner)
         megabytes = [test.limits[:build_mb] || 0, Harness::Child::BUILD_MB].max
         argv = runner.build_argv(test.rel, bin)
-        out, = Harness::Child.run(argv, cwd: run, env: runner.build_env.merge(test.env.slice("ZR_EVAL")), seconds: Harness::Child::SECONDS * 5,
+        out, = Harness::Child.run(argv, cwd: run, env: runner.build_env.merge(test.env.slice("ZR_EVAL", "ZR_WASM_SPLIT")), seconds: Harness::Child::SECONDS * 5,
                                         megabytes: megabytes)
         return nil if out.code == 0
 

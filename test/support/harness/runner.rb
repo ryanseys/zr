@@ -58,7 +58,12 @@ module Zr
          "--target", @target.triple]
       end
 
-      def build_env = GcTuning::GC_ENV
+      # A cli test for wasm builds a program module (`ZR_WASM_SPLIT`), as a
+      # program test does, so wasmtime compiles the runtime module once for
+      # the tier (`Wasmtime.runtime`) and not each test's whole module: 30
+      # whole compiles, five of them past 4 GB. A test whose .env sets
+      # ZR_WASM_SPLIT=0 keeps `zr build`'s whole module tested.
+      def build_env = wasm? && Wasmtime.split? ? GcTuning::GC_ENV.merge("ZR_WASM_SPLIT" => "1") : GcTuning::GC_ENV
 
       # The command words that run a binary on a host of the target, from
       # `ZR_TEST_EXEC`: the binary and its arguments follow them, in the
