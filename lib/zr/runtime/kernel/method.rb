@@ -940,8 +940,11 @@ module Zr::Kern
       h = zr_hash_mix(h ^ MEntry[e].mid)
     end
     # A body that the core table set is the whole identity; the kind of a
-    # builtin and of its twin written in Ruby differ.
-    h = zr_hash_mix(h ^ Machine.word(zr_method_identity(e)) ^ (MEntry[e].body != 0 ? 0 : MEntry[e].kind))
+    # builtin and of its twin written in Ruby differ. The kind is mixed
+    # apart: on wasm an identity is a small table index, and `index ^ kind`
+    # of two methods could be equal.
+    h = zr_hash_mix(h ^ Machine.word(zr_method_identity(e)))
+    h = zr_hash_mix(h ^ (MEntry[e].body != 0 ? 0 : MEntry[e].kind))
     if MEntry[e].kind == KIND_BMETHOD
       h = zr_hash_mix(h ^ Machine.word(MEntry[e].cref))
     end
