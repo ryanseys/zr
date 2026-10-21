@@ -869,11 +869,14 @@ module Zr
         # zr's own code that runs at the end of a file, each time that file
         # loads (an autoload, a require, or the first error display):
         # error_highlight's node lookup for a program compiled ahead of time
-        # (lib/zr/runtime/lib/zr/error_highlight.rb), and the mark that zr's
-        # own code runs in a binary (lib/zr/runtime/lib/zr/binary.rb).
+        # (lib/zr/runtime/lib/zr/error_highlight.rb), Timeout with no
+        # watcher Thread where none can start (lib/zr/runtime/lib/zr/timeout.rb),
+        # and the mark that zr's own code runs in a binary
+        # (lib/zr/runtime/lib/zr/binary.rb).
         #: () -> Hash[String, String]
         def self.tails
           { File.join(Library::Roots.pure, "error_highlight.rb") => File.join(Library::Layout::RUNTIME_LIB, "zr/error_highlight.rb"),
+            File.join(Library::Roots.pure, "timeout.rb") => File.join(Library::Layout::RUNTIME_LIB, "zr/timeout.rb"),
             File.join(Paths::ROOT, "lib/zr/binary.rb") => File.join(Library::Layout::RUNTIME_LIB, "zr/binary.rb") }
         end
 
