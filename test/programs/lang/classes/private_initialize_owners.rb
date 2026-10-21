@@ -42,7 +42,7 @@ t("KeyError") { e = KeyError.new("k", receiver: {}, key: :z); [e.message, e.key]
 t("SystemExit") { e = SystemExit.new(3, "bye"); [e.message, e.status] }
 t("Interrupt") { e = Interrupt.new; [e.message, e.signo] }
 t("SignalException") { e = SignalException.new("TERM"); [e.message, e.signm] }
-t("SystemCallError") { e = SystemCallError.new("s", 2); [e.class.to_s, e.errno] }
+t("SystemCallError") { e = SystemCallError.new("s", Errno::ENOENT::Errno); [e.class.to_s, e.errno == Errno::ENOENT::Errno] }
 
 # `Exception` keeps the two rows only IT owns.
 t("Exception private") { Exception.private_instance_methods(false).sort }

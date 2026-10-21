@@ -11,7 +11,7 @@ false
 true
 false
 false
-[Errno::ENOENT, 2]
+[Errno::ENOENT, true]
 Errno::EACCES
 :enoent
 :other_syscall

@@ -40,7 +40,7 @@ begin
 rescue Errno::EACCES
   p :wrong
 rescue Errno::ENOENT => e
-  p [e.class, e.errno]
+  p [e.class, e.errno == Errno::ENOENT::Errno]
 end
 
 begin
