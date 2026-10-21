@@ -589,6 +589,11 @@ module Zr
         # keeps every character decomposed, and a conversion from it is a
         # normalization.
         ENCODES = %i[encode encode!].freeze
+        # The same names as one set, and the calls that name another
+        # method (`send(:pp)`, `method(:irb)`): `normalizes!` reads them for
+        # each call of the program.
+        NORMALIZES_OR_ENCODES = (NORMALIZES + ENCODES).to_set.freeze #: Set[Symbol]
+        NAMES_A_METHOD = (SENDS + FETCHES).to_set.freeze #: Set[Symbol]
 
         #: () -> bool
         def normalizes? = @normalizes
@@ -617,15 +622,15 @@ module Zr
         #: (Symbol name, Array[untyped] args) -> void
         def normalizes!(name, args)
           named = Build.literal_name(args.first)
-          @normalizes = true if NORMALIZES.include?(name) || ENCODES.include?(name) ||
-                                ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
+          via = NAMES_A_METHOD.include?(name)
+          @normalizes = true if NORMALIZES_OR_ENCODES.include?(name) || (via && NORMALIZES_OR_ENCODES.include?(named))
           # A program that calls pp includes pp.rb, which the first call loads.
           # A send whose name is computed may reach pp too.
-          dynamic = (SENDS + FETCHES).include?(name) && args.first && named.nil?
-          @pretty_prints = true if name == :pp || ((SENDS + FETCHES).include?(name) && named == :pp) || dynamic
+          dynamic = via && args.first && named.nil?
+          @pretty_prints = true if name == :pp || (via && named == :pp) || dynamic
           # A program that calls irb includes irb, which `binding.irb` loads.
-          @irbs = true if name == :irb || ((SENDS + FETCHES).include?(name) && named == :irb)
-          @ruby_prisms = true if name == :syntax_tree || ((SENDS + FETCHES).include?(name) && named == :syntax_tree)
+          @irbs = true if name == :irb || (via && named == :irb)
+          @ruby_prisms = true if name == :syntax_tree || (via && named == :syntax_tree)
         end
 
         # The byte a file's `__END__` data starts at, or nil when it has
