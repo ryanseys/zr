@@ -115,8 +115,28 @@ module Zr::Kern
     entry + zr_cstr_len(name) + 1
   end
 
+  # Whether `name` can name a variable: it is not empty and has no `=`.
+  # setenv and unsetenv fail with EINVAL for another name, as POSIX says.
+  #: (ptr) -> bool
+  def zr_wasi_env_name_p(name)
+    if Machine.load8(name, 0) == Machine.i8(0)
+      return false
+    end
+    at = name
+    while Machine.load8(at, 0) != Machine.i8(0)
+      if Machine.u8(Machine.load8(at, 0)) == 61
+        return false
+      end
+      at += 1
+    end
+    true
+  end
+
   #: (ptr, ptr, i32) -> i32
   def setenv(name, value, overwrite)
+    if !zr_wasi_env_name_p(name)
+      return zr_wasi_fail(WASI_EINVAL)
+    end
     row = zr_wasi_env_row(name)
     if Machine.load64(row, 0) != 0 && overwrite == Machine.i32(0)
       return Machine.i32(0)
@@ -150,6 +170,9 @@ module Zr::Kern
 
   #: (ptr) -> i32
   def unsetenv(name)
+    if !zr_wasi_env_name_p(name)
+      return zr_wasi_fail(WASI_EINVAL)
+    end
     row = zr_wasi_env_row(name)
     if Machine.load64(row, 0) == 0
       return Machine.i32(0)
