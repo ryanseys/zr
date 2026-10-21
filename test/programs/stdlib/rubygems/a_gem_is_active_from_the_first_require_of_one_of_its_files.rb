@@ -8,7 +8,8 @@ p Gem.loaded_specs.keys
 require "abbrev"
 p Gem.loaded_specs.keys
 abbrev = Gem.loaded_specs["abbrev"]
-p abbrev.activated?, abbrev.default_gem?, abbrev.full_gem_path.delete_prefix(Gem.dir)
+# A bundled gem is in ruby's own gem directory, whatever GEM_HOME names.
+p abbrev.activated?, abbrev.default_gem?, abbrev.full_gem_path.delete_prefix(Gem.default_dir)
 p $LOAD_PATH.include?(File.join(abbrev.full_gem_path, "lib"))
 require "fileutils"
 require "tsort"
