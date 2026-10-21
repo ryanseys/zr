@@ -37,7 +37,8 @@ while (at = ARGV.index("--import"))
   bundles << File.expand_path(ARGV.delete_at(at + 1) || abort("smoke: --import needs a bundle"))
   ARGV.delete_at(at)
 end
-gem_file = File.expand_path(ARGV.fetch(0) { abort "usage: ruby .github/scripts/smoke.rb [--user-cache] [--no-wasmtime] [--import BUNDLE]... GEM [DIR]" })
+usage = "usage: ruby .github/scripts/smoke.rb [--user-cache] [--no-wasmtime] [--import BUNDLE]... GEM [DIR]"
+gem_file = File.expand_path(ARGV.fetch(0) { abort usage })
 root = ARGV.fetch(1) { user_cache ? File.join(ENV.fetch("RUNNER_TEMP", Dir.tmpdir), "zr") : "/opt/zr" }
 
 # A runner's user cannot write /opt without sudo; root in a container can.
@@ -95,7 +96,7 @@ expect = lambda do |got, what|
   abort "smoke: #{what} printed #{got.inspect}, not \"6\\n\"" unless got == "6\n"
 end
 
-installed = run.(RbConfig.ruby, "-S", "gem", "install", "--local", gem_file)
+installed = run.call(RbConfig.ruby, "-S", "gem", "install", "--local", gem_file)
 abort "smoke: the install fetched a gem; zr must have no dependencies" if installed.include?("Fetching")
 # The sparse checkout has no lib/, so the version and the pinned ruby
 # come from the gem just installed.
@@ -108,13 +109,13 @@ imported.replace(bundles.map do |bundle|
     Zr::Tar.each(gz) { |name, size| break JSON.parse(gz.read(size)).fetch("target") if name == "manifest.json" }
   end
 end)
-version = run.(zr, "version")
+version = run.call(zr, "version")
 want = "zr #{Zr::VERSION} (for ruby #{Zr::RUBY_PIN})\n"
 abort "smoke: zr version printed #{version.inspect}, not #{want.inspect}" unless version == want
-run.(zr, "doctor")
-bundles.each { |bundle| run.(zr, "cache", "import", bundle) }
-run.(zr, "--help")
-run.(zr, "help", "build")
+run.call(zr, "doctor")
+bundles.each { |bundle| run.call(zr, "cache", "import", bundle) }
+run.call(zr, "--help")
+run.call(zr, "help", "build")
 
 # A bad setting is one line and status 2, with no backtrace.
 out, status = Open3.capture2e(env.merge("ZR_JOBS" => "abc"), zr, "build", "sum.rb", "-o", "sum", chdir: smoke)
@@ -135,24 +136,24 @@ magic = lambda do |path, target|
 end
 
 darwin = Zr::Target::AARCH64_DARWIN
-run.(zr, "build", "sum.rb", "-o", "sum.wasm", "--emit", "wasm")
-run.(zr, "build", "sum.rb", "-o", "sum.darwin.o", "--emit", "obj", "--target", darwin.triple)
+run.call(zr, "build", "sum.rb", "-o", "sum.wasm", "--emit", "wasm")
+run.call(zr, "build", "sum.rb", "-o", "sum.darwin.o", "--emit", "obj", "--target", darwin.triple)
 if wasmtime
-  expect.(run.("wasmtime", "sum.wasm"), "wasmtime sum.wasm")
-  expect.(run.(zr, "run", "--emit", "wasm", "sum.rb"), "zr run --emit wasm")
+  expect.call(run.call("wasmtime", "sum.wasm"), "wasmtime sum.wasm")
+  expect.call(run.call(zr, "run", "--emit", "wasm", "sum.rb"), "zr run --emit wasm")
 end
 
 # zr links a macOS binary on any host.
-run.(zr, "build", "sum.rb", "-o", "sum-macos", "--target", darwin.triple)
-magic.("sum-macos", darwin)
+run.call(zr, "build", "sum.rb", "-o", "sum-macos", "--target", darwin.triple)
+magic.call("sum-macos", darwin)
 
 # The binary of this host's own target, where it runs one and can link it.
 host = Zr::Target.host
 if host&.linkable?
-  expect.(run.(zr, "run", "sum.rb"), "zr run")
-  run.(zr, "build", "sum.rb", "-o", "sum")
-  magic.("sum", host)
-  expect.(run.("./sum"), "./sum")
+  expect.call(run.call(zr, "run", "sum.rb"), "zr run")
+  run.call(zr, "build", "sum.rb", "-o", "sum")
+  magic.call("sum", host)
+  expect.call(run.call("./sum"), "./sum")
 end
 
 # zr refuses to run a macOS binary where it cannot run (status 3).
