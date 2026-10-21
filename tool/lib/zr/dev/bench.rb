@@ -87,6 +87,8 @@ module Zr
         @target = target
         @runs = runs
         @show = show
+        # The speed is the result, so wasmtime optimizes (the tests do not).
+        ENV["ZR_TEST_WASM_OPT_LEVEL"] ||= "2"
         @runner = Harness::Runner.new(root, target, compiler: "cranelift")
       end
 

@@ -8,6 +8,7 @@ require_relative "../workers"
 require_relative "child"
 require_relative "../../../lib/zr/paths"
 require_relative "../../../lib/zr/backend/wasm"
+require_relative "../../../lib/zr/native/parallel"
 
 module Zr
   module Harness
@@ -44,9 +45,16 @@ module Zr
       # module past BIG_BYTES also takes a lock of the cache, so one runs
       # at a time: the cli tier compiled one in each worker, and without a
       # bound they took all of the machine's memory.
-      COMPILE_MB = Integer(ENV.fetch("ZR_TEST_COMPILE_MB", "6144"))
+      # The bound is a third of the machine, at most 6 GB, so a compile
+      # leaves room for the workers and the system.
+      COMPILE_MB = Integer(ENV.fetch("ZR_TEST_COMPILE_MB") { [6144, (Native::Parallel.machine_bytes >> 20) / 3].min })
       COMPILE_SECONDS = Integer(ENV.fetch("ZR_TEST_COMPILE_SECONDS", "900"))
       BIG_BYTES = 32 << 20
+      # The threads of a compile of a module past BIG_BYTES. The memory of a
+      # compile grows with its threads, and wasmtime's pool (rayon) starts
+      # one on each core: the runtime with eval support peaked at 5.1 GB
+      # on 12. Each thread holds the functions that it compiles.
+      COMPILE_THREADS = Integer(ENV.fetch("ZR_TEST_COMPILE_THREADS", "2"))
 
       module_function
 
@@ -87,10 +95,18 @@ module Zr
       # workers leave half of the cores free (a CI runner: 2 workers on 4
       # cores), a compile takes them: a cli program's module with eval
       # support took 28 s on one thread.
+      #
+      # A test needs the output, not fast code, so Cranelift does not
+      # optimize (`opt-level=0`, or `ZR_TEST_WASM_OPT_LEVEL`; `zr-dev bench`
+      # sets 2), and no code keeps the map from native addresses to wasm
+      # offsets (`address-map=n`): both cut the memory and time of a
+      # compile. A trap still says "wasm trap: ".
       def flags(compiler: self.compiler)
         ["-C", "compiler=#{compiler}", "-C", "cache=n", "-C", "parallel-compilation=#{spare_cores? ? "y" : "n"}",
-         "-W", "max-memory-size=#{memory}"]
+         "-O", "opt-level=#{opt_level}", "-D", "address-map=n", "-W", "max-memory-size=#{memory}"]
       end
+
+      def opt_level = ENV.fetch("ZR_TEST_WASM_OPT_LEVEL", "0")
 
       def spare_cores? = Etc.nprocessors >= 2 * Test::Workers.size
 
@@ -115,8 +131,11 @@ module Zr
       # (`<cache>/wasmtime`). Each worker of a tier asks for it, so the
       # first compiles it under a lock and the others wait. Returns nil
       # when the compile fails.
+      # The key leaves out `parallel-compilation`: the output is the same
+      # with it or without it, and MT_CPU changes it.
       def runtime(path, compiler: self.compiler)
-        key = Digest::SHA256.hexdigest([Digest::SHA256.file(path).hexdigest, VERSION, *flags(compiler: compiler)].join("\n"))
+        kept = flags(compiler: compiler).reject { |flag| flag.start_with?("parallel-compilation=") }
+        key = Digest::SHA256.hexdigest([Digest::SHA256.file(path).hexdigest, VERSION, *kept].join("\n"))
         dir = File.join(Paths.cache, "wasmtime")
         out = File.join(dir, "#{key}.cwasm")
         return out if File.exist?(out)
@@ -175,12 +194,22 @@ module Zr
 
       # Whether `wasmtime compile` of `path` to `out` finished inside
       # COMPILE_SECONDS and COMPILE_MB.
+      #
+      # A big module compiles on COMPILE_THREADS threads, at background
+      # priority on macOS (`taskpolicy -b`), so the machine stays usable.
       def compiled?(path, out, compiler: self.compiler)
-        argv = [executable, "compile", *flags(compiler: compiler), "-o", out, path]
-        one_at_a_time(File.size(path) > BIG_BYTES) do
-          answer, = Child.run(argv, cwd: Dir.pwd, seconds: COMPILE_SECONDS, megabytes: COMPILE_MB)
+        big = File.size(path) > BIG_BYTES
+        argv = [*(background if big), executable, "compile", *flags(compiler: compiler), "-o", out, path]
+        env = big ? { "RAYON_NUM_THREADS" => COMPILE_THREADS.to_s } : {}
+        one_at_a_time(big) do
+          answer, = Child.run(argv, cwd: Dir.pwd, seconds: COMPILE_SECONDS, megabytes: COMPILE_MB, env: env)
           answer.code.zero?
         end
+      end
+
+      # The prefix of a command that runs at background priority, or nil.
+      def background
+        %w[/usr/sbin/taskpolicy -b] if RUBY_PLATFORM.include?("darwin") && File.executable?("/usr/sbin/taskpolicy")
       end
 
       # Runs the block, under the cache's compile lock when `locked`.
