@@ -162,25 +162,50 @@ module Zr
 
         at_once = targets.size > 1 && Native::Parallel.machine_bytes >= AT_ONCE_GB * (1 << 30)
         jobs = at_once ? [Native::Build.jobs / 2, 1].max : Native::Build.jobs
+        works = targets.to_h { |target| [target, (Dir.mktmpdir("zr-build-") unless target.link)] }
         statuses = if at_once
-                     targets.map { |target| start(target, jobs: jobs, say: say, evals: evals) }.map { |pid| Process.wait2(pid).last }
+                     targets.map { |target| start(target, jobs: jobs, say: say, evals: evals, work: works[target]) }
+                            .map { |pid| Process.wait2(pid).last }
                    else
-                     targets.map { |target| Process.wait2(start(target, jobs: jobs, say: say, evals: evals)).last }
+                     targets.map { |target| Process.wait2(start(target, jobs: jobs, say: say, evals: evals, work: works[target])).last }
                    end
         failed = statuses.count { |status| !status.success? }
         abort("#{failed} of #{targets.size} builds did not finish") unless failed.zero?
+        works.each_value { |work| precompile(work, say: say) if work }
+      ensure
+        works&.each_value { |work| FileUtils.rm_rf(work) if work }
+      end
+
+      # Compiles, for wasmtime, the runtime module of each program module
+      # that a wasm build wrote to `work` (`Harness::Wasmtime.runtime`).
+      # This process does it after the build's child ended, so the compile
+      # never runs next to the build or the test workers.
+      def precompile(work, say:)
+        return unless Harness::Wasmtime.installed? && Harness::Wasmtime.split?
+
+        Dir[File.join(work, "*.wasm")].sort.each do |path|
+          name = Harness::Wasmtime.runtime_of(path) or next
+          runtime = File.join(Harness::Wasmtime.split_dir, name)
+          next unless File.file?(runtime)
+
+          began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          compiled = Harness::Wasmtime.runtime(runtime, compiler: Harness::Wasmtime.split_compiler)
+          say&.puts(format("%s %s for wasmtime in %.1f s", compiled ? "compiled" : "could not compile", name,
+                           Process.clock_gettime(Process::CLOCK_MONOTONIC) - began))
+        end
       end
 
       # Starts a child process that builds the caches of `target`, and
       # returns its pid. `ZR_JOBS` gives the child its number of workers.
-      def start(target, jobs:, say:, evals: true)
+      # A wasm build writes its program modules to `work`.
+      def start(target, jobs:, say:, evals: true, work: nil)
         say&.puts("building the zr runtime#{" and eval support" if evals} for #{target.triple} " \
                   "(#{evals ? "a few minutes" : "about half a minute"} after a change under lib/)")
         Process.fork do
           ENV["ZR_JOBS"] = jobs.to_s
           Config.reset!
           began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          target.link ? build_binary(target, evals: evals) : build_module(target, evals: evals)
+          target.link ? build_binary(target, evals: evals) : build_module(target, evals: evals, work: work)
           say&.puts(format("built the zr runtime for %s in %.1f s (cache: %s)",
                            target.triple, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began, cache_dir))
         end
@@ -229,14 +254,17 @@ module Zr
 
       # A WASI module has no linker. Build a plain program, and with
       # `evals` a program that evals, because each uses a different
-      # prelude: the second prelude also contains eval support.
-      def build_module(target, evals: true)
-        Dir.mktmpdir("zr-build-") do |work|
-          [PLAIN, *(EVALS if evals)].each_with_index do |source, i|
-            program = Program.build(source, "built.rb", BuildOptions.new(target: target))
-            why = Native::Build.wasm_program(program, File.join(work, "built#{i}.wasm"))
-            raise "the build did not finish: #{why}" if why
-          end
+      # prelude: the second prelude also contains eval support. Each is a
+      # program module, as a split test builds it, so the runtime module
+      # that the tests preload is written too (`precompile` compiles it).
+      def build_module(target, evals: true, work: nil)
+        return Dir.mktmpdir("zr-build-") { |dir| build_module(target, evals: evals, work: dir) } unless work
+
+        split = Harness::Wasmtime.split_dir if Harness::Wasmtime.split?
+        [PLAIN, *(EVALS if evals)].each_with_index do |source, i|
+          program = Program.build(source, "built.rb", BuildOptions.new(target: target))
+          why = Native::Build.wasm_program(program, File.join(work, "built#{i}.wasm"), split: split)
+          raise "the build did not finish: #{why}" if why
         end
         finish(target, evals: evals)
       end
