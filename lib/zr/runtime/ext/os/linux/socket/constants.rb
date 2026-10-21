@@ -257,7 +257,7 @@ class Socket < BasicSocket
     AI_ALL = 16
     AI_ADDRCONFIG = 32
     AI_V4MAPPED = 8
-    NI_MAXHOST = 255
+    NI_MAXHOST = RUBY_PLATFORM.end_with?("-musl") ? 255 : 1025
     NI_MAXSERV = 32
     NI_NOFQDN = 4
     NI_NUMERICHOST = 1
@@ -299,7 +299,7 @@ class Socket < BasicSocket
     INET6_ADDRSTRLEN = 46
     IFNAMSIZ = 16
     IF_NAMESIZE = 16
-    SOMAXCONN = 128
+    SOMAXCONN = RUBY_PLATFORM.end_with?("-musl") ? 128 : 4096
     SCM_RIGHTS = 1
     SCM_TIMESTAMP = 29
     SCM_TIMESTAMPNS = 35
@@ -310,11 +310,11 @@ class Socket < BasicSocket
     IFF_AUTOMEDIA = 16384
     IFF_BROADCAST = 2
     IFF_DEBUG = 4
-    IFF_DORMANT = 131072
+    IFF_DORMANT = 131072 if RUBY_PLATFORM.end_with?("-musl")
     IFF_DYNAMIC = 32768
-    IFF_ECHO = 262144
+    IFF_ECHO = 262144 if RUBY_PLATFORM.end_with?("-musl")
     IFF_LOOPBACK = 8
-    IFF_LOWER_UP = 65536
+    IFF_LOWER_UP = 65536 if RUBY_PLATFORM.end_with?("-musl")
     IFF_MASTER = 1024
     IFF_MULTICAST = 4096
     IFF_NOARP = 128
@@ -325,13 +325,13 @@ class Socket < BasicSocket
     IFF_RUNNING = 64
     IFF_SLAVE = 2048
     IFF_UP = 1
-    IFF_VOLATILE = 461914
+    IFF_VOLATILE = 461914 if RUBY_PLATFORM.end_with?("-musl")
   end
 
   # Every name above, in that order.
   def self.constant_names
     Primitive.attr! :hidden
-    %i[
+    names = %i[
       SOCK_STREAM SOCK_DGRAM SOCK_RAW SOCK_RDM SOCK_SEQPACKET SOCK_PACKET SOCK_NONBLOCK SOCK_CLOEXEC
       AF_UNSPEC PF_UNSPEC AF_INET PF_INET AF_INET6 PF_INET6 AF_UNIX PF_UNIX
       AF_AX25 PF_AX25 AF_IPX PF_IPX AF_APPLETALK PF_APPLETALK AF_LOCAL PF_LOCAL
@@ -374,5 +374,8 @@ class Socket < BasicSocket
       IFF_MULTICAST IFF_NOARP IFF_NOTRAILERS IFF_POINTOPOINT IFF_PORTSEL IFF_PROMISC IFF_RUNNING IFF_SLAVE
       IFF_UP IFF_VOLATILE
     ]
+    return names if RUBY_PLATFORM.end_with?("-musl")
+
+    names - %i[IFF_DORMANT IFF_ECHO IFF_LOWER_UP IFF_VOLATILE]
   end
 end

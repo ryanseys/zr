@@ -169,6 +169,22 @@ module Zr
             %(  #{name} = RUBY_PLATFORM.end_with?("-musl") ? #{value | O_PATH} : #{value & ~O_PATH}\n)
           end
 
+          # musl wrote the Linux socket table, and glibc differs: these
+          # values are glibc's, and glibc's net/if.h leaves out the flags
+          # that only linux/if.h has. Linux's one layer serves both, so a
+          # row asks which libc the program runs on, as O_ACCMODE's does.
+          SOCKET_GLIBC = { SOMAXCONN: 4096, NI_MAXHOST: 1025 }.freeze
+          SOCKET_MUSL_ONLY = %i[IFF_DORMANT IFF_ECHO IFF_LOWER_UP IFF_VOLATILE].freeze
+
+          def socket_row(name)
+            value = Socket::Constants.const_get(name)
+            return "    #{name} = #{value}\n" unless os == "linux"
+            return %(    #{name} = #{value} if RUBY_PLATFORM.end_with?("-musl")\n) if SOCKET_MUSL_ONLY.include?(name)
+            return "    #{name} = #{value}\n" unless SOCKET_GLIBC.key?(name)
+
+            %(    #{name} = RUBY_PLATFORM.end_with?("-musl") ? #{value} : #{SOCKET_GLIBC.fetch(name)}\n)
+          end
+
           # The sysconf, confstr and pathconf names that Etc defines, and the
           # members of Etc::Passwd and Etc::Group. The members are the fields of
           # this OS's struct passwd and struct group. An OS with no group
@@ -210,14 +226,20 @@ module Zr
               class Socket < BasicSocket
                 module Constants
             HEAD
-            names.each { |name| out << "    #{name} = #{Socket::Constants.const_get(name)}\n" }
+            names.each { |name| out << socket_row(name) }
             out << "  end\n\n"
             out << "  # Every name above, in that order.\n"
             out << "  def self.constant_names\n"
             out << "    Primitive.attr! :hidden\n"
-            out << "    %i[\n"
+            out << "    names = %i[\n"
             names.each_slice(8) { |slice| out << "      #{slice.join(" ")}\n" }
             out << "    ]\n"
+            if os == "linux"
+              out << "    return names if RUBY_PLATFORM.end_with?(\"-musl\")\n\n"
+              out << "    names - %i[#{(names & SOCKET_MUSL_ONLY).join(" ")}]\n"
+            else
+              out << "    names\n"
+            end
             out << "  end\n"
             out << "end\n"
             write("ext", "socket/constants.rb", out)
