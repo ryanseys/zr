@@ -888,6 +888,9 @@ class Thread
       @status = :run
       Thread.send(:awake, self)
       Thread.send(:enqueue, self)
+    elsif @signalled
+      # Up only for a signal's commands: the sleep they go back to ends.
+      @woken = true
     end
     self
   end
@@ -1351,6 +1354,7 @@ class Thread
     @status = :sleep
     @forever = deadly && deadline.nil?
     @timed_out = false
+    @woken = false
     Thread.send(:sleep_until, self, deadline) if deadline
     begin
       @blocking = true
@@ -1369,10 +1373,17 @@ class Thread
     # Woken for a signal: its commands run here. A sleep then goes on
     # sleeping; any other wait returns, and its caller checks again what
     # it waits for.
+    # A wakeup that came meanwhile ends the sleep, as it ends ruby's
+    # sleep_forever loop.
     if @signalled
-      @signalled = false
-      Signal.send(:deliver)
-      return wait(deadline, deadly, resume: true) if resume && !@timed_out
+      begin
+        Signal.send(:deliver)
+      ensure
+        @signalled = false
+      end
+      woken = @woken
+      @woken = false
+      return wait(deadline, deadly, resume: true) if resume && !@timed_out && !woken
     end
     # A signal that came while the scheduler chose this thread waited for
     # it (Signal.deliver); its command runs now, before the wait returns.
