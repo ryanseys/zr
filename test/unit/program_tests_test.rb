@@ -36,6 +36,8 @@ class ProgramTestsTest < Minitest::Test
       assert_equal "e\n", test.stderr
       assert_equal "e\n", test.stderr("linux-gnu")
       assert_equal "m\n", test.stderr("linux-musl")
+      assert_equal "m\n", test.stderr(%w[wasi linux-musl])
+      assert_equal "2\n", test.stdout(%w[wasi linux-gnu])
       assert_equal %w[a b], test.args
       assert_equal "in", test.stdin
       assert_equal [nil, 15], test.status
@@ -149,6 +151,7 @@ class ProgramTestsTest < Minitest::Test
       assert_equal "runs only on linux-musl", gnu.unmet(test)
       assert_nil musl.unmet(test)
       assert_equal %w[linux-gnu linux-musl], [gnu.runner.recording, musl.runner.recording]
+      assert_equal %w[wasi linux-musl], Programs.new(target: Zr::Target.fetch("wasm32-wasi"), allowed: {}).runner.recordings
     end
   end
 

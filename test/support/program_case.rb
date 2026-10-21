@@ -53,13 +53,21 @@ module Zr
 
       def source = File.binread(path)
 
-      # The stdout that `recording` gives (Runner#recording), else the
-      # default.
-      def stdout(recording) = read("#{recording}.expected") || read("expected")
+      # The stdout of the first of `recordings` that has one
+      # (Runner#recordings), else the default.
+      def stdout(recordings) = recorded(recordings, "expected") || read("expected")
 
-      # The stderr that `recording` gives, else the default; no file
-      # means none.
-      def stderr(recording = nil) = (read("#{recording}.err.expected") if recording) || read("err.expected") || +"".b
+      # The stderr of the first of `recordings` that has one, else the
+      # default; no file means none.
+      def stderr(recordings = nil) = recorded(recordings, "err.expected") || read("err.expected") || +"".b
+
+      def recorded(recordings, suffix)
+        Array(recordings).each do |name|
+          text = read("#{name}.#{suffix}")
+          return text if text
+        end
+        nil
+      end
 
       # `[code, signal]`: a process that a signal stopped has no code.
       def status

@@ -71,9 +71,9 @@ module Zr
           written = record(test)
           return [:error, "zr-dev expect: #{written}"] if written&.start_with?("ruby did not finish")
 
-          ProgramRun.expected(test, @runner.recording)
+          ProgramRun.expected(test, @runner.recordings)
         else
-          return ProgramRun.expected(test, @runner.recording) if test.read("expected")
+          return ProgramRun.expected(test, @runner.recordings) if test.read("expected")
           if mode == :verify
             return [:error, "no expected output beside it: record it with `bin/zr-dev test --record #{ProgramSelection.label(test)}`"]
           end

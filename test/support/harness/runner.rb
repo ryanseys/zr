@@ -35,6 +35,11 @@ module Zr
       # text, qsort order and libm digits; elsewhere the platform.
       def recording = @target.os == :linux ? "linux-#{@target.libc == :glibc ? "gnu" : "musl"}" : platform
 
+      # The recordings that an answer is looked up in, first match wins.
+      # WASI's libc is musl's, so a wasi run falls back to a musl
+      # recording (strerror text, qsort order, libm digits).
+      def recordings = wasm? ? [recording, "linux-musl"] : [recording]
+
       def wasm? = @target.outputs == [:wasm]
 
       # nil when this host can run the target's output, else the reason.
