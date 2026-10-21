@@ -34,7 +34,7 @@ module Zr
     # @rbs @description_text: String?
     # @rbs @raw: Array[String]?
     # @rbs @digest: String?
-    # @rbs @stamps: Hash[String, [Rational, Integer]?]?
+    # @rbs @stamps: Hash[String, [Integer, Integer, Integer]?]?
     # @rbs @gem_prelude_files: Array[String]?
     # @rbs @gem_prelude_path: String?
     # @rbs @core_cache: Cache::Lowering::Core?

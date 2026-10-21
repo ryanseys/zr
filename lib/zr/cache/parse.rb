@@ -155,7 +155,7 @@ module Zr
       # The stamp of each parser file, and of each maker file, when this
       # process took its digest; `keep` checks them again. Empty in a
       # compiled compiler, which carries the digests and not the files.
-      #: () -> Hash[String, [Rational, Integer]?]
+      #: () -> Hash[String, [Integer, Integer, Integer]?]
       def stamps = Session.current.memo(:parser_stamps) { {} }
 
       # One digest of ruby's version and each parser file (its path and its

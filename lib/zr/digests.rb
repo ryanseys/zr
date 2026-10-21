@@ -26,7 +26,7 @@ module Zr
     # root, and each of `files` with its own digest (`file`), taken at its
     # stamp in `stamps` (else at its stamp now). A build checks the stamps
     # again before it keeps anything (`Runtime#moved`).
-    #: (Target target, Array[String] files, ?Hash[String, [Rational, Integer]?] stamps) -> String
+    #: (Target target, Array[String] files, ?Hash[String, [Integer, Integer, Integer]?] stamps) -> String
     def sources(target, files, stamps = {})
       Digest::SHA256.new.tap do |d|
         d << target.triple << "\0"
@@ -43,7 +43,7 @@ module Zr
     # nothing, and the kernel, the core and the gem prelude by their bytes,
     # because a binary holds their line numbers. A process reads and
     # hashes each file once for each stamp it sees.
-    #: (String path, ?[Rational, Integer]? stamp) -> String
+    #: (String path, ?[Integer, Integer, Integer]? stamp) -> String
     def file(path, stamp = Paths.stamp(path))
       Session.current.memo([:file_digest, path, stamp]) do
         bytes = File.binread(path)

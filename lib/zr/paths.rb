@@ -259,12 +259,15 @@ module Zr
       path
     end
 
-    # The mtime (to the nanosecond) and size of the file at `path`, or
-    # nil when there is no file. A change to either shows the file changed.
-    #: (String path) -> [Rational, Integer]?
+    # The mtime (seconds and nanoseconds) and size of the file at `path`,
+    # or nil when there is no file. A change to any shows the file changed.
+    # Integers, not a Rational: a build stamps each of ~650 files at each
+    # cache write.
+    #: (String path) -> [Integer, Integer, Integer]?
     def self.stamp(path)
       stat = File.stat(path)
-      [stat.mtime.to_r, stat.size]
+      mtime = stat.mtime
+      [mtime.tv_sec, mtime.tv_nsec, stat.size]
     rescue SystemCallError
       nil
     end
