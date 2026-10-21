@@ -85,9 +85,10 @@ module Zr
       # environment for the process itself.
       #
       # A module must run under the same conditions as a binary. Thus the
-      # guest gets the test directory, its own temporary directory, and
-      # zr's root at the path that the build wrote for it (/zr), where a
-      # require that the build left for the run time reads ruby's library.
+      # guest gets the test directory, its own temporary directory, /dev
+      # (File::NULL), and zr's root at the path that the build wrote for
+      # it (/zr), where a require that the build left for the run time
+      # reads ruby's library.
       # A WASI guest sees only the directories and variables that it is
       # given. Without a temporary directory, `Dir.tmpdir` fails, and a
       # program that writes a file fails where the binary does not. The
@@ -98,7 +99,7 @@ module Zr
         return [[*exec, out, *args], env] if exec && !wasm?
         return [[out, *args], env] unless wasm?
 
-        dirs = { "." => ".", Dir.tmpdir => "/tmp", Zr::Paths::ROOT => Zr::Paths::HOME_SHOWN }
+        dirs = { "." => ".", Dir.tmpdir => "/tmp", Zr::Paths::ROOT => Zr::Paths::HOME_SHOWN, "/dev" => "/dev" }
         compiled = precompile(out) if compiled == :here
         env = GUEST_ENV.merge(env)
         if compiled.is_a?(Hash)

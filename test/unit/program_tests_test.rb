@@ -160,6 +160,7 @@ class ProgramTestsTest < Minitest::Test
     argv, = runner.run("a.wasm", %w[x], { "HOME" => "/h" }, compiled: nil)
 
     assert_includes argv.each_cons(2).to_a, ["--dir", "#{Zr::Paths::ROOT}::/zr"]
+    assert_includes argv.each_cons(2).to_a, ["--dir", "/dev::/dev"]
     assert_includes argv, "HOME=/h", "the test's own variables win"
     assert_includes argv, "PATH=/usr/bin:/bin"
     assert_equal %w[a.wasm x], argv.last(2)
