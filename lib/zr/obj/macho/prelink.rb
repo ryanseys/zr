@@ -235,7 +235,10 @@ module Zr
         def dump
           layout = [@text_size, @got_vm, @got_size, @data_vm, @data_filesize, @data_vmsize] +
                    Block::PARTS.flat_map { |part| @parts.fetch(part) }
-          late = @late.flat_map { |l| [SEGMENTS.index(l.segment), l.offset, l.next, @externals.index(l.name), l.addend] }
+          # The first index of each name, as Array#index gives it.
+          at = {} #: Hash[String, Integer]
+          @externals.each_with_index { |name, i| at[name] ||= i }
+          late = @late.flat_map { |l| [SEGMENTS.index(l.segment), l.offset, l.next, at[l.name], l.addend] }
           fields = [layout.pack("q<*"), Prelink.joined(@externals), late.pack("q<*"),
                     @starts.fetch(:got).pack("S<*"), @starts.fetch(:data).pack("S<*"), @symbols, @strings,
                     *Names.dumped(@names), @addresses.pack("Q<*"),
