@@ -5,9 +5,9 @@ require "test_helper"
 require "rbconfig"
 require_relative "../support/harness/child"
 
-# `Harness::Child::Watch`: the resident size of a child's process group,
-# which the memory limit of a run reads: from `ps` on macOS, from /proc
-# on Linux, where BusyBox's `ps` (Alpine) gives no group.
+# `Harness::Child::Watch`: the memory of a child's process group, which
+# the memory limit of a run reads: the footprint on macOS, the resident
+# size from /proc on Linux, where BusyBox's `ps` (Alpine) gives no group.
 class ChildWatchTest < Minitest::Test
   Watch = Zr::Harness::Child::Watch
 
@@ -40,6 +40,13 @@ class ChildWatchTest < Minitest::Test
 
   def test_a_group_that_is_not_watched_is_not_read
     refute Watch.read({ @pid + 1_000_000 => true }).key?(@pid)
+  end
+
+  def test_the_footprint_gives_the_group_on_macos
+    skip "the footprint is macOS's" unless RUBY_PLATFORM.include?("darwin")
+
+    assert_equal [@pid], Zr::Native::Resident.group_pids(@pid)
+    assert_operator Watch.from_footprint({ @pid => true }).fetch(@pid), :>=, 32 << 10
   end
 
   def test_proc_gives_the_group_on_linux

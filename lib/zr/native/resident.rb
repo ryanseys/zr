@@ -45,6 +45,67 @@ module Zr
         bytes && bytes / (1 << 20)
       end
 
+      # `proc_pid_rusage(pid, RUSAGE_INFO_V0, &info)` fills a rusage_info_v0
+      # (96 bytes); its ri_phys_footprint (at 72) is the memory that macOS
+      # charges to the process, the pages it compressed or swapped too.
+      # The resident size leaves those out, so it falls as the machine
+      # runs out of memory, just when a limit must see it.
+      RUSAGE_INFO_V0 = 0
+      FOOTPRINT_AT = 72
+
+      # The footprint bytes of `pid` on macOS, or nil (another system, or
+      # the process is gone).
+      #: (Integer pid) -> Integer?
+      def self.footprint_of(pid)
+        return nil unless (calls = group_calls)
+
+        info = ::Fiddle::Pointer.malloc(SIZE, ::Fiddle::RUBY_FREE)
+        return nil unless calls.fetch(:rusage).call(pid, RUSAGE_INFO_V0, info).zero?
+
+        info[FOOTPRINT_AT, 8].unpack1("Q<") #: Integer
+      end
+
+      # `proc_listpids(PROC_PGRP_ONLY, pgid, &pids, size)` gives the pids of
+      # a process group, 4 bytes each, and returns the bytes that it filled.
+      PROC_PGRP_ONLY = 2
+      GROUP_MAX = 4096
+
+      # The pids of the process group `pgid` on macOS, or nil.
+      #: (Integer pgid) -> Array[Integer]?
+      def self.group_pids(pgid)
+        return nil unless (calls = group_calls)
+
+        pids = ::Fiddle::Pointer.malloc(GROUP_MAX * 4, ::Fiddle::RUBY_FREE)
+        filled = calls.fetch(:list).call(PROC_PGRP_ONLY, pgid, pids, GROUP_MAX * 4)
+        return nil if filled.negative?
+
+        pids[0, filled].unpack("l<*").reject(&:zero?)
+      end
+
+      # The footprint bytes of the process group `pgid`, summed, or nil.
+      #: (Integer pgid) -> Integer?
+      def self.group_footprint(pgid)
+        pids = group_pids(pgid) or return nil
+        pids.sum { |pid| footprint_of(pid) || 0 }
+      end
+
+      #: () -> { rusage: Fiddle::Function, list: Fiddle::Function }?
+      def self.group_calls
+        Session.current.memo(:group_calls) do
+          next nil unless RUBY_PLATFORM.include?("darwin")
+
+          require "fiddle"
+          handle = ::Fiddle::Handle::DEFAULT
+          { rusage: ::Fiddle::Function.new(handle["proc_pid_rusage"], [::Fiddle::TYPE_INT, ::Fiddle::TYPE_INT, ::Fiddle::TYPE_VOIDP],
+                                           ::Fiddle::TYPE_INT),
+            list: ::Fiddle::Function.new(handle["proc_listpids"],
+                                         [::Fiddle::TYPE_UINT32_T, ::Fiddle::TYPE_UINT32_T, ::Fiddle::TYPE_VOIDP, ::Fiddle::TYPE_INT],
+                                         ::Fiddle::TYPE_INT) }
+        rescue LoadError, ::Fiddle::DLError, NameError
+          nil
+        end
+      end
+
       # `host_statistics64(mach_host_self(), HOST_VM_INFO64, &stats, &count)`
       # fills a vm_statistics64 (152 bytes, `count` in 4-byte words), the
       # numbers that `vm_stat` prints.

@@ -5,13 +5,14 @@ require_relative "answer"
 require_relative "clean_env"
 require_relative "segments"
 require_relative "../../../lib/zr/timing"
+require_relative "../../../lib/zr/native/resident"
 
 module Zr
   module Harness
     # Runs a child process, captures stdout and stderr, and limits its
     # wall-clock time and memory. The memory limit stops a runaway build
     # or binary from using all of the machine. macOS does not enforce
-    # RLIMIT_AS, so this reads the group's resident size while it runs,
+    # RLIMIT_AS, so this reads the group's memory while it runs,
     # and kills the group when it uses more than the limit.
     #
     # At either limit, all of the process group is killed, so a child of
@@ -115,7 +116,8 @@ module Zr
 
       # One thread reads the memory of all watched groups. It reads it
       # once every EVERY seconds while a child is watched, and stops when
-      # none is: from /proc on Linux, else from one `ps`. One `ps` for each
+      # none is: from /proc on Linux, from each group's footprint on
+      # macOS, else from one `ps`. One `ps` for each
       # child five times a second causes too much load when twelve
       # children run.
       module Watch
@@ -162,7 +164,24 @@ module Zr
         end
 
         def read(groups)
-          File.exist?("/proc/self/stat") ? from_proc(groups) : from_ps(groups)
+          return from_proc(groups) if File.exist?("/proc/self/stat")
+
+          from_footprint(groups) || from_ps(groups)
+        end
+
+        # On macOS, each group's footprint (Native::Resident), which counts
+        # the pages that the system compressed: `ps` gives the resident
+        # size, which leaves them out, so under memory pressure a group
+        # seemed to shrink and its limit did not stop it. The calls take
+        # microseconds, where `ps -A` walks every process. Nil where the
+        # calls are missing.
+        def from_footprint(groups)
+          sample = Hash.new(0)
+          groups.each_key do |pgid|
+            bytes = Native::Resident.group_footprint(pgid) or return nil
+            sample[pgid] = bytes / 1024
+          end
+          sample
         end
 
         # Each process's /proc/<pid>/stat gives its group (field 5) and its
