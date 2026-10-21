@@ -7,3 +7,7 @@
 # from this file. Thus the file cannot become out of date.
 # Ubuntu 22.04 (the glibc floor) has OpenSSL 3.0, and HPKE came in 3.2.
 stdlib/openssl/hpke_kem_key_params_and_crl_serial_lookup.rb	OpenSSL::HPKE: the floor's OpenSSL 3.0 has no HPKE (3.2)
+
+# A port that stands in for a C extension is listed in $LOADED_FEATURES
+# under its own path (digest.so.rb, md5.rb), not as archdir/<name>.so.
+stdlib/digest/a_digest_named_at_run_time_loads_the_same_c_as_one_required_by_name.rb	ports are listed by their own path, not as <name>.so
