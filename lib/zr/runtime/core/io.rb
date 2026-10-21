@@ -2782,7 +2782,15 @@ class IO
   def read_memory(size)
     Primitive.attr! :hidden
     scheduler = IO.send(:scheduler_taking, :io_read)
-    return Primitive.zr_io_read(@fd, size) unless scheduler
+    unless scheduler
+      chunk = Primitive.zr_io_read(@fd, size)
+      # A terminal whose read needs no byte (VMIN 0) answers EAGAIN on
+      # Linux after its wait, where BSD answers the end, as a blocking
+      # read(2) does in ruby. So its time has run out: the end.
+      return nil if chunk == -Errno::EAGAIN::Errno && tty_read_deadline(READABLE, @fd)
+
+      return chunk
+    end
 
     IO::Buffer.send(:lent, "\0".b * size) do |memory|
       read = IO.send(:io_result, IO.send(:blocking_operation, self) { scheduler.io_read(self, memory, 0, size) })
