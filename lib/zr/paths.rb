@@ -55,6 +55,8 @@ module Zr
     # library under vendor. An install holds only these, and a checkout's
     # other files (its tests) keep their paths.
     INSTALLED = %w[lib vendor].map { |dir| File.join(ROOT, dir) }.freeze #: Array[String]
+    # The same, each with a slash: the prefix of a file below it.
+    INSTALLED_DIRS = INSTALLED.map { |dir| "#{dir}/" }.freeze #: Array[String]
 
     # `path` with zr's root written as HOME_SHOWN where it names a file of
     # the install, so that two installs of one zr at two places hash and
@@ -62,7 +64,7 @@ module Zr
     # path, and can be copied to another machine (`zr cache export`).
     #: (String path) -> String
     def self.portable(path)
-      return path unless INSTALLED.any? { |dir| path == dir || path.start_with?("#{dir}/") }
+      return path unless INSTALLED.include?(path) || path.start_with?(*INSTALLED_DIRS)
 
       "#{HOME_SHOWN}#{path[ROOT.size..]}"
     end
