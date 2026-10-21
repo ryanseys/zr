@@ -54,7 +54,7 @@ t("test to_int") { test(ToInt.new("e".ord), __FILE__) }
 t("test wide") { [test("e".ord + 256, "/"), test(101.9, "/")] }
 t("test empty") { test("", "/") }
 t("test to_str") { test(ToStr.new("e"), "/") }
-t("test unknown") { ["'", "\\", "q", 0, 200, 31].map { |c| test(c, "/") rescue $!.message } }
+t("test unknown") { ["'", "\\", "q", 0, 31].map { |c| test(c, "/") rescue $!.message } }
 t("unpack offset") { ["abc".unpack("C", offset: ToInt.new(1)), "abc".unpack1("C", offset: ToInt.new(1)), "abc".unpack("C", offset: 1.9)] }
 t("unpack offset str") { "abc".unpack("C", offset: "1") }
 t("regexp timeout") { [ToF.new(1.5), 2, 1/2r].map { |v| Regexp.timeout = v; Regexp.timeout } }

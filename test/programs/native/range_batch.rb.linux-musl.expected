@@ -83,16 +83,16 @@ true
 Enumerator
 [1, 2, 3, 4, 5]
 [1, 1, 2, 3, 5, 8]
-comparison of W with W failed
-comparison of W with 1 failed
-comparison of W with String failed
-comparison of W with nil failed
-comparison of W with 1.5 failed
-comparison of W with :s failed
-comparison of W with true failed
-"comparison of String with 1 failed"
-"comparison of String with 1 failed"
-"comparison of Rational with String failed"
+comparison of W with W failed: comparator returned nil
+comparison of W with 1 failed: comparator returned nil
+comparison of W with String failed: comparator returned nil
+comparison of W with nil failed: comparator returned nil
+comparison of W with 1.5 failed: comparator returned nil
+comparison of W with :s failed: comparator returned nil
+comparison of W with true failed: comparator returned nil
+"comparison of String with 1 failed: comparator returned nil"
+"comparison of String with 1 failed: comparator returned nil"
+"comparison of Rational with String failed: comparator returned nil"
 #<Proc:X native/range_batch.rb:31>
 #<Proc:X native/range_batch.rb:32 (lambda)>
 #<Proc:X(&:x) (lambda)>

@@ -1,0 +1,6 @@
+Errno::EINVAL: Invalid argument @ finish_narg - /etc/hosts
+Errno::EINVAL: Invalid argument
+Errno::EINVAL: Invalid argument @ finish_narg - <STDOUT>
+1
+true
+IOError: closed stream

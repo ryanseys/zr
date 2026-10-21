@@ -1,0 +1,173 @@
+0
+true
+true
+[]
+[]
+[".", ".."]
+13
+"one\ntwo\nthree"
+13
+true
+true
+false
+13
+false
+true
+true
+false
+["one\n", "two\n", "three"]
+["one", "two", "three"]
+["one\n", "two\n", "three"]
+["ONE", "TWO", "THREE"]
+"one"
+"two"
+"e"
+nil
+"one\ntwo\nthreefour\nfive\n6\nseven\n008\n"
+File
+"/tmp/zr-files-test/a.txt"
+true
+false
+false
+false
+true
+1
+4
+nil
+nil
+nil
+nil
+nil
+nil
+IOError
+15
+"xabcd\n\n1\n2\n12z\n"
+"xabcd\n\n1\n2\n12z\n"
+"xa"
+["xabcd\n", "\n", "1\n", "2\n", "12z\n", nil, nil, nil, true, 5]
+"a\n"
+1
+"bb\n\n"
+"ccc"
+nil
+true
+nil
+true
+"closed stream"
+IOError
+true
+nil
+["a\n", "bb\n", "\n", "ccc"]
+["a", "bb", "", "ccc"]
+["a\n", "bb\n", "\n", "ccc"]
+["a", "bb", "", "ccc"]
+["a\nbb\n\n", "ccc"]
+"a\n"
+"end of file reached"
+["a", "\n", "b", "b", "", "\n\nccc", nil, "", nil]
+["a", "\n", "b"]
+[97, 10, 98]
+["a", 1, 0, 3, "b\n", 0, 0, "a\n", 0, "ccc", 0, true]
+[["a\n", 0], ["bb\n", 1], ["\n", 2], ["ccc", 3]]
+"Z\nbb\n\nccc"
+"new"
+"new"
+"new!"
+Errno::ENOENT
+"No such file or directory @ rb_sysopen - /tmp/zr-files-test/nope"
+2
+2
+SystemCallError
+true
+true
+Errno::ENOENT
+"No such file or directory @ rb_sysopen - /tmp/zr-files-test/nope"
+"Is a directory @ rb_sysopen - /tmp/zr-files-test"
+"No such file or directory @ apply2files - /tmp/zr-files-test/nope"
+"invalid access mode q"
+"No such file or directory @ rb_sysopen - /tmp/zr-files-test/nope/deep"
+"No such file or directory"
+"No such file or directory - x"
+Errno::ENOENT
+"No such file or directory - y"
+"No such file or directory"
+SystemCallError
+"Unknown error 99999"
+13
+"File exists"
+"Bad file descriptor"
+"Invalid argument"
+"Not a directory"
+"Broken pipe"
+"Is a directory"
+"Directory not empty"
+"Resource temporarily unavailable"
+0
+false
+true
+1
+false
+1
+1
+1
+"dd"
+2
+true
+true
+0
+false
+w
+p
+q
+r
+s
+IO
+1
+2
+0
+true
+true
+true
+"#<IO:<STDOUT>>"
+"#<IO:<STDERR>>"
+"#<IO:<STDIN>>"
+false
+true
+false
+false
+true
+2
+nil
+nil
+true
+nil
+nil
+false
+"<STDOUT>"
+IOError
+true
+true
+true
+"captured\n1\n2\n3\n\nab:sym\n"
+true
+true
+IO
+IO
+true
+0
+1
+2
+0
+1
+2
+1024
+64
+512
+128
+""
+4
+""
+true
+false
+true
+0

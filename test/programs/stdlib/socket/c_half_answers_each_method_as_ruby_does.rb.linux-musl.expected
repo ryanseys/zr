@@ -1,0 +1,71 @@
+ai tcp: #<Addrinfo: 127.0.0.1:80 TCP>
+ai list: [#<Addrinfo: 127.0.0.1:80 TCP>, #<Addrinfo: 127.0.0.1:80 UDP>, #<Addrinfo: 127.0.0.1:80 SOCK_RAW>]
+ai new arr: #<Addrinfo: 127.0.0.1:80 (localhost)>
+ai new arr2: #<Addrinfo: 127.0.0.1:80 TCP>
+ai pf: #<Addrinfo: [::1]:80 PF_INET>
+ai short: #<Addrinfo: unknown address family 25185>
+ai short2: #<Addrinfo: unknown address family 528>
+ai v4mapped: #<Addrinfo: 1.2.3.4>
+ai marshal: #<Addrinfo: 127.0.0.1:80 TCP>
+ai marshal dump: ["AF_INET", ["127.0.0.1", "80"], "PF_INET", "SOCK_STREAM", "IPPROTO_TCP", nil, nil]
+ai unix rel: #<Addrinfo: UNIX:72:65:6c:20:70:61:74:68 SOCK_STREAM>
+ai unknown proto: #<Addrinfo: 127.0.0.1 SOCK_STREAM UNKNOWN_PROTOCOL(99)>
+ai preds: [true, false, false, true, true]
+ai ip_unpack: ["::1", 53]
+ai uninit: TypeError: uninitialized socket address
+ai unix_path: "/tmp/x"
+ai ivars: []
+ai getnameinfo: ["127.0.0.1", "80"]
+ai family_addrinfo: #<Addrinfo: 127.0.0.1:81 TCP>
+sock getaddrinfo bad: Socket::ResolutionError: getaddrinfo: Name does not resolve
+resolution error code: [Socket::ResolutionError, -2]
+newline: SocketError: newline at the end of hostname
+pack un: 110
+unpack un: "/tmp/x"
+unpack in wrong: ArgumentError: not an AF_INET/AF_INET6 sockaddr
+getnameinfo arr: ["127.0.0.1", "80"]
+getnameinfo str: ["127.0.0.1", "http"]
+getnameinfo bad: TypeError: expecting String or Array
+servbyname: [80, 53, 16]
+servbyname bad: SocketError: no such service nope-nope/tcp
+servbyport: "http"
+servbyport bad: RangeError: integer 70000 too big to convert into `int16_t'
+option inspect: [#<Socket::Option: UNSPEC SOCKET LINGER on 5sec>, #<Socket::Option: INET SOCKET RCVTIMEO 1.000005sec>, #<Socket::Option: INET6 IPV6 JOIN_GROUP ff02::1 lo>, #<Socket::Option: INET IP ADD_MEMBERSHIP 224.0.0.1 0.0.0.0>, #<Socket::Option: INET SOCKET ERROR No data available (61)>, #<Socket::Option: UNIX level:0 optname:1 "abc">, #<Socket::Option: INET TCP optname:999 "x">, #<Socket::Option: family:1234 level:5 optname:6 "x">]
+option vals: [[3, 5], true, 44, [3, 5], 0, 1, 13]
+option int size: TypeError: size differ.  expected as sizeof(int)=4 but 8
+option bad name: SocketError: unknown socket level option name: NOPE
+option ivars: []
+anc: SocketError: unknown IP control message: RECVDSTADDR
+anc vals: [[#<Addrinfo: 127.0.0.1>, 1, #<Addrinfo: 127.0.0.1>], [#<Addrinfo: ::1>, 1], true]
+ifaddrs: []
+ip_address_list: [true, true]
+hostname: true
+server addr: ["AF_INET", "127.0.0.1"]
+server inspect: "#<TCPServer:fd N, AF_INET, 127.0.0.1, PORT>"
+nonblock?: :none
+sync binmode: [true, true, #<Encoding:BINARY (ASCII-8BIT)>]
+accepted class: [TCPSocket, "127.0.0.1", "127.0.0.1"]
+gets: "hello\n"
+recv: "xyz"
+getsockopt: #<Socket::Option: INET SOCKET TYPE SOCK_STREAM>
+setsockopt: true
+recv_nonblock: :wait_readable
+recv_nonblock raise: IO::EAGAINWaitReadable: Resource temporarily unavailable - recvfrom(2) would block
+read eof: ""
+shutdown bad: SocketError: unknown shutdown argument: NOPE
+refused: "Connection refused - connect(2) for \"127.0.0.1\" port N"
+closed addr: IOError: closed stream
+udp recvfrom: ["dgram", "AF_INET", "127.0.0.1"]
+udp recvfrom_nonblock: "two"
+udp recvfrom_nonblock empty: IO::EAGAINWaitReadable: Resource temporarily unavailable - recvfrom(2) would block
+unix addrs: "[\"PATH\", [\"AF_UNIX\", \"PATH\"], [\"AF_UNIX\", \"PATH\"], \"#<UNIXServer:PATH>\"]"
+recv_io: [IO, true]
+recvmsg: ["msg", Addrinfo, Socket::AncillaryData]
+pair: [Socket, Socket]
+unixpair block: "a"
+unix connect fail: "No such file or directory - connect(2) for PATH"
+Socket.new: [true, 16]
+Socket.tcp: "hi"
+for_fd bad: Errno::EBADF: Bad file descriptor - not a socket file descriptor
+dnrl: [true, true]
+new basic: NoMethodError: undefined method 'initialize' for an instance of BasicSocket

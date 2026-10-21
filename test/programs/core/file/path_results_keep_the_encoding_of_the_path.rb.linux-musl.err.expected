@@ -1,0 +1,2 @@
+core/file/path_results_keep_the_encoding_of_the_path.rb:13:in 'File.realpath': No such file or directory @ rb_check_realpath_internal - realpath_дв_142/file.txt (Errno::ENOENT)
+	from core/file/path_results_keep_the_encoding_of_the_path.rb:13:in '<main>'

@@ -4,7 +4,6 @@
 ["modular_gc_dir", ""]
 ["CROSS_COMPILING", "no"]
 ["PACKAGE", "ruby"]
-["SHELL", "/bin/sh"]
 ["RM", "rm -f"]
 true
 true

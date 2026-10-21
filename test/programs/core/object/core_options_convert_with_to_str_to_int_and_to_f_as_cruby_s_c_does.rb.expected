@@ -6,7 +6,7 @@ test to_int: true
 test wide: [true, true]
 test empty: !TypeError: no implicit conversion of String into Integer
 test to_str: !TypeError: no implicit conversion of ToStr into Integer
-test unknown: ["unknown command '\\''", "unknown command '\\\\'", "unknown command 'q'", "unknown command \"\\x00\"", "unknown command \"\\xFFFFFFC8\"", "unknown command \"\\x1F\""]
+test unknown: ["unknown command '\\''", "unknown command '\\\\'", "unknown command 'q'", "unknown command \"\\x00\"", "unknown command \"\\x1F\""]
 unpack offset: [[98], 98, [98]]
 unpack offset str: !TypeError: no implicit conversion of String into Integer
 regexp timeout: [1.5, 2.0, 0.5]

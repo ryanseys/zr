@@ -1,0 +1,5 @@
+/usr/local/lib/ruby/4.1.0+5/expect.rb:47:in 'IO#eof?': I/O error @ io_fillbuf - fd:5 /dev/pts/0 (Errno::EIO)
+	from /usr/local/lib/ruby/4.1.0+5/expect.rb:47:in 'IO#expect'
+	from stdlib/pty/expect_answers_a_prompt_over_a_pty.rb:9:in 'block in <main>'
+	from stdlib/pty/expect_answers_a_prompt_over_a_pty.rb:5:in 'PTY.spawn'
+	from stdlib/pty/expect_answers_a_prompt_over_a_pty.rb:5:in '<main>'

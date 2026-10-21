@@ -61,16 +61,16 @@ true
 1
 3.0
 3.5
-#<ArgumentError: comparison of Float with 2.0 failed>
-#<ArgumentError: comparison of Float with NaN failed>
+#<ArgumentError: comparison of Float with 2.0 failed: comparator returned nil>
+#<ArgumentError: comparison of Float with NaN failed: comparator returned nil>
 #<ArgumentError: min argument must be less than or equal to max argument>
 3
 5
 3
 7
 3
-#<ArgumentError: comparison of Integer with NaN failed>
-#<ArgumentError: comparison of Float with 2 failed>
+#<ArgumentError: comparison of Integer with NaN failed: comparator returned nil>
+#<ArgumentError: comparison of Float with 2 failed: comparator returned nil>
 nil
 42
 nil
@@ -176,7 +176,7 @@ true
 [Plain, Plain]
 [3.0, 1.0]
 2
-#<ArgumentError: comparison of Plain with 0 failed>
+#<ArgumentError: comparison of Plain with 0 failed: comparator returned nil>
 #<NoMethodError: undefined method 'to_i' for an instance of Plain>
 true
 false

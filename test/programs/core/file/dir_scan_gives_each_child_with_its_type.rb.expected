@@ -2,8 +2,8 @@
 nil
 [["dangling", :link], ["dirlink", :link], ["f.txt", :file], ["ln", :link], ["pipe", :fifo], ["sub", :directory]]
 [["dangling", :link], ["dirlink", :link], ["f.txt", :file], ["ln", :link], ["pipe", :fifo], ["sub", :directory]]
-[["pipe", :fifo], ["dangling", :link], ["sub", :directory], ["dirlink", :link], ["f.txt", :file], ["ln", :link]]
-["pipe", "dangling", "sub", "dirlink", "f.txt", "ln"]
+true
+["dangling", "dirlink", "f.txt", "ln", "pipe", "sub"]
 [IOError, "closed directory"]
 #<Encoding:BINARY (ASCII-8BIT)>
 #<Encoding:BINARY (ASCII-8BIT)>

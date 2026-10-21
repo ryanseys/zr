@@ -1,0 +1,36 @@
+%2147483647c: Errno::ERANGE: Result not representable - %2147483647c
+%2147483647c: Errno::ERANGE: Result not representable - %2147483647c
+%2147483648c: Errno::ERANGE: Result not representable - %2147483648c
+%2147483648c: Errno::ERANGE: Result not representable - %2147483648c
+%8191c: 8191
+%8191c: 8191
+%8192c: Errno::ERANGE: Result not representable - %8192c
+%8192c: Errno::ERANGE: Result not representable - %8192c
+%8191Y: 8191
+%8191Y: 8191
+x%8190Y: 8191
+x%8190Y: 8191
+x%8191Y: Errno::ERANGE: Result not representable - x%8191Y
+x%8191Y: Errno::ERANGE: Result not representable - x%8191Y
+%16381Yab: 16383
+%16381Yab: 16383
+%16382Yab: Errno::ERANGE: Result not representable - %16382Yab
+%16382Yab: Errno::ERANGE: Result not representable - %16382Yab
+%1025c: 1025
+%1025c: 1025
+%0100000d: Errno::ERANGE: Result not representable - %0100000d
+%0100000d: Errno::ERANGE: Result not representable - %0100000d
+7200
+5005
+#<Errno::ERANGE: Result not representable - %9000Y>
+[3, "2000-01-01T04:05:06.123+00:00", "2000-01-01T04:05:06.123+00:00", "2000-01-01T04:05:06.123+00:00", "H12.01.01T04:05:06.123+00:00"]
+[3.5, "2000-01-01T04:05:06.123+00:00", "2000-01-01T04:05:06.123+00:00", "2000-01-01T04:05:06.123+00:00", "H12.01.01T04:05:06.123+00:00"]
+[(399/100), "2000-01-01T04:05:06.123+00:00", "2000-01-01T04:05:06.123+00:00", "2000-01-01T04:05:06.123+00:00", "H12.01.01T04:05:06.123+00:00"]
+[0, "2000-01-01T04:05:06+00:00", "2000-01-01T04:05:06+00:00", "2000-01-01T04:05:06+00:00", "H12.01.01T04:05:06+00:00"]
+[-2, "2000-01-01T04:05:06+00:00", "2000-01-01T04:05:06+00:00", "2000-01-01T04:05:06+00:00", "H12.01.01T04:05:06+00:00"]
+[9, "2000-01-01T04:05:06.123456000+00:00", "2000-01-01T04:05:06.123456000+00:00", "2000-01-01T04:05:06.123456000+00:00", "H12.01.01T04:05:06.123456000+00:00"]
+[12, "2000-01-01T04:05:06.123456000000+00:00", "2000-01-01T04:05:06.123456000000+00:00", "2000-01-01T04:05:06.123456000000+00:00", "H12.01.01T04:05:06.123456000000+00:00"]
+#<TypeError: no implicit conversion of String into Integer>
+#<TypeError: no implicit conversion of nil into Integer>
+"2000-01-01T04:05:06+00:00"
+"H12.01.01T04:05:06+00:00"

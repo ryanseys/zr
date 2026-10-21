@@ -1,0 +1,13 @@
+true
+true
+nil
+nil
+nil
+"Errno::EDOM: Domain error"
+"Errno::EDOM: Domain error"
+true
+true
+true
+false
+false
+Integer

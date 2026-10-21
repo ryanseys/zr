@@ -1,0 +1,60 @@
+reopen_path: ["abc\n", 2]
+reopen_io_sync: [false, false]
+stderr_reopen_sync: false
+dup_pos: ["c", "\n"]
+fcntl: [1, true]
+fsync: [0, 0, File]
+autoclose: [false, true]
+binmode: [true, #<Encoding:BINARY (ASCII-8BIT)>, #<Encoding:BINARY (ASCII-8BIT)>]
+set_encoding: [#<Encoding:ISO-8859-1>, #<Encoding:UTF-8>]
+set_encoding_by_bom: [#<Encoding:UTF-8>, "x"]
+sysopen: "abc"
+pipe_enc: [#<Encoding:UTF-8>, #<Encoding:ISO-8859-1>]
+pipe_block: "q"
+mkfifo: "fifo"
+stat_more: [Integer, Integer, Integer, Integer, true, Time, Integer, false, false, false, 8, true, 0, "#<File::Stat de"]
+dir_fchdir: [true, :ok]
+dir_for_fd: Dir
+file_new_flags: "z"
+file_open_kw: "zy"
+file_open_tmpfile: #<File:fd 20>
+lchmod: Errno::ENOTSUP
+identical: [true, true, nil, true, false]
+ioctl: Errno::ENOTTY
+advise: nil
+wait_priority: nil
+nonblock: [true, true]
+write_multi: [3, nil, "ab3"]
+pwrite: "\u0000\u0000\u0000\u0000\u0000XY"
+readlines_limit: ["ab", "c", "de", "f"]
+each_byte: [97, 98, 99, 10, nil, "A"]
+lineno_dollar: [2, 2]
+spawn_fd: "fd3\n"
+spawn_close_others: [false, ""]
+spawn_unsetenv: "1 nohome\n"
+spawn_pgroup: true
+spawn_rlimit: "99\n"
+spawn_in_file: "abc\ndef\n"
+spawn_out_file: "fileout\n"
+spawn_env_nil: "gone\n"
+spawn_array0: "argv0name\n"
+spawn_shell_meta: "a\nB\n"
+spawn_enoent: !Errno::ENOENT: No such file or directory - no_such_cmd_q
+spawn_eacces: !Errno::EACCES: Permission denied - ./noexec.sh
+exec_status_127: 127
+popen_write: "piped"
+popen_dash: "from child"
+wait_any: [true]
+waitall: 2
+wait_echild: !Errno::ECHILD: No child processes
+kill_0: 1
+getpriority: Integer
+sleep_ret: [Integer, 0]
+select_timeout: nil
+select_write: 1
+syscall_kernel: Errno::EINVAL
+closed_stdin_read: ""
+io_inspect: "#<File:a.txt>"
+io_closed_inspect: "#<File:a.txt (closed)>"
+io_path: ["a.txt", "<STDOUT>", nil]
+io_to_path: "a.txt"

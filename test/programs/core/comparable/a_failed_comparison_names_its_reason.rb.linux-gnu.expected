@@ -1,0 +1,25 @@
+comparison of NilClass with 1 failed: comparator returned nil
+comparison of String with 3 failed: comparator returned nil
+comparison of String with 3 failed: comparator returned nil
+comparison of Integer with String failed: comparator returned nil
+comparison of String with String failed: comparator returned nil
+comparison of Integer with nil failed: comparator returned nil
+comparison of Integer with 1 failed: comparator returned nil
+comparison of Integer with 1 failed: comparator returned nil
+comparison of Object with Object failed: comparator returned nil
+comparison of Integer with String failed: comparator returned nil
+comparison of Integer with String failed: comparator returned nil
+comparison of Object with Object failed: comparator returned nil
+comparison of Shrug with 1 failed: comparator returned nil
+comparison of Shrug with 1 failed: comparator returned nil
+comparison of Shrug with 1 failed: comparator returned nil
+comparison of NilClass with 1 failed: comparator returned nil
+comparison of Integer with String failed: coercion was not possible
+comparison of Float with :x failed: coercion was not possible
+comparison of Integer with Object failed: coercion was not possible
+comparison of Integer with String failed: coercion was not possible
+comparison of Integer with Object failed: coercion was not possible
+comparison of Integer with String failed: coercion was not possible
+comparison of Rational with nil failed: comparator returned nil
+comparison of Integer with Object failed: comparator returned nil
+comparison of NoLess with 0 failed: unable to compare with zero

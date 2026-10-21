@@ -1,0 +1,7 @@
+Errno::ENOTTY: Inappropriate ioctl for device
+Errno::ENOTTY: Inappropriate ioctl for device
+Errno::ENOTTY: Inappropriate ioctl for device
+FrozenError: can't modify frozen String: ""
+Errno::ENOTTY: Inappropriate ioctl for device
+Errno::ENOTTY: Inappropriate ioctl for device
+IOError: closed stream

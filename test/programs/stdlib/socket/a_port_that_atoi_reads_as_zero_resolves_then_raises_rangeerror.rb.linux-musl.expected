@@ -1,0 +1,6 @@
+[80, 80, "#<Addrinfo: 127.0.0.1:80 TCP>"]
+[4294967295, Socket::ResolutionError, "getaddrinfo: Unrecognized service"]
+[4294967296, Socket::ResolutionError, "getaddrinfo: Unrecognized service"]
+[8589934592, Socket::ResolutionError, "getaddrinfo: Unrecognized service"]
+[-4294967296, Socket::ResolutionError, "getaddrinfo: Unrecognized service"]
+[4611686018427387904, TypeError, "no implicit conversion of Integer into String"]

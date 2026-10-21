@@ -14,7 +14,8 @@ Dir.mktmpdir("zrscan") do |d|
   p Dir.scan(d) { |name, type| got << [name, type] }
   p got.sort
   dir = Dir.new(d)
-  p dir.scan.sort, dir.scan, dir.children
+  # The order is the file system's (readdir), the same for both.
+  p dir.scan.sort, dir.scan.map(&:first) == dir.children, dir.children.sort
   dir.close
   p((dir.scan rescue [$!.class, $!.message]))
   p Dir.scan(d, encoding: "ASCII-8BIT").first[0].encoding

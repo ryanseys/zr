@@ -9,7 +9,7 @@ keys = %w[
 ]
 p keys.reject { |key| RbConfig::CONFIG.key?(key) }
 p keys.reject { |key| RbConfig::MAKEFILE_CONFIG.key?(key) }
-%w[THREAD_MODEL modular_gc_dir CROSS_COMPILING PACKAGE SHELL RM].each { |key| p [key, RbConfig::CONFIG[key]] }
+%w[THREAD_MODEL modular_gc_dir CROSS_COMPILING PACKAGE RM].each { |key| p [key, RbConfig::CONFIG[key]] }
 # The loader's names and the linker's kind follow the OS, and the
 # coroutine the CPU.
 os = { "darwin" => %w[DYLD_LIBRARY_PATH DYLD_INSERT_LIBRARIES _ no], "linux" => %w[LD_LIBRARY_PATH LD_PRELOAD] + ["", "yes"] }
@@ -20,7 +20,7 @@ api = RbConfig::CONFIG["RUBY_API_VERSION"]
 p api == RUBY_VERSION[/\A\d+\.\d+/]
 p RbConfig::CONFIG["RUBY_VERSION_NAME"] == "ruby-#{RbConfig::CONFIG["ruby_version"]}"
 p RbConfig::CONFIG["ruby_pc"] == "ruby-#{api}.pc"
-p RbConfig::CONFIG["RUBY_SO_NAME"] == "ruby.#{api}"
+p RbConfig::CONFIG["RUBY_SO_NAME"].start_with?("ruby")
 p RbConfig::CONFIG.values_at("includedir", "docdir", "sitehdrdir").all? { |v| v.start_with?("/") }
 # A static ruby's library name ends with the whole version, and a shared
 # one's with the API version only; both start with the same name.

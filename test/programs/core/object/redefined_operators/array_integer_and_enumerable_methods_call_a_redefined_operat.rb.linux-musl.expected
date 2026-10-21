@@ -1,0 +1,42 @@
+ary ==: 
+ary include: Integer#===4
+ary index: Integer#===6
+ary delete: Integer#===4
+ary count: Integer#===4
+ary uniq: 
+ary -: Integer#===7 Integer#eql?=7
+ary &: Integer#===8 Integer#eql?=8
+ary sort: Integer#<=>=7
+ary sort str: String#<=>=3
+ary sort sym: Symbol#<=>=3
+ary min max: Integer#<=>=16
+ary sum: 
+ary assoc: Integer#===2
+ary hash: 
+ary eql: 
+hash lookup: 
+hash ==: 
+hash value?: 
+range each: 
+range include: Integer#<=>=6
+range ==: 
+int times: Integer#<=6
+int upto: 
+int step: Integer#===2 Integer#>=1
+int between: Integer#<=>=5
+str ==: String#===1 String#eql?=1
+str cmp: String#<=>=1
+str case: 
+int case: 
+sym case: 
+struct ==: 
+sort_by: Integer#<=>=11
+min_by: Integer#<=>=4
+group_by: 
+tally: 
+each_with_index: 
+inject: Integer#+=4
+zip flatten: 
+str split: 
+format: 
+set: 
