@@ -22,7 +22,17 @@ module Zr
       # errors. Eight workers (all 16 GB) stopped the whole machine. So
       # the pool keeps `reserve` GB for the OS and the other programs,
       # and two cores for the parent and the OS: 6 workers on that laptop.
-      def self.size = Integer(ENV.fetch("MT_CPU") { fit(Etc.nprocessors, gigabytes) })
+      def self.size = Integer(ENV.fetch("MT_CPU") { wasm_on_a_mac? && gigabytes <= 16 ? 1 : fit(Etc.nprocessors, gigabytes) })
+
+      # Whether the run is for wasm32-wasi on macOS. A wasm worker holds the
+      # runtime with eval support (about 1.5 GB), and the first compile of
+      # that runtime takes 5 GB more. Two such workers on a 16 GB laptop
+      # stopped the machine: macOS compresses pages before it swaps, and the
+      # sizes that the limits read leave the compressed pages out. Linux CI
+      # runners read /proc and keep their count.
+      def self.wasm_on_a_mac?
+        RUBY_PLATFORM.include?("darwin") && ENV.fetch("ZR_TARGET", "").start_with?("wasm")
+      end
 
       def self.fit(cores, gigabytes)
         [[cores - 2, (gigabytes - reserve(gigabytes)) / WORKER_GB].min, 1].max
