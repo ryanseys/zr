@@ -7,16 +7,23 @@ module Zr
         # The libc calls that the module defines itself when no function has
         # the name: memory calls, because only the module can own memory, and
         # the write, exit and abort calls of a unit with no OS layer.
+        # `zr_wasm_sbrk` is malloc's bump of the heap alone, under the
+        # allocator of the wasi layer (kernel/os/wasi/malloc.rb), which
+        # replaces malloc, free and posix_memalign.
         #
         # A type annotation does not reach the empty arrays through `.freeze`.
         LIBC_SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]],
                        "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []], # steep:ignore UnannotatedEmptyCollection
                        "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], # steep:ignore UnannotatedEmptyCollection
-                       "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
+                       "zr_wasm_sbrk" => [[0x7E], [0x7E]], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
                             "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze #: Hash[String, signature]
 
         # How many i32 locals a shim body declares.
-        LOCALS = { "malloc" => 1 }.freeze #: Hash[String, Integer]
+        LOCALS = { "malloc" => 1, "zr_wasm_sbrk" => 1 }.freeze #: Hash[String, Integer]
+
+        # The largest request that the heap tries: a wasm32 memory has 4 GiB,
+        # and a larger size would wrap when the bump takes its low 32 bits.
+        BUMP_MAX = 0xFFFF_0000
 
         private
 
@@ -35,12 +42,14 @@ module Zr
             code << "\x20\x00".b << "\x10".b << leb(function_index("proc_exit"))
           when "abort"
             code << "\x00".b
-          when "malloc"
+          when "malloc", "zr_wasm_sbrk"
             # r = heap; heap += n rounded to 16; grow when heap passes the
             # memory's end; return r. When the memory cannot grow (its
-            # limit), heap = r and return 0, as libc's malloc does: then
-            # `zr_xmalloc` ends the program with ruby's message, where an
-            # address past the end would trap at its first write.
+            # limit), or n is past BUMP_MAX, heap = r and return 0, as libc's
+            # malloc does: then `zr_xmalloc` ends the program with ruby's
+            # message, where an address past the end would trap at its first
+            # write.
+            code << "\x20\x00".b << "\x42".b << sleb(BUMP_MAX) << "\x56".b << "\x04\x40".b << "\x42\x00".b << "\x0F".b << "\x0B".b
             code << "\x23\x01".b << "\x21\x01".b
             code << "\x23\x01".b << "\x20\x00".b << "\xA7".b << i32c(15) << "\x6A".b << i32c(-16) << "\x71".b << "\x6A".b << "\x24\x01".b
             code << "\x23\x01".b << "\x3F\x00".b << i32c(16) << "\x74".b << "\x4B".b

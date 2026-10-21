@@ -20,14 +20,6 @@ module Zr::Kern
     Machine.ptr(0)
   end
 
-  # The usable size of a malloc'd block, which the heap counts as payload.
-  # It is 0 here. The module's allocator frees nothing (a bump heap), so
-  # the count only increases, and the limit doubles with it.
-  #: (ptr) -> word
-  def zr_os_malloc_size(p)
-    0
-  end
-
   # memmem, which the allocator layer does not supply. Returns the first
   # position of the `m` bytes of `needle` in the `n` bytes at `hay`, or 0.
   #: (ptr, word, ptr, word) -> ptr

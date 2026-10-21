@@ -66,5 +66,8 @@ module Zr::Kern
     def self.proc_exit(i) = Machine.import(from: "wasi_snapshot_preview1")
     #: (i32, i32) -> i32
     def self.random_get(i1, i2) = Machine.import(from: "wasi_snapshot_preview1")
+    # The heap's bump, which the module defines (backend/wasm/shims.rb).
+    #: (word) -> word
+    def self.zr_wasm_sbrk(n) = Machine.import
   end
 end

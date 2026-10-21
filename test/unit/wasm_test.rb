@@ -124,6 +124,92 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # The wasi layer's allocator (kernel/os/wasi/malloc.rb) over the heap's
+  # bump: a freed block serves the next request of its class, a class is
+  # at most a quarter larger than its request, and a block of
+  # posix_memalign frees the block that it was cut from.
+  ALLOCATOR = <<~RUBY
+    module Zr::Kern
+      module Libc
+        #: (word) -> word
+        def self.zr_wasm_sbrk(n) = Machine.import
+        #: (ptr, ptr, word) -> ptr
+        def self.memmove(p1, p2, n) = Machine.import
+        #: (i32, ptr, word) -> word
+        def self.write(i, p, n) = Machine.import
+      end
+
+      #: (word) -> void
+      def zr_os_set_errno(n)
+      end
+
+      #: (ptr, ptr, word) -> ptr
+      def zr_memcpy(to, from, n)
+        Libc.memmove(to, from, n)
+      end
+
+      #: (ptr, word) -> void
+      def say(text, n)
+        Libc.write(Machine.i32(1), text, n)
+      end
+
+      #: (i32, ptr) -> i32
+      def main(argc, argv)
+        n = 1
+        while n < 5000000
+          c = zr_wasi_class_up(n)
+          size = zr_wasi_class_size(c)
+          if size < n || (n > 64 && size * 4 > n * 5 + 16) || zr_wasi_class_down(size) != c
+            say(Machine.bytes("class\\n"), 6)
+            return 1
+          end
+          n += n < 1000 ? 1 : 997
+        end
+        a = malloc(24)
+        free(a)
+        if malloc(20) != a || zr_os_malloc_size(a) != 32
+          say(Machine.bytes("reuse\\n"), 6)
+          return 1
+        end
+        Machine.store64(a, 0, 77)
+        b = realloc(a, 1000)
+        if Machine.load64(b, 0) != 77 || malloc(32) != a
+          say(Machine.bytes("realloc\\n"), 8)
+          return 1
+        end
+        slot = Machine.slot(8)
+        posix_memalign(slot, 4096, 5000)
+        q = Machine.ptr(Machine.load64(slot, 0))
+        if (Machine.word(q) & 4095) != 0 || zr_os_malloc_size(q) < 5000
+          say(Machine.bytes("align\\n"), 6)
+          return 1
+        end
+        free(q)
+        r = malloc(9096)
+        if Machine.word(q) < Machine.word(r) || Machine.word(q) >= Machine.word(r) + 9096
+          say(Machine.bytes("cut\\n"), 4)
+          return 1
+        end
+        if malloc(5000000000) != 0
+          say(Machine.bytes("huge\\n"), 5)
+          return 1
+        end
+        say(Machine.bytes("ok\\n"), 3)
+        0
+      end
+    end
+  RUBY
+
+  def test_the_wasi_allocator_reuses_freed_blocks
+    malloc = File.join(ROOT, "lib/zr/runtime/kernel/os/wasi/malloc.rb")
+    functions, data = Zr::Machine::Lower.new([[File.read(malloc), malloc], [ALLOCATOR, "allocator.rb"]], Zr::Machine::Symbols.new).run
+    Dir.mktmpdir("zr-wasm-") do |dir|
+      wasm = File.join(dir, "allocator.wasm")
+      assert_nil Zr::Native::Build.wasm(functions, data, wasm)
+      run_module(wasm, "ok\n")
+    end
+  end
+
   # An import of a name that the module imports already, with another
   # signature, is refused, and the message gives both imports.
   def test_an_import_with_another_signature_is_refused
