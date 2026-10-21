@@ -103,9 +103,12 @@ module Zr::Kern
   # that is a prefix of whole components is the match. Returns its
   # descriptor and stores the rest of the path at `rest` (`.` for the
   # directory itself). Returns -1 with errno ENOENT if no directory
-  # contains the path.
+  # contains the path, or the path is empty.
   #: (ptr, ptr) -> i32
   def zr_wasi_dir(path, rest)
+    if Machine.load8(path, 0) == Machine.i8(0)
+      return zr_wasi_fail(WASI_ENOENT)
+    end
     p = zr_wasi_from_cwd(path)
     if p == 0
       return Machine.i32(0 - 1)

@@ -104,15 +104,24 @@ module Zr::Kern
   end
 
   # F_SETFL sets the fdflags. F_GETFL reads them, with the access mode
-  # from the rights. F_SETFD and F_GETFD do nothing, because there is no
-  # close-on-exec. WASI has no other commands.
+  # from the rights. F_SETFD does nothing, because there is no exec. WASI
+  # has no other commands.
   #: (i32, i32, word) -> i32
   def zr_os_fcntl(fd, command, argument)
     if command == Machine.i32(F_SETFL)
       return zr_wasi_status(Libc.fd_fdstat_set_flags(fd, Machine.i32(argument & O_FDFLAGS)))
     end
-    if command == Machine.i32(F_SETFD) || command == Machine.i32(F_GETFD)
+    if command == Machine.i32(F_SETFD)
       return Machine.i32(0)
+    end
+    # Each descriptor closes on exec, as ruby opens each one so: there is
+    # no exec to keep it open for.
+    if command == Machine.i32(F_GETFD)
+      stat = Machine.slot(FDSTAT_LEN)
+      if zr_wasi_status(Libc.fd_fdstat_get(fd, zr_wasi_addr(stat))) < Machine.i32(0)
+        return Machine.i32(0 - 1)
+      end
+      return Machine.i32(FD_CLOEXEC)
     end
     if command != Machine.i32(F_GETFL)
       return zr_wasi_fail(WASI_EINVAL)
@@ -162,10 +171,16 @@ module Zr::Kern
     Machine.u32(Machine.load32(iov, 8))
   end
 
+  # A read of a directory fails with EISDIR, as read(2)'s does. WASI
+  # gives EBADF, as a directory has no read right.
   #: (i32, ptr, word) -> word
   def read(fd, buf, len)
     iov = Machine.slot(16)
     if zr_wasi_status(Libc.fd_read(fd, zr_wasi_iovec(iov, buf, len), Machine.i32(1), zr_wasi_addr(iov + 8))) < Machine.i32(0)
+      stat = Machine.slot(FDSTAT_LEN)
+      if zr_os_errno() == EBADF && Libc.fd_fdstat_get(fd, zr_wasi_addr(stat)) == Machine.i32(0) && Machine.load8(stat, 0) == Machine.i8(3)
+        zr_os_set_errno(WASI_EISDIR)
+      end
       return 0 - 1
     end
     Machine.u32(Machine.load32(iov, 8))
@@ -400,7 +415,43 @@ module Zr::Kern
     if dir < Machine.i32(0)
       return dir
     end
+    if Machine.u8(Machine.load8(target, 0)) == 47
+      return zr_wasi_symlink_within(target, dir, where)
+    end
     zr_wasi_status(Libc.path_symlink(zr_wasi_addr(target), Machine.i32(zr_cstr_len(target)), dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
+  end
+
+  # WASI refuses a link to an absolute path, as it could leave the
+  # preopened directory. A target in the link's own preopened directory
+  # is written relative to the link: a `../` for each directory above
+  # the link, then the target's path in that directory.
+  #: (ptr, i32, ptr) -> i32
+  def zr_wasi_symlink_within(target, dir, where)
+    at = Machine.slot(16)
+    if zr_wasi_resolve(target, at) != dir
+      return zr_wasi_fail(63)
+    end
+    rest = Machine.ptr(Machine.load64(where, 0))
+    ups = 0
+    i = 0
+    while i < Machine.load64(where, 8)
+      if Machine.u8(Machine.load8(rest + i, 0)) == 47
+        ups += 1
+      end
+      i += 1
+    end
+    tlen = Machine.load64(at, 8)
+    len = (ups * 3) + tlen
+    text = zr_xmalloc(len + 1)
+    i = 0
+    while i < ups
+      zr_memcpy(text + (i * 3), Machine.bytes("../"), 3)
+      i += 1
+    end
+    zr_memcpy(text + (ups * 3), Machine.ptr(Machine.load64(at, 0)), tlen)
+    r = zr_wasi_status(Libc.path_symlink(zr_wasi_addr(text), Machine.i32(len), dir, zr_wasi_rest(where), zr_wasi_rest_len(where)))
+    zr_xfree(text)
+    r
   end
 
   # A directory stream: its descriptor, the cookie of the next entry, and
@@ -705,6 +756,7 @@ Capabilities insufficient
   # which contains every preopened directory. `zr_wasi_dir` puts it in
   # front of each relative path.
   CWD_MAX = 4096
+  WASI_EISDIR = 31
   WASI_ENAMETOOLONG = 37
   WASI_ENOTDIR = 54
 
