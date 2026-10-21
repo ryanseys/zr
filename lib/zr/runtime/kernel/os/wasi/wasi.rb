@@ -106,7 +106,11 @@ module Zr::Kern
   # contains the path.
   #: (ptr, ptr) -> i32
   def zr_wasi_dir(path, rest)
-    p = path + zr_wasi_path_start(path)
+    p = zr_wasi_from_cwd(path)
+    if p == 0
+      return Machine.i32(0 - 1)
+    end
+    p = p + zr_wasi_path_start(p)
     rows = zr_wasi_preopens()
     best = 0 - 1
     best_len = 0
@@ -133,6 +137,32 @@ module Zr::Kern
     end
     Machine.store64(rest, 0, Machine.word(tail))
     Machine.i32(best)
+  end
+
+  # `path` below the working directory (`chdir`), or `path` itself when
+  # it is absolute or the working directory is the root. A call such as
+  # rename resolves two paths, so the joined path takes turns between two
+  # buffers. Returns 0 with ENAMETOOLONG when the joined path does not fit.
+  #: (ptr) -> ptr
+  def zr_wasi_from_cwd(path)
+    cwd = zr_wasi_cwd()
+    if Machine.load8(cwd, 0) == Machine.i8(0) || Machine.u8(Machine.load8(path, 0)) == 47
+      return path
+    end
+    turn = Machine.static(:wasi_join_turn, 8)
+    which = 1 - Machine.load64(turn, 0)
+    Machine.store64(turn, 0, which)
+    out = Machine.static(:wasi_join, CWD_MAX * 2) + (which * CWD_MAX)
+    len = zr_cstr_len(cwd)
+    n = zr_cstr_len(path)
+    if len + n + 2 > CWD_MAX
+      zr_os_set_errno(WASI_ENAMETOOLONG)
+      return Machine.ptr(0)
+    end
+    zr_memcpy(out, cwd, len)
+    Machine.store8(out + len, 0, Machine.i8(47))
+    zr_memcpy(out + len + 1, path, n + 1)
+    out
   end
 
   # Prepares a call on a path. Returns the descriptor of its directory and

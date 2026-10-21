@@ -700,17 +700,97 @@ Capabilities insufficient
     out
   end
 
-  # A module gets no working directory. It returns the root, which
-  # contains every preopened directory.
+  # WASI has no working directory, so the module keeps one, as wasi-libc
+  # does: an absolute path with no `.` or `..` part, empty for the root,
+  # which contains every preopened directory. `zr_wasi_dir` puts it in
+  # front of each relative path.
+  CWD_MAX = 4096
+  WASI_ENAMETOOLONG = 37
+  WASI_ENOTDIR = 54
+
+  #: () -> ptr
+  def zr_wasi_cwd
+    Machine.static(:wasi_cwd, CWD_MAX)
+  end
+
   #: (ptr, word) -> ptr
   def getcwd(buf, size)
-    if size < 2
-      zr_os_set_errno(68)
+    cwd = zr_wasi_cwd()
+    len = zr_cstr_len(cwd)
+    if size < (len == 0 ? 2 : len + 1)
+      zr_os_set_errno(ERANGE)
       return Machine.ptr(0)
     end
-    Machine.store8(buf, 0, Machine.i8(47))
-    Machine.store8(buf, 1, Machine.i8(0))
+    if len == 0
+      Machine.store8(buf, 0, Machine.i8(47))
+      len = 1
+    else
+      zr_memcpy(buf, cwd, len)
+    end
+    Machine.store8(buf + len, 0, Machine.i8(0))
     buf
+  end
+
+  # Writes `path` below the working directory into `out` (CWD_MAX
+  # bytes), with each `.` part dropped and each `..` part taking off the
+  # part before it. Returns -1 with ENAMETOOLONG when it does not fit.
+  #: (ptr, ptr) -> i32
+  def zr_wasi_normalize(path, out)
+    len = 0
+    if Machine.u8(Machine.load8(path, 0)) != 47
+      len = zr_cstr_len(zr_wasi_cwd())
+      zr_memcpy(out, zr_wasi_cwd(), len)
+    end
+    at = 0
+    while Machine.load8(path + at, 0) != Machine.i8(0)
+      while Machine.u8(Machine.load8(path + at, 0)) == 47
+        at += 1
+      end
+      part = at
+      while Machine.load8(path + at, 0) != Machine.i8(0) && Machine.u8(Machine.load8(path + at, 0)) != 47
+        at += 1
+      end
+      n = at - part
+      first = n >= 1 ? Machine.u8(Machine.load8(path + part, 0)) : 0
+      if n == 2 && first == 46 && Machine.u8(Machine.load8(path + part + 1, 0)) == 46
+        while len > 0 && Machine.u8(Machine.load8(out + len - 1, 0)) != 47
+          len -= 1
+        end
+        if len > 0
+          len -= 1
+        end
+      elsif n > 1 || (n == 1 && first != 46)
+        if len + n + 2 > CWD_MAX
+          return zr_wasi_fail(WASI_ENAMETOOLONG)
+        end
+        Machine.store8(out + len, 0, Machine.i8(47))
+        zr_memcpy(out + len + 1, path + part, n)
+        len = len + n + 1
+      end
+    end
+    Machine.store8(out + len, 0, Machine.i8(0))
+    Machine.i32(0)
+  end
+
+  # Sets the working directory to a directory that exists.
+  #: (ptr) -> i32
+  def chdir(path)
+    if Machine.load8(path, 0) == Machine.i8(0)
+      return zr_wasi_fail(WASI_ENOENT)
+    end
+    next_cwd = Machine.slot(CWD_MAX)
+    if zr_wasi_normalize(path, next_cwd) < Machine.i32(0)
+      return Machine.i32(0 - 1)
+    end
+    buf = Machine.slot(STAT_LEN)
+    if zr_wasi_path_stat(Machine.load8(next_cwd, 0) == Machine.i8(0) ? Machine.bytes("/\0") : next_cwd, buf, Machine.i32(1)) < Machine.i32(0)
+      return Machine.i32(0 - 1)
+    end
+    if Machine.u8(Machine.load8(buf, 16)) != 3
+      return zr_wasi_fail(WASI_ENOTDIR)
+    end
+    zr_memcpy(zr_wasi_cwd(), next_cwd, zr_cstr_len(next_cwd) + 1)
+    Machine.i32(0)
   end
 
   # WASI maps no files: 0 tells IO::Buffer.map to read the file instead.
