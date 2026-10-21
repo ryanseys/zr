@@ -545,6 +545,10 @@ module Zr
         # visibility of the next `def`s. With names, they are usual calls.
         VISIBILITY = { private: 1, public: 0, protected: 2 }.freeze
 
+        # A call with more arguments than this checks that ruby's VM stack
+        # would hold them, as a compiled call does (Lower's MANY_ARGS).
+        MANY_ARGS = 1_024
+
         def send_node(node, ctx)
           refuse(node, "a call under a refinement") if node.using
           return frame_method(node, ctx) if bare?(node) && (FROM_THE_FRAME.include?(node.name) || (NO_FRAME.include?(node.name) && !ctx.meta))
@@ -554,6 +558,7 @@ module Zr
           return nil if node.safe && recv.nil?
           return recv if node.interp && (String === recv || Symbol === recv)
 
+          World.vm_stack_args(node.args.size) if node.args.size > MANY_ARGS
           args = elements(node.args, ctx)
           kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil
           block = block_for(node.block, ctx)
@@ -654,7 +659,7 @@ module Zr
           if svars
             svar_send(recv, name, args, kwargs, block, private, svars)
           else
-            World.walk_send(at, recv, name, args, kwargs: kwargs.nil? || kwargs.empty? ? nil : kwargs, blk: block, private: private)
+            World.walk_send(at, recv, name, args, kwargs: kwargs.nil? || kwargs.empty? ? nil : kwargs, blk: block, private: private, vcall: vcall)
           end
         rescue Breaking => e
           raise unless tag && e.tag.equal?(tag)
@@ -853,7 +858,7 @@ module Zr
             rescue ::Exception => e # rubocop:disable Lint/RescueException
               clause = node.rescues.find { |r| catches?(r, e, ctx) } or raise
               write_target(clause.target, e, ctx) if clause.target
-              value = walk(clause.body, ctx)
+              value = walk(clause.body, rescue_ctx(ctx, node.line))
             end
             value
           rescue Retrying
@@ -861,6 +866,17 @@ module Zr
           end
         ensure
           walk(node.ensure_body, ctx) if node.ensure_body
+        end
+
+        # The context of a rescue clause of the `begin` at `line`: CRuby runs
+        # the clause in a frame of its own, which a caller list counts
+        # (World.rescue_meta).
+        #: (Ctx ctx, Integer line) -> Ctx
+        def rescue_ctx(ctx, line)
+          meta = ctx.meta or return ctx
+
+          metas = Eval.walk_metas
+          ctx.with(meta: metas.fetch([:rescue, meta, line]) { metas[[:rescue, meta, line]] = World.rescue_meta(meta, line) })
         end
 
         def catches?(clause, error, ctx)
@@ -992,7 +1008,7 @@ module Zr
           block = ctx.block or raise ::LocalJumpError, "no block given (yield)"
           args = elements(node.args, ctx)
           kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil #: Hash[Symbol, value]?
-          kwargs.nil? || kwargs.empty? ? block.call(*args) : block.call(*args, **kwargs)
+          World.walk_yield(frame_at(ctx, node.line), block, args, kwargs.nil? || kwargs.empty? ? nil : kwargs)
         end
 
         # `super(args)` and the bare `super`, which passes the arguments of

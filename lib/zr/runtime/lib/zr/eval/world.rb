@@ -50,6 +50,12 @@ module Zr
       # The cref of a walked block that an exec runs (`here`), over the
       # block's own (`outer`) in place of the walker's.
       def walk_cref(here, outer) = Primitive.zr_walk_cref_m(here, outer)
+      # Raises SystemStackError when ruby's VM stack would not hold the
+      # receiver and `n` arguments, as a compiled call checks.
+      def vm_stack_args(n) = Primitive.zr_vm_stack_args_m(n + 1)
+      # The meta of a rescue clause whose `begin` is at `line`, in the
+      # scope of `meta` (kernel/eval_walk.rb).
+      def rescue_meta(meta, line) = Primitive.zr_walk_rescue_meta_m(meta, line)
       # The visibility that a `def` under `cref` gets: 0 public, 1 private,
       # 2 protected; and whether `module_function` requests a copy on
       # the singleton class.
@@ -76,13 +82,27 @@ module Zr
 
       # A call from walked code, under a frame of `at` (`[meta, line,
       # self]`): a private call goes as one with no receiver, any other as
-      # one with a receiver, so a protected method sees the walked self.
-      #: (Array[untyped]? at, untyped recv, Symbol name, Array[untyped] args, kwargs: Hash[Symbol, untyped]?, blk: Proc?, private: bool) -> untyped
-      def walk_send(at, recv, name, args, kwargs:, blk:, private:)
-        mode = private ? 0 : 2
+      # one with a receiver, so a protected method sees the walked self. A
+      # bare identifier (`vcall`) that finds no method raises NameError,
+      # with the locals of the walked scope.
+      #: (Array[untyped]? at, untyped recv, Symbol name, Array[untyped] args, kwargs: Hash[Symbol, untyped]?, blk: Proc?, private: bool, ?vcall: bool) -> untyped
+      def walk_send(at, recv, name, args, kwargs:, blk:, private:, vcall: false)
+        mode = if vcall then 1
+               elsif private then 0
+               else 2
+               end
         return Primitive.zr_walk_send_m(at, recv, name, args, blk, mode) unless kwargs
 
         Primitive.zr_walk_send_m(at, recv, name, [*args, kwargs], blk, mode + 256)
+      end
+
+      # A `yield` from walked code to `blk`, under a frame of `at`, as
+      # walk_send calls.
+      #: (Array[untyped]? at, Proc blk, Array[untyped] args, Hash[Symbol, untyped]? kwargs) -> untyped
+      def walk_yield(at, blk, args, kwargs)
+        return Primitive.zr_walk_yield_m(at, blk, args, false) unless kwargs
+
+        Primitive.zr_walk_yield_m(at, blk, [*args, kwargs], true)
       end
 
       # A Binding of `obj` with no locals: the frame of a block that sees

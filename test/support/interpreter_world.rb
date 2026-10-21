@@ -97,6 +97,8 @@ module Zr
         def cref_definee(cref) = cref.klass
         def cref_lexical(cref) = cref
         def walk_cref(here, _outer) = here
+        def vm_stack_args(_n) = nil
+        def rescue_meta(meta, _line) = meta
 
         PRIVATE = %i[initialize initialize_copy initialize_clone initialize_dup respond_to_missing?].freeze
 
@@ -122,11 +124,12 @@ module Zr
         def walk_meta(_kind, _name, _owner, _parent, file:, evaled:) = nil
         def eval_caller_meta = nil
 
-        def walk_send(_at, recv, name, args, kwargs:, blk:, private:)
+        def walk_send(_at, recv, name, args, kwargs:, blk:, private:, vcall: false)
           kwargs ||= {}
           private ? recv.__send__(name, *args, **kwargs, &blk) : recv.public_send(name, *args, **kwargs, &blk)
         end
 
+        def walk_yield(_at, blk, args, kwargs) = kwargs ? blk.call(*args, **kwargs) : blk.call(*args)
         def bare_binding(obj) = obj.instance_exec(&BARE)
         def walk_signature(_method, _rows, _arity) = nil
 

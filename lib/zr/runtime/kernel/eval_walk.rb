@@ -39,6 +39,30 @@ module Zr::Kern
     zr_fix(Machine.word(m))
   end
 
+  # The meta of a rescue clause in walked code: a copy of `meta` whose
+  # rescues table (zr_frame_levels) has the clause's `begin` line first,
+  # then the lines of the clauses around it. CRuby runs a rescue clause in
+  # a frame of its own, so a caller list from the clause counts a level
+  # more, which shows the scope at the `begin`.
+  #: (value, value) -> value
+  def zr_walk_rescue_meta_m(meta, line)
+    from = Machine.ptr(zr_fix2long(meta))
+    m = zr_xmalloc(FrameMeta.size)
+    zr_memcpy(m, from, FrameMeta.size)
+    old = FrameMeta[from].rescues
+    n = old == 0 ? 0 : Machine.load64(old, 0)
+    table = zr_xmalloc(16 + (n * 8))
+    Machine.store64(table, 0, n + 1)
+    # The node id of a frame that zr_walk_send_m pushes for this meta.
+    node = FrameMeta[from].evaled != 0 ? 1 : 0
+    Machine.store64(table, 8, (node << 32) | (zr_fix2long(line) & WALK_LINE_MASK))
+    if n > 0
+      zr_memcpy(table + 16, old + 8, n * 8)
+    end
+    FrameMeta[m].rescues = table
+    zr_fix(Machine.word(m))
+  end
+
   # The meta of the frame that called eval, as an Integer, or nil: an
   # eval's code shows that frame's label (KIND_EVAL).
   # The walker's own frames show in no backtrace (`frameless`), so they
@@ -78,9 +102,38 @@ module Zr::Kern
       return zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, m, blk)
     end
     rec = Machine.slot(Frame.size)
+    zr_walk_push(rec, at)
+    r = zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, m, blk)
+    Task[zr_task()].top = Frame[rec].prev
+    r
+  end
+
+  # A `yield` of walked code to `blk` with the Array `args`, under a frame
+  # of `at`, as zr_walk_send_m sends: a method whose body only yields
+  # shows in a backtrace from the block. `keywords` is true when the last
+  # element of `args` is a keyword Hash.
+  #: (value, value, value, value) -> value
+  def zr_walk_yield_m(at, blk, args, keywords)
+    if keywords == QTRUE
+      zr_kw_pass()
+    end
+    if at == QNIL
+      return zr_yield(blk, RArray[args].len, RArray[args].ptr)
+    end
+    rec = Machine.slot(Frame.size)
+    zr_walk_push(rec, at)
+    r = zr_yield(blk, RArray[args].len, RArray[args].ptr)
+    Task[zr_task()].top = Frame[rec].prev
+    r
+  end
+
+  # Pushes `rec`, a Frame in the caller's stack, for `at` (`[meta, line,
+  # self]`). The caller pops it.
+  #: (ptr, value) -> void
+  def zr_walk_push(rec, at)
     t = zr_task()
-    Frame[rec].prev = Task[t].top
     meta = Machine.ptr(zr_fix2long(zr_ary_at(at, 0)))
+    Frame[rec].prev = Task[t].top
     Frame[rec].meta = meta
     Frame[rec].line = zr_fix2long(zr_ary_at(at, 1)) & WALK_LINE_MASK
     if FrameMeta[meta].evaled != 0
@@ -95,9 +148,6 @@ module Zr::Kern
     Frame[rec].svars = Machine.value(QNIL)
     Frame[rec].defined = Machine.value(QNIL)
     Task[t].top = rec
-    r = zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, m, blk)
-    Task[t].top = Frame[rec].prev
-    r
   end
 
   # The cref of a walked block that class_exec or instance_exec runs:

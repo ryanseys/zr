@@ -14,10 +14,21 @@ cli/lang/require/a_cleared_load_path_finds_no_file_of_rubys_library.rb	IO.popen:
 cli/lang/require/with_gems_off_rubygems_defines_gem_over_nothing.rb	IO.popen: pipe has no wasm form
 cli/stdlib/rbconfig/ruby_is_bindir_and_ruby_install_name.rb	RbConfig.ruby: a wasm guest has no ruby executable
 
-# A method that an eval defines runs in the walk's frames: an error in it
-# names the walk's methods (Tree#bind), where ruby names the def. Its
-# parameters, arity and inspect are the def's (World.describe).
-lang/methods/a_block_parameter_of_nil_refuses_a_block_after_the_arity_and_keyword_checks.rb	the backtrace label of an eval'd def is the tree walk's
+# wasm32-wasi runs eval through the tree walker (lib/zr/eval/interpreter).
+# A method or block that an eval defines is a Proc of the walker's: an
+# arity error of it is raised before its frame, so it names the frame
+# around it, where ruby names the def or the block.
+lang/methods/a_block_parameter_of_nil_refuses_a_block_after_the_arity_and_keyword_checks.rb	the arity error of a walked def or block names the frame around it
+# The walker refuses a call under refinements (`using` in the string, or
+# the caller's refinements), which ruby's eval sees.
+compiler/cache/snippet_refines_and_uses_at_run_time.rb	the eval walker refuses `using`
+lang/eval/eval_forwards_anonymous_parameters_and_sees_refinements.rb	the eval walker does not see the caller's refinements
+lang/eval/eval_strings_keep_their_encoding_and_the_callers_refinements.rb	the eval walker does not see the caller's refinements
+# A walked def fires no TracePoint :call, and the walker keeps no node
+# spots, so Location#source_range finds no node in walked code, even
+# where RubyVM.keep_script_lines kept its lines.
+core/exception/location_source_range_finds_the_node_of_each_kind_that_raises.rb	a walked def fires no TracePoint :call
+core/exception/location_source_range_in_an_eval_works_only_when_keep_script_lines_kept_its_lines.rb	walked code keeps no node spots for source_range
 
 # A build of these programs for wasm needs more memory than the limit.
 

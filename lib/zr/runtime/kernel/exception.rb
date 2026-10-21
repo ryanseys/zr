@@ -248,6 +248,18 @@ end
     rec
   end
 
+  # The frame whose file and line a shown frame `rec` takes: its own, or
+  # for a C frame or an internal one, its Ruby caller's. Eval support's
+  # frames (`frameless`) are ruby's C, which has no place of its own.
+  #: (ptr) -> ptr
+  def zr_frame_shown_source(rec)
+    rec = zr_frame_with_file(rec)
+    while rec != 0 && FrameMeta[Frame[rec].meta].frameless != 0
+      rec = zr_frame_with_file(Frame[rec].prev)
+    end
+    rec
+  end
+
   # Whether `rec` runs code whose file is `<internal:...>`, as an eval
   # names it (RubyGems' Kernel#require). Such a frame shows as a C
   # method's does, at the place of the Ruby frame that called it
@@ -335,7 +347,7 @@ end
       if zr_frame_shown_p(rec)
         row = rows + (i * BtRow.size)
         BtRow[row].meta = zr_frame_label_meta(rec)
-        source = zr_frame_with_file(rec)
+        source = zr_frame_shown_source(rec)
         if source == 0
           BtRow[row].file = 0
           BtRow[row].file_len = 0
@@ -1221,7 +1233,7 @@ end
         if left >= levels
           left -= levels
         else
-          source = zr_frame_with_file(rec)
+          source = zr_frame_shown_source(rec)
           zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_place_id(source)))
           zr_ary_push(out, source == 0 ? Machine.value(QFALSE) : zr_fix(zr_frame_level_line(source, left)))
           left = 0
@@ -1504,7 +1516,7 @@ end
   #: (ptr, ptr) -> value
   def zr_frame_text(b, rec)
     line = zr_buf_take(b)
-    source = zr_frame_with_file(rec)
+    source = zr_frame_shown_source(rec)
     if source != 0 && zr_main_file_p(FrameMeta[Frame[source].meta].file, FrameMeta[Frame[source].meta].file_len)
       return zr_path_str(line)
     end
@@ -1515,7 +1527,7 @@ end
   # level `level` (zr_frame_levels).
   #: (ptr, ptr, word) -> void
   def zr_buf_frame(b, rec, level)
-    source = zr_frame_with_file(rec)
+    source = zr_frame_shown_source(rec)
     if source != 0
       zr_buf_push(b, FrameMeta[Frame[source].meta].file, FrameMeta[Frame[source].meta].file_len)
       line = zr_frame_level_line(source, level)

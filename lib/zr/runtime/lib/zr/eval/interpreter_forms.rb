@@ -16,7 +16,7 @@ module Kernel
       name = file || Primitive.zr_eval_source_name
       Primitive.zr_trace_script_compiled(source, name, line)
       return Zr::Eval::Interpreter.evaluate(source, binding, file: name, line: line, self_: Primitive.zr_binding_receiver(binding),
-                                                             cref: Primitive.zr_binding_cref(binding), block: nil, add: true)
+                                                             cref: Primitive.zr_binding_cref(binding), block: Primitive.zr_binding_block_m(binding), add: true)
     end
     name = file || Primitive.zr_eval_source_name
     Primitive.zr_trace_script_compiled(source, name, line)
@@ -36,7 +36,7 @@ class Binding
     name = file || Primitive.zr_eval_source_name
     Primitive.zr_trace_script_compiled(source, name, line)
     Zr::Eval::Interpreter.evaluate(source, self, file: name, line: line, self_: Primitive.zr_binding_receiver(self),
-                                                 cref: Primitive.zr_binding_cref(self), block: nil, add: true)
+                                                 cref: Primitive.zr_binding_cref(self), block: Primitive.zr_binding_block_m(self), add: true)
   end
 end
 

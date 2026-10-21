@@ -80,6 +80,13 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # The same for walked code (World.vm_stack_args), with the count as an
+  # Integer.
+  #: (value) -> value
+  def zr_vm_stack_args_m(n)
+    zr_vm_stack_args(zr_fix2long(n))
+  end
+
   # The size of the program's stack: MAIN_STACK_BYTES scaled by
   # RUBY_THREAD_VM_STACK_SIZE against ruby's default, so a program recurses
   # about as deep as ruby lets it.

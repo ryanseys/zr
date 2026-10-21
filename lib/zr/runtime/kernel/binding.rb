@@ -43,6 +43,13 @@ module Zr::Kern
     c
   end
 
+  # The block of the frame that the Binding `b` holds, as a Proc, or nil:
+  # what a `yield` in a string that runs in it calls.
+  #: (value) -> value
+  def zr_binding_block_m(b)
+    RProc[b].blk
+  end
+
   #: () -> value
   def zr_eval_block
     Frame[zr_eval_frame()].blk
