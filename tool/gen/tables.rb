@@ -147,7 +147,7 @@ module Zr
 
               out << "\n"
               note.scan(/.{1,68}(?:\s|\z)/) { |line| out << "  # #{line.strip}\n" }
-              names.each { |name| out << "  #{name} = #{Fcntl.const_get(name)}\n" }
+              names.each { |name| out << fcntl_row(name) }
             end
             unless rest.empty?
               out << "\n  # What this platform adds of its own.\n"
@@ -155,6 +155,18 @@ module Zr
             end
             out << "end\n"
             write("ext", "fcntl.rb", out)
+          end
+
+          # musl's O_ACCMODE masks O_PATH (010000000) too, and glibc's is
+          # the three access modes alone. Linux's one layer serves both, so
+          # the row asks which libc the program runs on.
+          O_PATH = 0o10000000
+
+          def fcntl_row(name)
+            value = Fcntl.const_get(name)
+            return "  #{name} = #{value}\n" unless os == "linux" && name == "O_ACCMODE"
+
+            %(  #{name} = RUBY_PLATFORM.end_with?("-musl") ? #{value | O_PATH} : #{value & ~O_PATH}\n)
           end
 
           # The sysconf, confstr and pathconf names that Etc defines, and the

@@ -30,7 +30,7 @@ module Fcntl
   O_RDONLY = 0
   O_WRONLY = 1
   O_RDWR = 2
-  O_ACCMODE = 2097155
+  O_ACCMODE = RUBY_PLATFORM.end_with?("-musl") ? 2097155 : 3
 
   # The status flags, each a bit of its own. O_NDELAY is the older
   # spelling of O_NONBLOCK and names the same bit.
