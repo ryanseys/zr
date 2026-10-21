@@ -25,7 +25,6 @@ module Zr
         # so a binary built on any glibc loads there. glibc 2.38 gave fmod
         # a new version when it dropped fmod's error wrapper.
         VERSIONS = { aarch64: { "fmod" => "GLIBC_2.17" }, x86_64: { "fmod" => "GLIBC_2.2.5" } }.freeze #: Hash[Symbol, Hash[String, String]]
-        NO_VERSIONS = {}.freeze #: Hash[String, String]
 
         # Removes code that nothing calls. Each item is in its own section.
         STRIP_FLAGS = ["-Wl,--gc-sections"].freeze #: Array[String]
@@ -58,7 +57,7 @@ module Zr
 
         # The versions that `target`'s imports bind: glibc's pins, or none.
         #: (Target target) -> Hash[String, String]
-        def versions(target) = target.libc == :glibc ? VERSIONS.fetch(target.arch) : NO_VERSIONS
+        def versions(target) = target.libc == :glibc ? VERSIONS.fetch(target.arch) : {}
 
         # The dynamic list: the C API, which a C extension's undefined
         # `rb_*` names bind to. ld leaves out a name that no object

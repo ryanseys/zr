@@ -453,8 +453,10 @@ module Zr
           # `system`, not `exec`, so that the build directory goes away after
           # the run, as for a binary.
           require_relative "../../backend/wasm"
-          runtime = split && Backend::Wasm.runtime_of(File.binread(out))
-          preload = runtime ? ["--preload", "#{Backend::Wasm::Codegen::RUNTIME}=#{File.join(split, runtime)}"] : []
+          preload = [] #: Array[String]
+          if split && (runtime = Backend::Wasm.runtime_of(File.binread(out)))
+            preload = ["--preload", "#{Backend::Wasm::Codegen::RUNTIME}=#{File.join(split, runtime)}"]
+          end
           interrupt = Signal.trap("INT") { nil }
           system("wasmtime", "run", "--dir", ".", *preload, out, *rest)
           Signal.trap("INT", interrupt)

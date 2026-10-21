@@ -28,7 +28,8 @@ module Zr
       files = entries.reject { |rel| LEFT_OUT.include?(rel.split("/").first) }.flat_map { |rel| files_of(rel) }
       raise Invalid, "the roots of #{target.triple} name no entry in the cache; build a program for it again" if files.empty?
 
-      modules = target.object_format == :wasm ? runtime_modules(files) : {}
+      modules = {} #: Hash[String, String]
+      modules = runtime_modules(files) if target.object_format == :wasm
       manifest = { "format" => FORMAT, "zr" => VERSION, "target" => target.triple, "roots" => roots,
                    "files" => files.map { |rel| entry(rel) },
                    "modules" => modules.map { |name, path| { "path" => name, "size" => File.size(path), "sha256" => Digest::SHA256.file(path).hexdigest } } }

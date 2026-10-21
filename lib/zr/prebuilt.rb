@@ -235,8 +235,9 @@ module Zr
             manifest = header(gz.read(size).to_s)
             manifest["roots"] = manifest.fetch("roots").reject { |root, _| without&.match?(root) }
             named = manifest["roots"].values.flat_map { |text| text.lines(chomp: true) }
-            kept = manifest.fetch("files").to_h { |row| [row.fetch("path"), named?(row.fetch("path"), named)] }
-            manifest["files"] = manifest["files"].select { |row| kept.fetch(row["path"]) }
+            keep = manifest.fetch("files").to_h { |row| [row.fetch("path"), named?(row.fetch("path"), named)] } #: Hash[String, bool]
+            manifest["files"] = manifest["files"].select { |row| keep.fetch(row["path"]) }
+            kept = keep
             next
           end
           raise Invalid, "the bundle holds #{name} before its manifest" if kept.nil?
@@ -291,9 +292,10 @@ module Zr
           if manifest.nil?
             raise Invalid, "the bundle does not begin with #{MANIFEST}" unless name == MANIFEST
 
-            manifest = header(gz.read(size).to_s)
-            rows = manifest.fetch("files").map { |row| row.merge("path" => STORE + row.fetch("path")) }
-            rows += modules(manifest).map { |row| row.merge("path" => MODULES + row.fetch("path")) }
+            head = header(gz.read(size).to_s)
+            manifest = head
+            rows = head.fetch("files").map { |row| row.merge("path" => STORE + row.fetch("path")) }
+            rows += modules(head).map { |row| row.merge("path" => MODULES + row.fetch("path")) }
             next
           end
           row = rows.shift or raise Invalid, "the bundle holds #{name}, which its manifest does not list"

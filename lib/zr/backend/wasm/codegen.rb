@@ -309,8 +309,8 @@ module Zr
           imports << (name(RUNTIME) + name("memory") + "\x02".b + "\0".b + leb(1))
           imports << (name(RUNTIME) + name("table") + "\x01".b + "\x70\x00".b + leb(@table.size + 1))
           imports.concat(GLOBALS.map { |global, type| name(RUNTIME) + name(global) + "\x03".b + type.chr + "\x01".b })
-          (@shims + pre.functions).zip(imported_sigs).each do |symbol, sig|
-            imports << (name(RUNTIME) + name(symbol) + "\0".b + leb(type_index(sig)))
+          (@shims + pre.functions).each_with_index do |symbol, i|
+            imports << (name(RUNTIME) + name(symbol) + "\0".b + leb(type_index(imported_sigs.fetch(i))))
           end
           boundary = @imports.size + @shims.size + pre.functions.size
 
