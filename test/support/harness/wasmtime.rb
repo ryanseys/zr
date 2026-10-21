@@ -220,7 +220,26 @@ module Zr
         FileUtils.mkdir_p(dir)
         File.open(File.join(dir, "compile.lock"), File::RDWR | File::CREAT, 0o644) do |lock|
           lock.flock(File::LOCK_EX)
+          wait_for_memory
           yield
+        end
+      end
+
+      # How long a big compile waits for the memory of its bound, in
+      # seconds, and how often it looks.
+      MEMORY_WAIT = 600
+      MEMORY_LOOK = 2
+
+      # Waits, up to MEMORY_WAIT, while the system has less than an eighth
+      # of the machine free (2 GB of 16): a compile that starts then pushes
+      # the machine into swap. A laptop with its usual programs open has
+      # about a quarter free. After the wait the compile starts anyway, and
+      # its own bound (COMPILE_MB) stops it.
+      def wait_for_memory
+        deadline = Timing.now + MEMORY_WAIT
+        low = Native::Parallel.machine_bytes / 8
+        while (free = Native::Parallel.available_bytes) && free < low && Timing.now < deadline
+          sleep MEMORY_LOOK
         end
       end
     end
