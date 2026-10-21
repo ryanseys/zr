@@ -185,7 +185,10 @@ module Zr
         # list, not this host's libSystem, so the result is the same on
         # every host. The link refuses a name that is not in the list.
         #: (String name) -> bool
-        def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
+        def self.libsystem?(name) = LIBSYSTEM_SET.include?(name)
+
+        # The committed list as a set: each import of each link asks.
+        LIBSYSTEM_SET = LIBSYSTEM_NAMES.to_set.freeze #: Set[String]
 
         #: (Unit unit, Prelink prelink, String out, ?entry: String, ?skeleton: String?, ?embeds: Array[Relink]) -> void
         def initialize(unit, prelink, out, entry: "main", skeleton: nil, embeds: [])
