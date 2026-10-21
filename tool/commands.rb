@@ -21,6 +21,8 @@ module Zr
                    -> { require_relative "expect"; Commands::Expect }],
       "test" => ["Run zr's tests: all, or the test files, lines and programs given", -> { require_relative "test"; Commands::Test }],
       "bump" => ["Set the version: version.rb, Gemfile.lock, the README's links and CHANGELOG.md", -> { require_relative "bump"; Commands::Bump }],
+      "release" => ["Make a release up to the tag: bump, push, wait for CI, check the prerelease, tag",
+                    -> { require_relative "release"; Commands::Release }],
       "changelog" => ["Print the CHANGELOG.md section of a version: its release notes",
                       -> { require_relative "changelog"; Commands::Changelog }],
       "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Commands::Bench }],

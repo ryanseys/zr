@@ -19,7 +19,7 @@ on:
       only:
         description: "Which publish steps run"
         type: choice
-        options: [all, github-release, rubygems, gem-coop]
+        options: [all, github-release, rubygems]
         default: all
 
 permissions:
@@ -239,7 +239,7 @@ jobs:
       # sigstore on its own under GitHub Actions; check the attestation on
       # rubygems.org after the first release (docs/how-to/release.md).
       - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
-        if: env.ONLY == 'all' || env.ONLY == 'rubygems' || env.ONLY == 'gem-coop'
+        if: env.ONLY == 'all' || env.ONLY == 'rubygems'
         with:
           ruby-version: "4.0"
       - name: Configure trusted publishing to rubygems.org
@@ -269,31 +269,75 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false
 
-      # gem.coop's own index mirrors rubygems.org, so it serves zr with no
-      # push. A direct push goes to the @ryanseys namespace, with a
-      # push-only key in the release environment. It comes after the
-      # Release is published, and in a full release its failure gives a
-      # warning and fails nothing: `only: gem-coop` runs it again, and that
-      # run fails as gem.coop does. With no key, it does nothing.
-      - name: Push to gem.coop (@ryanseys)
-        if: env.ONLY == 'all' || env.ONLY == 'gem-coop'
-        continue-on-error: ${{ env.ONLY == 'all' }}
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.GEM_COOP_API_KEY }}
+  # The release as a user takes it, from rubygems.org and the published
+  # GitHub Release, on a runner of each target that has a platform gem
+  # (a musl lane's runner is not musl). `gem install zr` must take the
+  # platform gem and build a program with no build of the runtime; the
+  # `ruby` gem must take the runtime with `zr cache fetch` from its
+  # default URL. rubygems.org serves a new version a few minutes after
+  # the push, so the install tries again for 15 minutes. It runs after a
+  # full release only: `only` leaves a step for later.
+  installed:
+    name: installed (${{ matrix.lane.triple }})
+    needs: [check, publish]
+    if: needs.publish.result == 'success' && (inputs.only || 'all') == 'all'
+    runs-on: ${{ matrix.lane.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: ${{ fromJSON(needs.check.outputs.lanes) }}
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      TRIPLE: ${{ matrix.lane.triple }}
+      PLATFORM: ${{ matrix.lane.gem_platform }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        if: "!matrix.lane.container && matrix.lane.gem_platform"
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+          sparse-checkout: .ruby-version
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        if: "!matrix.lane.container && matrix.lane.gem_platform"
+        with:
+          ruby-version: .ruby-version
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: "!matrix.lane.container && matrix.lane.gem_platform"
+        with:
+          name: release
+      - id: has
+        name: The target's platform gem in the release
+        if: "!matrix.lane.container && matrix.lane.gem_platform"
         run: |
-          if [ -z "$GEM_HOST_API_KEY" ]; then
-            echo "::notice::GEM_COOP_API_KEY is not set: gem.coop serves zr from its mirror of rubygems.org"
-            exit 0
+          if [ -f "pre/zr-$VERSION-$PLATFORM.gem" ]; then echo "gem=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice::the release has no $PLATFORM gem"
           fi
-          failed=0
-          for gem in $(ls zr-"$VERSION"-*.gem 2> /dev/null) "zr-$VERSION.gem"; do
-            if gem push --host https://gem.coop/@ryanseys "$gem" > push.log 2>&1; then
-              cat push.log
-            else
-              cat push.log
-              grep -qiE "repushing|already|exists" push.log && continue
-              echo "::warning::gem.coop did not take $gem"
-              failed=1
-            fi
+      - name: Install the platform gem from rubygems.org, and build with an empty cache
+        if: steps.has.outputs.gem == 'true'
+        run: |
+          export GEM_HOME="$RUNNER_TEMP/gems" GEM_PATH="$RUNNER_TEMP/gems" XDG_CACHE_HOME="$RUNNER_TEMP/fresh"
+          for try in $(seq 30); do
+            gem install --no-document zr -v "$VERSION" && break
+            test "$try" = 30 && exit 1
+            echo "rubygems.org does not serve zr $VERSION yet; try $try of 30"
+            sleep 30
           done
-          exit "$failed"
+          test -d "$GEM_HOME/gems/zr-$VERSION-$PLATFORM" || { ls "$GEM_HOME/gems"; echo "gem install did not take the $PLATFORM gem"; exit 1; }
+          cd "$RUNNER_TEMP"
+          echo 'puts "Hello, world!"' > hello.rb
+          "$GEM_HOME/bin/zr" build hello.rb -o hello 2> build.log || { cat build.log; exit 1; }
+          if grep -q "zr: building" build.log; then cat build.log; echo "the platform gem did not carry the whole runtime"; exit 1; fi
+          test "$(./hello)" = "Hello, world!"
+      - name: Install the ruby gem from rubygems.org, and fetch the release's runtime
+        if: steps.has.outputs.gem == 'true'
+        run: |
+          export GEM_HOME="$RUNNER_TEMP/ruby-gem" GEM_PATH="$RUNNER_TEMP/ruby-gem" XDG_CACHE_HOME="$RUNNER_TEMP/fetched"
+          gem install --no-document zr -v "$VERSION" --platform ruby
+          test -d "$GEM_HOME/gems/zr-$VERSION" || { ls "$GEM_HOME/gems"; echo "gem install did not take the ruby gem"; exit 1; }
+          "$GEM_HOME/bin/zr" cache fetch
+          cd "$RUNNER_TEMP"
+          echo 'puts "Hello, world!"' > hello.rb
+          "$GEM_HOME/bin/zr" build hello.rb -o hello 2> build.log || { cat build.log; exit 1; }
+          if grep -q "zr: building" build.log; then cat build.log; echo "zr cache fetch did not take the whole runtime"; exit 1; fi
+          test "$(./hello)" = "Hello, world!"

@@ -111,7 +111,7 @@ class LayoutTest < Minitest::Test
   # passed, whatever the run's own result: a pull request's run does not
   # count.
   def test_the_release_takes_a_run_of_main_that_passed
-    load File.join(ROOT, ".github/scripts/ci_passed.rb")
+    require_relative "../../.github/scripts/ci_passed"
     runs = [{ "id" => 1, "event" => "pull_request", "conclusion" => "success", "created_at" => "5" },
             { "id" => 2, "event" => "workflow_dispatch", "conclusion" => "success", "created_at" => "1" },
             { "id" => 3, "event" => "schedule", "conclusion" => "failure", "created_at" => "4" },

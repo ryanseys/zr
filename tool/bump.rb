@@ -54,7 +54,8 @@ module Zr
 
             @dry ? puts("would write #{rel}") : Paths.write_atomic(Dev.path(rel), text)
           end
-          puts "Next: commit, push to main, wait for a full CI run (ci-ok), then git tag v#{version} && git push origin v#{version}"
+          puts "Next: commit, push to main, wait for a full CI run (ci-ok), then git tag v#{version} && git push origin v#{version}",
+               "Or do all of it in one run: bin/zr-dev release #{version}"
         rescue Refused, Changelog::Missing => e
           fail!(e.message)
         end

@@ -1,6 +1,6 @@
 # How to release zr
 
-A release publishes zr's gems to rubygems.org and to gem.coop, and
+A release publishes zr's gems to rubygems.org (gem.coop mirrors it), and
 makes a GitHub Release with the gems, each target's prebuilt runtime
 (`zr cache fetch` downloads it) and the version's changelog. The gems
 are one name in several variants, as nokogiri ships:
@@ -78,19 +78,15 @@ Do these by hand before the first release:
    workflow `release.yml` and the environment `release`. The first
    push makes it a normal trusted publisher. The workflow then needs no
    API key.
-3. Optional: on gem.coop, claim the namespace `@ryanseys`, and make a
-   push-only API key for it. gem.coop's own index mirrors rubygems.org,
-   so it serves zr with no key; the key adds a push to the namespace.
-4. In the repository settings, make the environment `release`. Limit it
+3. In the repository settings, make the environment `release`. Limit it
    to tags `v*`, and make yourself its required reviewer, so that the
-   publish job waits for your approval. With a gem.coop key, add it to
-   the environment as the secret `GEM_COOP_API_KEY`.
-5. Add a ruleset for the tags `v*`, with `v*.g*` excluded (the
+   publish job waits for your approval.
+4. Add a ruleset for the tags `v*`, with `v*.g*` excluded (the
    prereleases' tags, which CI makes): no deletion, no update
    and no force push, and only admins create one. Add a ruleset for `main`: no
    deletion and no force push, and the status check `ci-ok` is
    required (an admin can bypass it to push directly).
-6. Turn on private vulnerability reporting (Security), which
+5. Turn on private vulnerability reporting (Security), which
    `SECURITY.md` names, and Dependabot alerts, secret scanning and push
    protection.
 
@@ -110,6 +106,20 @@ Do these by hand before the first release:
 - [ ] The CHANGELOG section describes what a user sees.
 
 ## Release a version
+
+One command does the steps below up to the tag:
+
+```console
+$ bin/zr-dev release X.Y.Z --dry-run
+$ bin/zr-dev release X.Y.Z
+```
+
+It stops unless the branch is a clean `main` equal to `origin/main` and
+the tag is new. It makes and pushes the bump commit (or uses HEAD when
+the bump is on `main` already), waits for a CI run of the commit whose
+release job passed, shows the prerelease and the targets that it left
+out, asks, and then pushes the tag. Then approve the `release`
+deployment in the Release workflow. By hand, the steps are:
 
 1. Run `bin/zr-dev bump X.Y.Z` (`--dry-run` first to see the files).
    It sets `VERSION` in `lib/zr/version.rb` and `zr (X.Y.Z)` in
@@ -156,12 +166,17 @@ The workflow then:
    and bundle, makes the GitHub Release as a draft with them and their
    `SHA256SUMS`, pushes each platform gem and then the `ruby` gem to
    rubygems.org with trusted publishing (rubygems attests the push too;
-   check the attestation on rubygems.org after the first release),
-   publishes the draft, and then pushes the gems to
-   `https://gem.coop/@ryanseys` when `GEM_COOP_API_KEY` is set. The
-   `ruby` gem goes last: a host that resolves zr between the pushes
-   finds its platform gem. A gem.coop failure gives a warning and does
-   not fail the release; run `only: gem-coop` again for it.
+   check the attestation on rubygems.org after the first release), and
+   then publishes the draft. The `ruby` gem goes last: a host that
+   resolves zr between the pushes finds its platform gem. gem.coop
+   mirrors rubygems.org, so it serves the gems with no step of its own.
+7. on a runner of each target with a platform gem: installs zr from
+   rubygems.org as a user does, which must take the platform gem and
+   build a program with no runtime build, and installs the `ruby` gem,
+   whose `zr cache fetch` must take the runtime from the published
+   Release. rubygems.org serves a new version some minutes after the
+   push, so the install tries again for 15 minutes. A failure here
+   means that the published release is broken (see "A bad release").
 
 A platform that a version left out comes back only as a gem built from
 the same tag: a gem of a version cannot be pushed again, and a fix
@@ -176,7 +191,7 @@ workflow from": the `release` environment takes only a `v*` tag.
 
 When a publish step fails, the draft GitHub Release stays. Run the
 workflow from the tag with `publish` on and `only` set to the step that
-failed: `rubygems`, `gem-coop`, or `github-release` (which makes the
+failed: `rubygems` or `github-release` (which makes the
 draft if there is none, and publishes it).
 
 ## Release by hand
@@ -208,9 +223,9 @@ $ zr doctor
 $ echo 'puts "hello"' > hello.rb && zr run hello.rb
 ```
 
-Then look at <https://rubygems.org/gems/zr>, at gem.coop (`gem install
-zr --source https://gem.coop`, and the page of `@ryanseys/zr` when the
-key is set), and at the GitHub Release: each shows the version,
+Then look at <https://rubygems.org/gems/zr>, at gem.coop's mirror
+(`gem install zr --source https://gem.coop`), and at the GitHub
+Release: each shows the version,
 and the Release has the gem and the notes.
 
 ## A bad release
