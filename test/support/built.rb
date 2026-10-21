@@ -74,7 +74,7 @@ module Zr
         return if need == :none
 
         build(targets(wasm: wasm), evals: need == :eval)
-        targets(wasm: wasm).each { |target| load(target) }
+        targets(wasm: wasm).each { |target| load(target, evals: need == :eval) }
       end
 
       # `ready!` for a run of program tests (`Case`s): they need the
@@ -83,8 +83,9 @@ module Zr
         return unless Zr::Test.flag?("ZR_TEST_BUILT", default: true)
         return if tests.empty?
 
-        build(targets(wasm: wasm), evals: programs_eval?(tests))
-        targets(wasm: wasm).each { |target| load(target) }
+        evals = programs_eval?(tests)
+        build(targets(wasm: wasm), evals: evals)
+        targets(wasm: wasm).each { |target| load(target, evals: evals) }
       end
 
       # The most programs that `programs_eval?` reads. Each costs a HIR
@@ -127,8 +128,13 @@ module Zr
         Zr::Cache::Store.root("#{target.triple}-built#{"-plain" unless evals}", [file])
       end
 
-      # Reads the caches of `target` into this process one time.
-      def load(target)
+      # Reads the caches of `target` into this process one time. For wasm
+      # with `evals`, the prelude with eval support too: about 250 MB of
+      # Marshal and 1.5 GB of heap. Read here, before the fork, the workers
+      # share one copy. Read in each worker, it put a copy in each, and the
+      # pool replaced a worker for that growth (RECYCLE_MB), so the next one
+      # read it again.
+      def load(target, evals: false)
         runtime = Runtime.for(target)
         runtime.description
         # Only a Mach-O link has a prelink to keep; an ELF one links the
@@ -136,7 +142,10 @@ module Zr
         return Native::Build.prelink([Native::Build.runtime_object(runtime)]) if target.link && target.object_format == :macho
         return Native::Build.runtime_object(runtime) if target.link
 
-        Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Program.build(PLAIN, "built.rb", BuildOptions.new(target: target))))
+        [PLAIN, *(EVALS if evals && built?(target))].each do |source|
+          program = Program.build(source, "built.rb", BuildOptions.new(target: target))
+          Native::Build.wasm_prelude(runtime, Native::Build.pending_for(program), program.evals || nil)
+        end
       end
 
       # Builds the caches of each target in `targets` that is not current,
