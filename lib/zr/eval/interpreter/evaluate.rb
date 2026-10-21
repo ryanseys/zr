@@ -19,7 +19,11 @@ module Zr
       #        ?add: bool, ?loaded: bool, ?quiet: bool) -> untyped
       def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false, quiet: false)
         file = string(file)
-        hir = built(string(source), file, line.to_int, scope, loaded)
+        source = string(source)
+        # eval_make_iseq: a source that is not ASCII compatible cannot be read.
+        raise ArgumentError, "invalid source encoding" unless source.encoding.ascii_compatible?
+
+        hir = built(source, file, line.to_int, scope, loaded)
         hir.warnings.each { |text| parse_warning(text) } unless quiet
         own = Tree::Scope.new(hir.locals)
         tree = Tree.new(file, scope, loaded: loaded)
@@ -74,6 +78,24 @@ module Zr
         # matches nothing.
         names = World.binding_scopes(scope) #: Array[Array[Symbol]]
         params = World.binding_parameters(scope)
+        return kept_tree(source, file, line, names, params, loaded: loaded) if Ractor.main?
+
+        # The parse reads the main Ractor's tables (RbConfig, prism's), so
+        # another Ractor's tree is built there, as the compiler compiles
+        # there (Eval::OnMain).
+        Ractor.__send__(:on_main) { kept_tree(source, file, line, names, params, loaded: loaded) }
+      end
+
+      # The tree of `source`, the one built before for the same string and
+      # scope shape when there is one.
+      # @rbs source: String
+      # @rbs file: String
+      # @rbs line: Integer
+      # @rbs names: Array[Array[Symbol]]
+      # @rbs params: untyped
+      # @rbs loaded: bool
+      # @rbs return: Hir::Program
+      def self.kept_tree(source, file, line, names, params, loaded:)
         coverage = covering
         key = [-source, source.encoding, -file, line, names, params, loaded] if coverage.nil?
         trees = Eval.walk_trees

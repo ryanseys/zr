@@ -108,14 +108,15 @@ module Zr
 
     # The FrameMetas of the scopes that the eval walker ran, by scope
     # (Interpreter::Tree#scope_meta). A meta is never freed, and code that
-    # runs again reuses those of its first run.
+    # runs again reuses those of its first run. Another Ractor cannot
+    # reach a module's Hash, so it keeps none: its walks make their own.
     #: () -> Hash[Array[untyped], Integer?]
-    def self.walk_metas = @walk_metas ||= {}
+    def self.walk_metas = Ractor.main? ? (@walk_metas ||= {}) : {}
 
     # The trees that the eval walker built, by string and scope shape
-    # (Interpreter.built).
+    # (Interpreter.built), on the main Ractor.
     #: () -> Hash[Array[untyped], Hir::Program]
-    def self.walk_trees = @walk_trees ||= {}
+    def self.walk_trees = Ractor.main? ? (@walk_trees ||= {}) : {}
 
     # The Coverage module, when the program loaded it. It is reached by a
     # symbol: a constant that names it in code arms the trace events of the
