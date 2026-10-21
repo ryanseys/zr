@@ -44,8 +44,7 @@ module Zr
           next built if built
 
           compiled = Progress.clock(parts, :compile) { runner.precompile(bin) }
-          command, env = runner.run(bin, test.args, cli?(test) && !runner.wasm? ? zr_run_env.merge(test.env) : test.env,
-                                    compiled: compiled)
+          command, env = runner.run(bin, test.args, run_env(test, runner), compiled: compiled)
           megabytes = [test.limits[:run_mb] || 0, Harness::Child::RUN_MB].max
           out, = Progress.clock(parts, :run) do
             Harness::Child.run(command, cwd: run, stdin: test.stdin, env: env, seconds: Harness::Child::SECONDS, megabytes: megabytes)
@@ -55,6 +54,17 @@ module Zr
       end
 
       def cli?(test) = test.rel.start_with?("cli/")
+
+      # The environment of a run: a binary sees the gems that the reference
+      # ruby sees (Harness::Reference), so a GEM_HOME of the machine (the
+      # Alpine image sets one) does not move Gem.dir. A WASI guest sees
+      # only what it is given.
+      def run_env(test, runner)
+        return test.env if runner.wasm?
+
+        gems = Harness::Reference.env.slice("GEM_HOME", "GEM_PATH")
+        cli?(test) ? gems.merge(zr_run_env, test.env) : gems.merge(test.env)
+      end
 
       # What `zr run` gives the binary that it runs (CLI::Runner.program_env):
       # RbConfig.ruby is zr, and zr's ruby tree is its home. A test below

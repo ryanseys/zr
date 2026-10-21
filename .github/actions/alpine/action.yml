@@ -9,6 +9,8 @@ description: >-
   command there through .github/scripts/in_lane.sh. Then zr finds its
   cache, tmp/cache, as the container's root's: zr refuses a cache that
   another user owns. The `give-back` step returns it to the runner.
+  tzdata gives the named time zones: without it, musl reads each one as
+  UTC.
 inputs:
   ruby:
     description: The pinned ruby (.ruby-version), the image's tag.
@@ -22,7 +24,7 @@ runs:
         RUBY_PIN: ${{ inputs.ruby }}
       run: |
         docker run -d --name alpine -e BUNDLE_WITHOUT=development -v "$PWD:$PWD" -w "$PWD" "ruby:$RUBY_PIN-alpine" sleep infinity
-        docker exec alpine apk add --no-cache build-base git binutils mold
+        docker exec alpine apk add --no-cache build-base git binutils mold tzdata
         docker exec alpine git config --global --add safe.directory "$PWD"
         docker exec alpine bundle install
         if [ -d tmp ]; then docker exec alpine chown -R 0:0 tmp; fi
