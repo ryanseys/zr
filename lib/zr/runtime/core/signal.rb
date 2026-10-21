@@ -160,6 +160,15 @@ module Signal
       commands.key?(signo) && (commands[signo].nil? || commands[signo] == true)
     end
 
+    # The signal that interrupts nothing (rb_thread_interrupted): SIGCHLD,
+    # whose handler runs no command while the program has no trap for it.
+    # 0 once it has one.
+    def quiet_signal
+      Primitive.attr! :hidden
+      signo = LIST.fetch("CHLD")
+      commands.key?(signo) ? 0 : signo
+    end
+
     # ruby_signal_name: the name of `signo` without SIG, or nil. C keeps
     # the pointer to its bytes, so each name is kept for good.
     def c_name(signo)

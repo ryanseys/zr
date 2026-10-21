@@ -188,10 +188,26 @@ module Zr::Kern
     zr_fix(NSIG)
   end
 
-  # Whether a signal came whose handler has not run yet.
-  #: () -> value
-  def zr_trap_pending
-    zr_bool(Machine.load64(Machine.static(:signal_pending, 8), 0) != 0)
+  # Whether a signal other than `skip` (a number, or 0) came whose
+  # handler has not run yet. The pending mark can stay set after the last
+  # handler ran, until the next zr_trap_next finds nothing, so this
+  # compares the counts.
+  #: (value) -> value
+  def zr_trap_pending(skip)
+    if Machine.load64(Machine.static(:signal_pending, 8), 0) == 0
+      return Machine.value(QFALSE)
+    end
+    counts = Machine.static(:signal_counts, NSIG * 8)
+    taken = Machine.static(:signal_taken, NSIG * 8)
+    skipped = zr_fix2long(skip)
+    signo = 1
+    while signo < NSIG
+      if signo != skipped && Machine.load64(taken + (signo * 8), 0) != Machine.load64(counts + (signo * 8), 0)
+        return Machine.value(QTRUE)
+      end
+      signo += 1
+    end
+    Machine.value(QFALSE)
   end
 
   # A signal whose handler has not run asks the next safe point again, for

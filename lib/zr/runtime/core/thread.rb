@@ -305,7 +305,7 @@ class Thread
     # thread, a signal whose handler has not run.
     def interrupted?(thread)
       Primitive.attr! :hidden
-      thread.pending_interrupt? || (thread.equal?(@main) && Primitive.zr_trap_pending)
+      thread.pending_interrupt? || (thread.equal?(@main) && Primitive.zr_trap_pending(Signal.send(:quiet_signal)))
     end
 
     # A forked child has only the thread that forked, which is its main
@@ -547,7 +547,7 @@ class Thread
     # no safe point ran its command: the main thread wakes to run it.
     def signal_wakes_main
       Primitive.attr! :hidden
-      Thread.main.send(:signalled) if Primitive.zr_trap_pending
+      Thread.main.send(:signalled) if Primitive.zr_trap_pending(0)
     end
 
     # The sleeper whose deadline comes first, once it passes; nil when a
