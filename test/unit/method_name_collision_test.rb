@@ -20,9 +20,13 @@ class MethodNameCollisionTest < Minitest::Test
   # test must not examine everything that is loaded.
   LIB = File.join(ROOT, "lib")
 
+  # Module's own const_get: a module can answer the name with its own
+  # (the eval walker's World.const_get takes a cref).
+  CONST_GET = Module.instance_method(:const_get)
+
   def under(mod, seen)
     mod.constants(false).each do |c|
-      value = mod.const_get(c)
+      value = CONST_GET.bind_call(mod, c)
       next unless value.is_a?(Module) && value.name.to_s.start_with?("Zr")
       next if seen.key?(value) || !library?(mod, c)
 
