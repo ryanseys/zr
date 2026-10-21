@@ -14,9 +14,10 @@ module OpenSSL
     # later dlopen's lookups.
     RTLD_NOW = 2
     RTLD_LOCAL = RUBY_PLATFORM.include?("darwin") ? 4 : 0
-    # sizeof(ffi_cif), and FFI_DEFAULT_ABI.
+    # sizeof(ffi_cif), 40 at most.
     CIF_SIZE = 40
-    DEFAULT_ABI = 1
+    # libffi's FFI_DEFAULT_ABI: FFI_UNIX64 on x86_64, FFI_SYSV on arm64.
+    DEFAULT_ABI = RUBY_PLATFORM.start_with?("x86_64") ? 2 : 1
 
     class << self
       # The handle of the image at `path`, or nil.

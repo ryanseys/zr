@@ -67,9 +67,10 @@ module FFI
   end
 
   class FFIType
-    # sizeof(ffi_cif), and FFI_DEFAULT_ABI.
+    # sizeof(ffi_cif), 40 at most.
     CIF_SIZE = 40
-    DEFAULT_ABI = 1
+    # libffi's FFI_DEFAULT_ABI: FFI_UNIX64 on x86_64, FFI_SYSV on arm64.
+    DEFAULT_ABI = RUBY_PLATFORM.start_with?("x86_64") ? 2 : 1
 
     # ffi_prep_cif, or ffi_prep_cif_var when `fixed` of the parameters are
     # fixed: the cif's bytes, with the type list they name and the types

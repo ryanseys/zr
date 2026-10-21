@@ -50,8 +50,10 @@ module Zr::Kern
   G_FFI_UNWIND = 59
   # The callable that the callback entries below run.
   G_C_CALLBACK = 62
-  # sizeof(ffi_closure) on arm64.
-  FFI_CLOSURE_SIZE = 40
+  # At least sizeof(ffi_closure), whose trampoline sets its size: 40 on
+  # darwin arm64, 48 on Linux arm64 and 56 on x86_64. libffi writes only
+  # its own, so more is no harm.
+  FFI_CLOSURE_SIZE = 56
 
   # Converts an address from lib/zr/runtime/ext/ffi_c: an Integer that fits a
   # machine word.
@@ -80,10 +82,17 @@ module Zr::Kern
     Machine.ptr(Machine.load64(cell, 0))
   end
 
+  # libffi's function `name`, kept in `cell`. Where libffi does not open
+  # (a static musl binary has no dynamic loader), it raises LoadError with
+  # dlerror's text, before a call could jump to address 0.
   #: (ptr, ptr) -> ptr
   def zr_ffi_fn(cell, name)
     if Machine.load64(cell, 0) == 0
-      Machine.store64(cell, 0, Machine.word(Libc.dlsym(zr_ffi_image(), name)))
+      image = zr_ffi_image()
+      if Machine.word(image) == 0
+        zr_raise(zr_exc_new_str(zr_core_class(Machine.id(:LoadError)), zr_ffi_dlerror()))
+      end
+      Machine.store64(cell, 0, Machine.word(Libc.dlsym(image, name)))
     end
     Machine.ptr(Machine.load64(cell, 0))
   end
