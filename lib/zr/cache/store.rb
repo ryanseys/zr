@@ -347,7 +347,14 @@ module Zr
 
       # The bytes of every file below `dir`.
       #: (String dir) -> Integer
-      def tree_bytes(dir) = Dir[File.join(dir, "**/*")].sum { |path| File.file?(path) ? File.size(path) : 0 }
+      def tree_bytes(dir)
+        Dir[File.join(dir, "**/*")].sum do |path|
+          stat = File.stat(path)
+          stat.file? ? stat.size : 0
+        rescue SystemCallError
+          0
+        end
+      end
 
       #: (String file, ?Integer every) -> void
       def touch(file, every = TOUCH_EVERY)
