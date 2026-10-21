@@ -3906,10 +3906,12 @@ module Errno
     CODES.key(code)&.then { |name| const_get(name) }
   end
 
+  # The C library's text for `code`, as ruby's rb_syserr_new gives it:
+  # an unknown code is "Unknown error: 9999" on darwin, "Unknown error
+  # 9999" with glibc, and "No error information" with musl.
   def self.text(code)
     Primitive.attr! :hidden
-    message = Primitive.zr_io_strerror(code)
-    message.start_with?("Unknown error") ? "Unknown error: #{code}" : message
+    Primitive.zr_io_strerror(code)
   end
 end
 
