@@ -30,12 +30,10 @@ class WasmLibcShimsTest < Minitest::Test
   # because a branch before them cannot be taken on wasi. Each entry is a
   # claim about that branch, so the test fails when an entry is added and
   # fails again when an entry is no longer necessary.
-  KNOWN = {
-    # `zr_release_fiber` unmaps the stack of a fiber, and a fiber on wasi
-    # has no stack: `zr_os_stack_map` (lib/zr/runtime/kernel/os/wasi/stack.rb)
-    # returns 0 with ENOSYS, so `RFiber.stack(f) != 0` is never true there.
-    "munmap" => "zr_release_fiber"
-  }.freeze
+  KNOWN = {}.freeze #: Hash[String, String]
+
+  # The functions that a program module gives the runtime: its toplevels.
+  PROGRAM = %w[zr_prelude zr_toplevel zr_gem_prelude].freeze
 
   # The roots must be functions of the kernel, or the walk checks
   # nothing.
@@ -43,6 +41,13 @@ class WasmLibcShimsTest < Minitest::Test
     assert_empty ROOTS - by_name.keys, "a root this test cannot find checks nothing"
     assert_equal KNOWN.to_a.sort, formless(ROOTS),
                  "a wasm program stops by name before its first line"
+  end
+
+  # Each libc call of the kernel has a wasi form (kernel/os/wasi), so no
+  # call stops the module with "has no wasm form": a call that WASI cannot
+  # make fails with an errno that the program can rescue (missing.rb).
+  def test_each_libc_call_has_a_wasi_form
+    assert_equal [], formless(by_name.keys).map(&:first).uniq - PROGRAM
   end
 
   # `[callee, the function that calls it]` for each callee reachable from

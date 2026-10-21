@@ -48,6 +48,8 @@ module Zr::Kern
     def self.path_filestat_get(i1, i2, i3, i4, i5) = Machine.import(from: "wasi_snapshot_preview1")
     #: (i32, i32, i32, i32, i32, i32, i32) -> i32
     def self.path_link(i1, i2, i3, i4, i5, i6, i7) = Machine.import(from: "wasi_snapshot_preview1")
+    #: (i32, i32, i32, i32, word, word, i32) -> i32
+    def self.path_filestat_set_times(i1, i2, i3, i4, n1, n2, i5) = Machine.import(from: "wasi_snapshot_preview1")
     #: (i32, i32, i32, i32, i32, word, word, i32, i32) -> i32
     def self.path_open(i1, i2, i3, i4, i5, n1, n2, i6, i7) = Machine.import(from: "wasi_snapshot_preview1")
     #: (i32, i32, i32, i32, i32, i32) -> i32
