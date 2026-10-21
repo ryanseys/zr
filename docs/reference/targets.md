@@ -76,7 +76,7 @@ was built for:
 | A gem's real C extension (`--native-ext`) | yes: `static`, `embed` or `dynamic` | yes: `static` only | yes: `static` only, against the headers of Ubuntu 22.04's ruby | no: ports only |
 | OpenSSL (`require "openssl"`) | yes, with OpenSSL 3 on the machine | no: a static binary cannot open it | yes, with the machine's libssl.so.3 (HPKE needs OpenSSL 3.2) | no |
 | Preemption | a timer thread | a timer thread | a timer thread | a count at each safe point |
-| Expected output | `foo.rb.expected` | the same, or `foo.rb.linux.expected` | the same, or `foo.rb.linux.expected` | the same, or `foo.rb.wasi.expected` |
+| Expected output | `foo.rb.expected` | the same, or `foo.rb.linux-musl.expected` | the same, or `foo.rb.linux-gnu.expected` | the same, or `foo.rb.wasi.expected` |
 
 The program tests that a target is allowed to fail are in its
 baseline, `test/baselines/<triple>.txt`.

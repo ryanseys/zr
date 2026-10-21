@@ -43,8 +43,9 @@ module Zr
       def unmet(test)
         return @runner.refusal if @runner.refusal
 
-        platforms, needs = test.needs.partition { |name| Harness::Runner::PLATFORMS.value?(name) }
-        return "runs only on #{platforms.join(", ")}" unless platforms.empty? || platforms.include?(@runner.platform)
+        platforms, needs = test.needs.partition { |name| Harness::Runner::PLATFORMS.value?(name) || name.start_with?("linux-") }
+        here = [@runner.platform, @runner.recording]
+        return "runs only on #{platforms.join(", ")}" unless platforms.empty? || platforms.intersect?(here)
 
         need = needs.find { |name| !Harness::Requirements.met?(name, @runner) }
         "needs #{need}" if need
@@ -70,9 +71,9 @@ module Zr
           written = record(test)
           return [:error, "zr-dev expect: #{written}"] if written&.start_with?("ruby did not finish")
 
-          ProgramRun.expected(test, @runner.platform)
+          ProgramRun.expected(test, @runner.recording)
         else
-          return ProgramRun.expected(test, @runner.platform) if test.read("expected")
+          return ProgramRun.expected(test, @runner.recording) if test.read("expected")
           if mode == :verify
             return [:error, "no expected output beside it: record it with `bin/zr-dev test --record #{ProgramSelection.label(test)}`"]
           end

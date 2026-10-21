@@ -49,10 +49,11 @@ module Zr
         end
       end
 
-      # The answer that `test` expects on `platform`.
-      def expected(test, platform)
+      # The answer that `test` expects where its recording is `recording`
+      # (Runner#recording).
+      def expected(test, recording)
         code, signal = test.status
-        Harness::Answer.new(test.stdout(platform), test.stderr, code, signal)
+        Harness::Answer.new(test.stdout(recording), test.stderr(recording), code, signal)
       end
     end
   end

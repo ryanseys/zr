@@ -18,11 +18,16 @@ module Zr
     #   foo.rb.env             `NAME=value` lines, added to its environment
     #   foo.rb.files/          files that the run directory holds (fixtures)
     #   foo.rb.needs           what the machine must have, one per line:
-    #                          `libssl`, `nonroot`, `argv0`, or a platform
-    #                          (`macos`, `linux`)
+    #                          `libssl`, `nonroot`, `argv0`, `dlopen`, or a
+    #                          platform (`macos`, `linux`, `linux-gnu`,
+    #                          `linux-musl`, `wasi`)
     #   foo.rb.ruby            options for ruby only, such as -W:no-experimental
     #   foo.rb.limits          `build_mb=N` and `run_mb=N` lines
-    #   foo.rb.<platform>.expected   stdout on that platform, when it differs
+    #   foo.rb.<recording>.expected      stdout on that platform, when it
+    #   foo.rb.<recording>.err.expected  differs; and stderr. A recording
+    #                                    is `macos`, `wasi`, or on Linux
+    #                                    the libc's (`linux-gnu`,
+    #                                    `linux-musl`; Runner#recording)
     #
     # `root` is the directory that the program runs in; `rel` is the
     # program's path below it, as the command line gives it. A run copies
@@ -48,10 +53,13 @@ module Zr
 
       def source = File.binread(path)
 
-      # The stdout that `platform` gives (`macos`, `linux`, `wasi`).
-      def stdout(platform) = read("#{platform}.expected") || read("expected")
+      # The stdout that `recording` gives (Runner#recording), else the
+      # default.
+      def stdout(recording) = read("#{recording}.expected") || read("expected")
 
-      def stderr = read("err.expected") || +"".b
+      # The stderr that `recording` gives, else the default; no file
+      # means none.
+      def stderr(recording = nil) = (read("#{recording}.err.expected") if recording) || read("err.expected") || +"".b
 
       # `[code, signal]`: a process that a signal stopped has no code.
       def status

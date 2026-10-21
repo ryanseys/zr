@@ -96,9 +96,10 @@ with the reason.
 ## When the correct output is different on a platform
 
 Run `zr-dev expect` on that platform. On Linux, it writes
-`foo.rb.linux.expected` when the stdout is not the same as
-`foo.rb.expected`. A test on that platform then compares with that
-file.
+`foo.rb.linux-gnu.expected` and `foo.rb.linux-gnu.err.expected`
+(`linux-musl` under musl) when the stdout or the stderr is not the
+same as macOS's. A test of that libc then compares with that file.
+Record both libcs ([Run the tests](run-the-tests.md)).
 
 ## Check that the expected files are still ruby's
 

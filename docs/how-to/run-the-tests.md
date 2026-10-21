@@ -327,21 +327,32 @@ place for a bug.
 
 ### Output that is correct only on one platform
 
-A program test can keep the stdout of a platform in its own file,
-`foo.rb.linux.expected` or `foo.rb.wasi.expected`. A test on that
-platform compares with that file, and a test on another platform with
-`foo.rb.expected`. On Linux, `zr-dev expect` writes
-`foo.rb.linux.expected` when the stdout is not the same as
-`foo.rb.expected`. A test that a platform cannot run gives the platforms
-that can run it in `foo.rb.needs` (`macos`, `linux`, `wasi`). See
+A program test can keep the stdout and the stderr of a recording in
+their own files: `foo.rb.wasi.expected`, or on Linux the libc's,
+`foo.rb.linux-gnu.expected` and `foo.rb.linux-musl.err.expected`. A
+test there compares with that file, and elsewhere with
+`foo.rb.expected`. On Linux, `zr-dev expect` writes the files of the
+libc of its ruby when the output is not macOS's. A test that a platform
+cannot run gives the platforms that can run it in `foo.rb.needs`
+(`macos`, `linux`, `linux-gnu`, `linux-musl`, `wasi`). See
 [Program tests](../reference/program-tests.md).
+
+To record both libcs, run the pinned ruby's images, with the checkout
+at its own path (not at /zr: a runtime names zr's own files there):
+
+```console
+$ docker run --rm -v "$PWD:$PWD" -w "$PWD" "ruby:$(cat .ruby-version)" \
+    sh -c 'bundle install && bin/zr-dev expect --all test/programs/core/io'
+$ docker run --rm -v "$PWD:$PWD" -w "$PWD" "ruby:$(cat .ruby-version)-alpine" \
+    sh -c 'apk add --no-cache build-base git tzdata && bundle install && bin/zr-dev expect --all test/programs/core/io'
+```
 
 ### The Linux tests in the container that CI uses
 
 ```console
-$ docker run -d --name alpine -v "$PWD:/zr" -w /zr "ruby:$(cat .ruby-version)-alpine" sleep infinity
-$ docker exec alpine apk add --no-cache build-base git
-$ docker exec alpine git config --global --add safe.directory /zr
+$ docker run -d --name alpine -v "$PWD:$PWD" -w "$PWD" "ruby:$(cat .ruby-version)-alpine" sleep infinity
+$ docker exec alpine apk add --no-cache build-base git tzdata
+$ docker exec alpine git config --global --add safe.directory "$PWD"
 $ docker exec alpine bundle config set --global without development
 $ docker exec alpine bundle install
 $ docker exec alpine bundle exec rake build

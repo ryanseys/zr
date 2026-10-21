@@ -136,7 +136,7 @@ module Zr
         test = Test::Case.new(cwd, rel)
         return Row.new(rb, :skipped, "no recording") unless test.read("expected")
 
-        recorded = Test::ProgramRun.expected(test, @runner.platform)
+        recorded = Test::ProgramRun.expected(test, @runner.recording)
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 

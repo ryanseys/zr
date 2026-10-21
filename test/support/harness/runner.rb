@@ -29,6 +29,12 @@ module Zr
 
       def platform = PLATFORMS.fetch(@target.os)
 
+      # The name of the recordings that this target's answers may differ
+      # by (`foo.rb.<name>.expected`): on Linux the platform and the libc
+      # (`linux-gnu`, `linux-musl`), as glibc and musl differ in strerror
+      # text, qsort order and libm digits; elsewhere the platform.
+      def recording = @target.os == :linux ? "linux-#{@target.libc == :glibc ? "gnu" : "musl"}" : platform
+
       def wasm? = @target.outputs == [:wasm]
 
       # nil when this host can run the target's output, else the reason.

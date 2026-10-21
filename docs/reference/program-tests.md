@@ -37,10 +37,11 @@ zr adds these files, in the same style:
 | `foo.rb.status` | `exit N`, or `signal N` for a program that a signal stopped | `exit 0` |
 | `foo.rb.env` | `NAME=value` lines, added to the program's environment | nothing is added |
 | `foo.rb.files/` | a tree of files that the run directory holds (the fixtures), or a relative link to one that several tests share below `test/fixtures/programs/` | no files |
-| `foo.rb.needs` | what the machine must have, one item on each line: `libssl`, `nonroot` (a user that is not root), `argv0` (a shell that runs under any argv0, which busybox does not), `dlopen` (a binary that can open a library as it runs, which a static musl binary and a wasm module cannot), or a platform (`macos`, `linux`, `wasi`) | the test runs everywhere |
+| `foo.rb.needs` | what the machine must have, one item on each line: `libssl`, `nonroot` (a user that is not root), `argv0` (a shell that runs under any argv0, which busybox does not), `dlopen` (a binary that can open a library as it runs, which a static musl binary and a wasm module cannot), or a platform (`macos`, `linux`, `linux-gnu`, `linux-musl`, `wasi`) | the test runs everywhere |
 | `foo.rb.ruby` | command-line options for ruby only, such as `-W:no-experimental`; zr ignores them | no options |
 | `foo.rb.limits` | `build_mb=N` and `run_mb=N` lines: memory limits above the defaults | the defaults |
-| `foo.rb.<platform>.expected` | the stdout on that platform (`linux`, `wasi`), when it is different | `foo.rb.expected` |
+| `foo.rb.<recording>.expected` | the stdout where the recording is `macos`, `wasi`, or on Linux the libc's (`linux-gnu`, `linux-musl`), when it is different | `foo.rb.expected` |
+| `foo.rb.<recording>.err.expected` | the stderr there, when it is different | `foo.rb.err.expected` |
 
 In `.env`, `.needs` and `.limits`, an empty line and a line
 that starts with `#` do not count.
@@ -91,8 +92,11 @@ $ bin/zr-dev expect --check                      # write nothing; list what diff
   only when the stderr is not empty, and `foo.rb.status` only when the
   status is not `exit 0`. It removes a file that is no longer
   necessary.
-- On Linux, it writes `foo.rb.linux.expected` when the stdout is not
-  the same as `foo.rb.expected`.
+- On Linux, it writes `foo.rb.linux-gnu.expected` and
+  `foo.rb.linux-gnu.err.expected` (`linux-musl` under musl) when the
+  stdout or the stderr is not macOS's, and leaves the macOS files and
+  the status as they are. glibc and musl differ in strerror text, qsort
+  order and libm digits, so each libc has its own file.
 - Without `--all`, it writes only a test that has no `foo.rb.expected`,
   or whose `foo.rb.expected` is older than the program. After a change
   to `.args`, `.env`, `.stdin` or `.files/` alone, give `--all` and the

@@ -27,11 +27,15 @@ class ProgramTestsTest < Minitest::Test
               "area/foo.rb.args" => "a b\n", "area/foo.rb.stdin" => "in", "area/foo.rb.status" => "signal 15\n",
               "area/foo.rb.env" => "X=1\n# a comment\nY=a=b\n", "area/foo.rb.needs" => "libssl\nmacos\n",
               "area/foo.rb.ruby" => "-W:no-experimental\n", "area/foo.rb.limits" => "build_mb=4096\n",
-              "area/foo.rb.linux.expected" => "2\n", "area/foo.rb.files/data.txt" => "d" }
+              "area/foo.rb.linux-gnu.expected" => "2\n", "area/foo.rb.linux-musl.err.expected" => "m\n",
+              "area/foo.rb.files/data.txt" => "d" }
     with_test(files) do |_, test|
       assert_equal "1\n", test.stdout("macos")
-      assert_equal "2\n", test.stdout("linux")
+      assert_equal "2\n", test.stdout("linux-gnu")
+      assert_equal "1\n", test.stdout("linux-musl")
       assert_equal "e\n", test.stderr
+      assert_equal "e\n", test.stderr("linux-gnu")
+      assert_equal "m\n", test.stderr("linux-musl")
       assert_equal %w[a b], test.args
       assert_equal "in", test.stdin
       assert_equal [nil, 15], test.status
@@ -132,6 +136,19 @@ class ProgramTestsTest < Minitest::Test
       programs = Programs.new(allowed: {})
 
       assert_equal "runs only on wasi", programs.unmet(test)
+    end
+  end
+
+  def test_a_test_that_needs_another_libc_skips
+    with_test("area/foo.rb" => "", "area/foo.rb.expected" => "", "area/foo.rb.needs" => "linux-musl\n") do |_, test|
+      # Each runner can run here, whatever this host is.
+      gnu, musl = %w[x86_64-linux-gnu x86_64-linux-musl].map do |triple|
+        Programs.new(target: Zr::Target.fetch(triple), allowed: {}).tap { |p| p.runner.define_singleton_method(:refusal) { nil } }
+      end
+
+      assert_equal "runs only on linux-musl", gnu.unmet(test)
+      assert_nil musl.unmet(test)
+      assert_equal %w[linux-gnu linux-musl], [gnu.runner.recording, musl.runner.recording]
     end
   end
 

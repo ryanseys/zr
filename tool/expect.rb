@@ -2,6 +2,7 @@
 
 require "etc"
 require_relative "lib/zr/dev"
+require_relative "../lib/zr/target"
 
 module Zr
   module Dev
@@ -18,9 +19,10 @@ module Zr
       #
       # A test gets `foo.rb.expected` (stdout), and `foo.rb.err.expected` and
       # `foo.rb.status` only when stderr is not empty or the status is not
-      # `exit 0`. On linux the stdout goes to `foo.rb.linux.expected` when it
-      # is not the same as `foo.rb.expected`. When ruby does not finish, the
-      # old files stay.
+      # `exit 0`. Those come from macOS. On Linux, the stdout and the stderr
+      # go to `foo.rb.linux-gnu.expected` and `foo.rb.linux-gnu.err.expected`
+      # (`linux-musl` under musl) when they are not macOS's, and the status
+      # stays. When ruby does not finish, the old files stay.
       class Expect < Command
         summary "Write the expected output of program tests and benchmarks from the pinned ruby"
         usage "[--all] [--check] [path...]"
@@ -90,12 +92,11 @@ module Zr
           status = answer.signal ? "signal #{answer.signal}\n" : "exit #{answer.code}\n"
           out = { "err.expected" => (answer.stderr unless answer.stderr.empty?),
                   "status" => (status unless status == "exit 0\n") }
-          if RUBY_PLATFORM.include?("linux")
-            out["linux.expected"] = (answer.stdout unless answer.stdout == test.read("expected"))
-          else
-            out["expected"] = answer.stdout
-          end
-          out
+          return out.merge("expected" => answer.stdout) unless RUBY_PLATFORM.include?("linux")
+
+          name = Zr::Target.host_triple.end_with?("-musl") ? "linux-musl" : "linux-gnu"
+          { "#{name}.expected" => (answer.stdout unless answer.stdout == test.read("expected")),
+            "#{name}.err.expected" => (answer.stderr unless answer.stderr == (test.read("err.expected") || "".b)) }
         end
       end
     end
