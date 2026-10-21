@@ -57,6 +57,7 @@ module Zr
         # @rbs @extensions: _Extensions
         # @rbs @target: Target
         # @rbs @computed_loads: Hash[String, bool]?
+        # @rbs @searches: Hash[String, bool]?
 
         include LiteralPaths
 
@@ -909,7 +910,7 @@ module Zr
         # rubygems, bundler, irb and rdoc into the gem prelude, not 50.
         #: (String file) -> void
         def computed_load!(file)
-          return if own?(file) || !File.read(file).match?(SEARCHES_LOAD_PATH)
+          return if own?(file) || !searches_load_path?(file)
 
           dir = File.dirname(file)
           return if @roots.include?(dir) || @roots.none? { |root| dir.start_with?("#{root}/") }
@@ -918,6 +919,14 @@ module Zr
 
           seen[dir] = true
           Dir.glob("**/*.rb", base: dir).sort.each { |rel| add(File.join(dir, rel)) }
+        end
+
+        # Whether `file` names the load path. Each call that may load a
+        # computed name asks, so each file is read once, not once a call.
+        #: (String file) -> bool
+        def searches_load_path?(file)
+          known = @searches ||= {} #: Hash[String, bool]
+          known.fetch(file) { known[file] = File.read(file).match?(SEARCHES_LOAD_PATH) }
         end
 
         # The files that a C extension's C may require as it runs
