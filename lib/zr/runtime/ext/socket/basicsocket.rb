@@ -148,6 +148,55 @@ class BasicSocket < IO
 
   def __recv_nonblock(len, flags, str, exception) = receive_nonblock(:recv, len, flags, str, exception)
 
+  # rsock_read_nonblock: socket.rb's read_nonblock on Linux, which reads
+  # with recv(2) and MSG_DONTWAIT, so the descriptor stays blocking. Bytes
+  # that the buffer holds come first.
+  def __read_nonblock(length, str, exception)
+    len = Integer.send(:int_operand, length)
+    return IO.instance_method(:read_nonblock).bind_call(self, len, str, exception: exception) if buffered?
+
+    buffer = receive_buffer(str)
+    descriptor
+    return received(:recv, "".b, nil, buffer || +"".b) if len.zero?
+
+    answer = Primitive.zr_sock_recvfrom(@fd, len, Socket::MSG_DONTWAIT)
+    if answer.is_a?(Integer)
+      errno = -answer
+      if errno == Errno::EAGAIN::Errno
+        return :wait_readable if exception == false
+
+        Socket.wait_fail(errno, :readable, "read would block")
+      end
+      raise SystemCallError.new(@path, errno)
+    end
+    data, = answer
+    if data.empty?
+      buffer&.clear
+      return nil if exception == false
+
+      raise EOFError, "end of file reached"
+    end
+    received(:recv, data, nil, buffer)
+  end
+
+  # rsock_write_nonblock: socket.rb's write_nonblock on Linux, a send(2)
+  # with MSG_DONTWAIT after what the buffer holds.
+  def __write_nonblock(str, exception)
+    str = str.to_s unless str.is_a?(String)
+    check_writable
+    write_pending
+    sent = Primitive.zr_sock_send(@twin || @fd, str, Socket::MSG_DONTWAIT, nil)
+    return sent unless sent.negative?
+
+    errno = -sent
+    if errno == Errno::EAGAIN::Errno
+      return :wait_writable if exception == false
+
+      Socket.wait_fail(errno, :writable, "write would block")
+    end
+    raise SystemCallError.new(@path, errno)
+  end
+
   # rsock_getfamily: the family the socket's own address has, kept once
   # it is one of the three common ones.
   def socket_family
