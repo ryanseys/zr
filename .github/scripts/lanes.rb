@@ -47,7 +47,7 @@ module Lanes
   #   did not pass is left out of it.
   RUNNERS = {
     "aarch64-apple-darwin" => { os: "macos-26", verify: "0", timeout: 150, shards: 6, stage1: true, tier: 1 },
-    "aarch64-linux-gnu" => { os: "ubuntu-24.04-arm", shards: 4 },
+    "aarch64-linux-gnu" => { os: "ubuntu-24.04-arm", shards: 4, seconds: "180" },
     "aarch64-linux-musl" => { os: "ubuntu-24.04-arm", container: true, vendor: true, shards: 4, seconds: "180" },
     "x86_64-linux-gnu" => { os: "ubuntu-24.04", shards: 4, seconds: "180", tier: 1 },
     "x86_64-linux-musl" => { os: "ubuntu-24.04", container: true, shards: 2, seconds: "180" },
