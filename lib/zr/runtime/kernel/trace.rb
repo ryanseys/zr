@@ -886,11 +886,14 @@ module Zr::Kern
 
   # Fires `:call` or `:return` around the body of a define_method method,
   # as vm_call_bmethod does, from the first line of its block. A body that
-  # the runtime wrote fires no event.
+  # the runtime wrote fires no event, nor one in a file that loads hidden:
+  # the x86_64 assembler of eval support defines its instructions with
+  # define_method.
   #: (word, ptr, value, value) -> value
   def zr_trace_bmethod(event, e, recv, value)
     meta = RProc[MEntry[e].cref].meta
-    if (Machine.load64(Machine.static(:trace_events, 8), 0) & event) == 0 || FrameMeta[meta].file_len == 0
+    if (Machine.load64(Machine.static(:trace_events, 8), 0) & event) == 0 || FrameMeta[meta].file_len == 0 ||
+       FrameMeta[meta].hidden != 0 || FrameMeta[meta].kind == KIND_HIDDEN
       return value
     end
     t = zr_task()
