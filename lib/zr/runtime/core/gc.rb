@@ -497,9 +497,12 @@ module Process
 
   # An emulated clock (EMULATED_CLOCKS) reads its real clock to its own
   # resolution, as CRuby's fallbacks read gettimeofday, time and getrusage.
+  # The real clock is a constant, which is a Symbol on WASI (as in ruby's
+  # WASI build), so it converts as an id does.
   def clock_gettime(id, unit = :float_second)
     if (emulated = Process.send(:emulated_clock, id))
       real, step = emulated
+      real = Process.send(:clock_id, real, "clock_gettime")
       return Process.send(:in_unit, (Primitive.zr_clock_ns(real) / step) * step, unit)
     end
 

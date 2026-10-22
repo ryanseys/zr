@@ -361,8 +361,13 @@ module Zr::Kern
   # 3 the thread's CPU time. Process's CLOCK_IDS gives their ruby names.
   CLOCK_MONOTONIC = 1
 
+  # An id that WASI has no clock for fails with EINVAL, as clock_gettime
+  # does, where the host would trap.
   #: (i32, ptr) -> i32
   def clock_gettime(id, ts)
+    if Machine.u32(id) > 3
+      return zr_wasi_fail(WASI_EINVAL)
+    end
     out = Machine.slot(8)
     if zr_wasi_status(Libc.clock_time_get(id, 1, zr_wasi_addr(out))) < Machine.i32(0)
       return Machine.i32(0 - 1)
@@ -373,6 +378,9 @@ module Zr::Kern
 
   #: (i32, ptr) -> i32
   def clock_getres(id, ts)
+    if Machine.u32(id) > 3
+      return zr_wasi_fail(WASI_EINVAL)
+    end
     out = Machine.slot(8)
     if zr_wasi_status(Libc.clock_res_get(id, zr_wasi_addr(out))) < Machine.i32(0)
       return Machine.i32(0 - 1)
