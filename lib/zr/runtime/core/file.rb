@@ -889,9 +889,19 @@ class File < IO
     # as eval support's /zr/... files.
     missing = -result == Errno::ENOENT::Errno || -result == Errno::ENOSYS::Errno
     return File.expand_path(path) if missing && compiled_in?(File.expand_path(path))
-    # ENOSYS: the system has no realpath (WASI), and ruby built without
-    # HAVE_REALPATH walks the path in the same way.
-    return realpath_walk(path, false) if -result == Errno::ENOSYS::Errno
+    # ENOSYS: the system has no realpath (WASI), so the path is walked. A
+    # path that is not there fails first as realpath(3) fails, which
+    # rb_check_realpath_internal names, not as the walk (realpath_rec).
+    if -result == Errno::ENOSYS::Errno
+      begin
+        stat(path) unless exist?(path)
+      rescue Errno::ENOENT
+        raise SystemCallError.new(path, Errno::ENOENT::Errno, +"rb_check_realpath_internal")
+      rescue SystemCallError
+        nil
+      end
+      return realpath_walk(path, false)
+    end
     return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 
     raise SystemCallError.new(path, -result, +"rb_check_realpath_internal")
