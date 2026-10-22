@@ -36,3 +36,53 @@ core/exception/location_source_range_in_an_eval_works_only_when_keep_script_line
 core/array/iterators_raise_when_a_continuation_reenters_them.rb	callcc where the stack is out of reach is not implemented yet
 core/array/a_sort_that_a_continuation_reenters_raises_sort_reentered.rb	callcc where the stack is out of reach is not implemented yet
 
+
+# zr's WASI libc has no crypt(3) yet (a port of musl's crypt_des and
+# crypt_md5 would give the linux-musl answers; docs/explanation/roadmap.md).
+core/string/string_edges_answer_as_ruby_does.rb	crypt(3) is not in zr's WASI libc yet
+core/encoding/packing/string_bytes_crypt.rb	crypt(3) is not in zr's WASI libc yet
+core/string/bytesplice_append_as_bytes_and_crypt_answer_beside_float_and.rb	crypt(3) is not in zr's WASI libc yet
+core/string/slicing/crypt_answers_libc_s_13_character_des_hash_keeping_the_salt.rb	crypt(3) is not in zr's WASI libc yet
+
+# WASI answers otherwise, and the program still exits 0. Each line names
+# the one part of the output that differs.
+core/time/fields_marshal_and_xmlschema_follow_ruby.rb	WASI has no time zone data: every zone is UTC
+core/process/exceptions/the_cpu_time_clock_ids_resolve_to_integers_whatever_the_plat.rb	a WASI clock id is a Symbol, as CRuby's for WASI
+compiler/units/process_clock_gettime_unit.rb	a WASI clock id is a Symbol, as CRuby's for WASI
+stdlib/pathname/the_delegations_read_and_write_a_tree_this_program_builds.rb	WASI has no permission bits, and keeps a symlink's absolute target relative
+compiler/builtins/io/file_surface_extended.rb	WASI has no permission bits: chmod changes nothing
+core/encoding/formatting/open_encoding_option_warns_or_raises.rb	WASI has no permission bits: a file's perm is not the one it was made with
+core/io/file_predicates_times_and_fnm_constants.rb	WASI keeps a symlink's absolute target relative
+stdlib/pathname/copy_stream_reopen_rename_symlink_and_delete_each_convert_th.rb	WASI keeps a symlink's absolute target relative
+core/io/directory_and_a_descriptor_answer_their_own_numbers.rb	WASI's access modes are not O_RDONLY's 0, 1 and 2
+stdlib/etc/passwd_database_cursor_and_block_iteration.rb	WASI has no user database
+compiler/builtins/from_name_resolves_a_passwd_or_group_name_and_passes_an_inte.rb	WASI has no user database
+compiler/builtins/a_request_for_an_id_this_process_does_not_hold_is_refused_wi.rb	WASI changes no id: each set fails with ENOSYS
+compiler/builtins/re_asserting_an_id_the_process_already_holds_is_the_one_chan.rb	WASI changes no id: each set fails with ENOSYS
+stdlib/probes/option_logging_delegation_and_digest_libraries_answer_as_in_ruby.rb	WASI starts no thread, so a Timeout block runs with no watcher and never expires
+
+# A block recursion takes more of the shadow stack for each level than
+# a method's. 10,000 levels would take about 4 MiB, and the engine's stack
+# for that is past the host thread's 8 MiB (test/support/harness/wasmtime.rb).
+lang/exceptions/blocks/recursion_ten_thousand_deep.rb	a block recursion 10,000 deep is past the shadow stack
+
+# More of the eval walker's gaps (lib/zr/eval/interpreter).
+lang/refinements/using_in_an_eval_refines_what_its_toplevel_runs_after.rb	the eval walker refuses `using`
+lang/refinements/toplevel_binding_sees_a_using_of_the_main_file_after_it_runs.rb	the eval walker does not see the caller's refinements
+lang/boxes/box_snippet_names_itself_in_a_backtrace.rb	a snippet that Ruby::Box#eval walks gets no frame of its own
+lang/boxes/a_box_requires_a_library_and_writes_to_its_own_stdout.rb	a walked call that reads $_ (print) runs in main's box
+lang/boxes/a_box_s_own_operator_reaches_its_code_and_bindings_made_in_it.rb	a walk of a Binding made in a box runs in the caller's box
+core/tracepoint/an_ensure_body_that_compiles_to_nothing_fires_on_the_path_that_runs_it.rb	an empty ensure in walked code fires no :line event
+core/enumerable/redefined_each/the_core_walks_its_own_arrays_and_hashes_without_a_program_s.rb	the walker's own code sends each to a program's Array
+core/regexp/a_binary_source_reads_its_regexp_literals_as_bytes.rb	the walker builds an interpolated literal in UTF-8, not in the source's encoding
+lang/eval/an_eval_refuses_a_wide_encoding_and_source_locations_share_one_path.rb	a walked def's source_location path is not one shared frozen String
+stdlib/error_highlight/a_constant_path_and_a_loaded_file_highlight_as_ruby_does.rb	walked code keeps no node spots for error_highlight
+core/rubyvm/source_hash_and_the_syntax_tree_of_kept_eval_code.rb	walked code keeps no node ids for syntax_tree
+core/method/syntax_tree_parses_the_file_again_and_finds_the_def_block_lambda_or_call.rb	walked code keeps no node ids for syntax_tree
+stdlib/prism/prisms_constants_are_the_gems_and_hold_no_parser_of_zrs_own.rb	Prism.const_get reaches eval support's private Prism::Ruby
+lang/require/a_program_s_own_require_sees_every_literal_require.rb	a walked load sends require "rbconfig" through the program's Kernel#require
+core/kernel/a_require_that_the_build_resolves_calls_a_kernel_require_that_the_program_redefines.rb	a walked load sends require "rbconfig" through the program's Kernel#require
+core/ractor/a_shareable_proc_names_the_anonymous_parameter_it_cannot_share.rb	Ractor.shareable_proc of a walked block reads a scope it has not, and traps
+stdlib/continuation/callcc_goes_back_through_its_continuation.rb	callcc where the stack is out of reach is not implemented yet
+stdlib/continuation/callcc_warns_only_while_warnings_are_on.rb	callcc where the stack is out of reach is not implemented yet
+stdlib/continuation/survives_collections.rb	callcc where the stack is out of reach is not implemented yet

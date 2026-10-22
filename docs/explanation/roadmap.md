@@ -20,3 +20,20 @@ did is in [the changelog](../../CHANGELOG.md).
   module through binaryen's Asyncify (`wasm-opt --asyncify`), which
   saves and restores the wasm stack in linear memory. zr can do the
   same as a pass on its own modules.
+- crypt(3) on wasm32-wasi: zr's WASI libc has none, so `String#crypt`
+  raises "invalid salt" there, and four program tests are in the wasm
+  baseline. A port of musl's `crypt_des.c` and `crypt_md5.c` would give
+  the answers of the linux-musl recordings that a wasm run reads.
+- Deep block recursion on wasm32-wasi: the shadow stack holds a method
+  recursion 10,000 deep, but a block takes more of it for each level,
+  and a bigger one needs an engine stack past the host thread's 8 MiB.
+  Giving wasmtime a bigger thread stack (`rlimit_stack`) would let both
+  grow.
+- `Ractor.shareable_proc` of a block that the eval walker made: the
+  block's captured locals have no scope that the check can read, and
+  the program stops with a segmentation fault (wasm32-wasi, and
+  `ZR_EVAL=walk`).
+- A file that the eval walker loads at run time sends
+  `require "rbconfig"` through the program's own `Kernel#require`,
+  which ruby loaded at boot, so a program that traces its requires sees
+  one more.
