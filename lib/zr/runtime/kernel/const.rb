@@ -1617,9 +1617,13 @@ module Zr::Kern
     # no file. ruby keeps no record for that, and only declares the name.
     # The compiler does the same check for a feature that the runtime
     # contains, which is in no table that a program can read.
-    if kind != AUTOLOAD_DECLARED && !zr_autoload_read(feature) &&
-       zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), RString[path].ptr, RString[path].len)
-      kind = AUTOLOAD_DECLARED
+    # A port is listed under ruby's name of its extension.
+    if kind != AUTOLOAD_DECLARED && !zr_autoload_read(feature)
+      listed = zr_port_feature(path)
+      return listed if listed == QUNDEF
+      if zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), RString[listed].ptr, RString[listed].len)
+        kind = AUTOLOAD_DECLARED
+      end
     end
     # The name is declared and the entry exists before the hook runs. Thus
     # a const_added hook that raises raises out of the autoload, and the

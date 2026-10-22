@@ -1071,8 +1071,11 @@ module Zr::Kern
     outer = Machine.load64(zr_loading(), 0)
     outer_hidden = Machine.load64(zr_hidden_loader(), 0)
     Machine.store64(zr_loading(), 0, path)
+    # The hidden rows are filed under the listed name (a port's is ruby's
+    # name of the extension), so what the file defines is recorded there,
+    # and a later require of the name reveals it.
     if hidden
-      Machine.store64(zr_hidden_loader(), 0, path)
+      Machine.store64(zr_hidden_loader(), 0, listed)
     end
     mid = 0
     if framed
