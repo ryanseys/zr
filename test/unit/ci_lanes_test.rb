@@ -45,6 +45,14 @@ class CiLanesTest < Minitest::Test
     assert(wasm[:builds].all? { |triple| Zr::Target.fetch(triple) })
   end
 
+  # A build that runs past its step's limit fails while the job still
+  # has time for the steps that keep its cache and its log.
+  def test_a_runtime_build_stops_before_its_job
+    Lanes.matrix.each do |lane|
+      assert_operator lane[:build_timeout], :<, lane[:timeout], lane[:triple]
+    end
+  end
+
   # Only `checks` names files: the docs tests, which a docs-only pull
   # request runs with no lane.
   def test_a_lane_lists_no_unit_files

@@ -67,21 +67,42 @@ jobs:
         uses: ./.github/actions/alpine
         with:
           ruby: ${{ inputs.ruby }}
-      # The runner's memory in use every 10 s, and the largest processes
-      # above 8 GB, on Linux, where a build that runs out stops the runner
-      # with no word in the log. On macOS, the memory in use (active,
-      # wired and compressed pages) and the swap, which set how many
-      # workers the 7 GB runner can afford.
-      - name: Build the runtime and export it
+      # What the build starts with: the disk, the cores, the memory and
+      # the swap, and the store that the cache restored. A runner that is
+      # lost keeps the log of each step that ended before it.
+      - name: The runner, and the cache that it restored
         if: steps.bundle.outputs.cache-hit != 'true'
         run: |
-          if command -v free > /dev/null; then (while sleep 10; do
-            used=$(free -m | awk 'NR == 2 { print $3 }'); echo "memory in use: $used MB"
+          df -h .
+          if command -v free > /dev/null; then nproc; free -m; else sysctl -n hw.ncpu hw.memsize vm.swapusage; fi
+          if [ -d tmp/cache/store ]; then .github/scripts/in_lane.sh bin/zr cache size; fi
+      # Every 10 s: the memory in use, the swap and the free disk, and on
+      # Linux the largest processes above 8 GB. On macOS, the memory is
+      # the active, wired and compressed pages, which set how many workers
+      # the 7 GB runner can afford. A runner whose disk fills is lost with
+      # no log, so with less than 2 GB free the build stops, with the
+      # sizes of the store in the log, and the next steps keep its cache.
+      - name: Build the runtime and export it
+        if: steps.bundle.outputs.cache-hit != 'true'
+        timeout-minutes: ${{ fromJSON(inputs.lane).build_timeout }}
+        run: |
+          (while sleep 10; do
+            used=0
+            if command -v free > /dev/null; then
+              used=$(free -m | awk 'NR == 2 { print $3 }')
+              memory="$used MB, swap $(free -m | awk '/^Swap:/ { print $3 }') MB"
+            else
+              memory="$(vm_stat | awk '/page size of/ { p = $8 } /Pages active|Pages wired|occupied by compressor/ { gsub("\\.", "", $NF); s += $NF } END { printf "%d", s * p / 1048576 }') MB, swap $(sysctl -n vm.swapusage | awk '{ print $6 }')"
+            fi
+            disk=$(df -Pm . | awk 'NR == 2 { print $4 }')
+            echo "memory in use: $memory, disk free: $disk MB"
             if [ "$used" -gt 8000 ]; then ps -eo rss,etimes,args --sort=-rss | head -4 | cut -c1-200; fi
-          done) & else (while sleep 10; do
-            used=$(vm_stat | awk '/page size of/ { p = $8 } /Pages active|Pages wired|occupied by compressor/ { gsub("\\.", "", $NF); s += $NF } END { printf "%d", s * p / 1048576 }')
-            echo "memory in use: $used MB, swap $(sysctl -n vm.swapusage | awk '{ print $6 }')"
-          done) & fi
+            if [ "$disk" -lt 2048 ]; then
+              echo "::error::$disk MB of disk is free: the build stops, and the next steps keep its cache"
+              df -h .; du -sh tmp/cache/store/* 2> /dev/null
+              sudo pkill -f "cache export"; break
+            fi
+          done) &
           mkdir -p bundles
           for triple in $BUILDS; do
             .github/scripts/in_lane.sh bin/zr cache export --target "$triple" -o "bundles/runtime-$triple.tar.gz"
@@ -91,6 +112,9 @@ jobs:
       - name: Clean the cache of what this run did not use
         if: steps.bundle.outputs.cache-hit != 'true'
         run: .github/scripts/in_lane.sh bin/zr cache clean --days 1
+      - name: The disk and the store after the build
+        if: always() && steps.bundle.outputs.cache-hit != 'true'
+        run: df -h . && (du -sh tmp/cache/store/* 2> /dev/null || true)
       - name: Give the cache back to the runner
         if: always() && fromJSON(inputs.lane).container
         run: sudo chown -R "$USER" tmp bundles || true
