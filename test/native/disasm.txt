@@ -163,6 +163,25 @@ block0:
   ldp x29, x30, [sp], #48
   ret
 
+# iadd.stack_far
+  stp x29, x30, [sp, #-32]!
+  mov x29, sp
+block0:
+  add x9, sp, #16
+  movz x10, #0x1000, lsl #16
+  add x0, x9, x10
+  ldp x29, x30, [sp], #32
+  ret
+
+# iadd.stack_below
+  stp x29, x30, [sp, #-32]!
+  mov x29, sp
+block0:
+  add x9, sp, #16
+  sub x0, x9, #64
+  ldp x29, x30, [sp], #32
+  ret
+
 # store.pair_same
   stp x29, x30, [sp, #-16]!
   mov x29, sp

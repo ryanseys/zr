@@ -81,6 +81,14 @@ module Zr
           f.store(v, inner)
           f.iadd(inner, f.iconst("i64", 8))
         end
+        # A slot's address and a constant that one `add` from sp cannot
+        # take, read as a value: 2^28 past the frame, and 64 bytes below sp.
+        ops["iadd.stack_far"] = build("iadd_stack_far", [], "i64") do |f|
+          f.iadd(f.stack_addr(f.slot(8)), f.iconst("i64", 1 << 28))
+        end
+        ops["iadd.stack_below"] = build("iadd_stack_below", [], "i64") do |f|
+          f.iadd(f.stack_addr(f.slot(8)), f.iconst("i64", -64))
+        end
         # One value stored twice, eight bytes apart: one register would do.
         ops["store.pair_same"] = build("store_pair_same", %w[i64], nil) do |f, p|
           nil_word = f.iconst("i64", 8)

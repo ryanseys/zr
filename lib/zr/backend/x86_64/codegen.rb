@@ -185,6 +185,10 @@ module Zr
         #: (Integer _off) -> bool
         def slot_address?(_off) = true
 
+        # `lea` takes a signed 32-bit displacement.
+        #: (Integer off) -> bool
+        def frame_reach?(off) = off.between?(-(1 << 31), (1 << 31) - 1)
+
         #: () -> Integer
         def frame_base = OUTGOING
 

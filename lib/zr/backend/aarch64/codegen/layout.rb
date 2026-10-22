@@ -22,6 +22,11 @@ module Zr
         #: (Integer off) -> bool
         def slot_address?(off) = off <= 4095
 
+        # Two `add`s from sp take 24 bits, and neither subtracts
+        # (`frame_address`).
+        #: (Integer off) -> bool
+        def frame_reach?(off) = off.between?(0, (1 << 24) - 1)
+
         #: () -> Integer
         def frame_base = PAIR
 

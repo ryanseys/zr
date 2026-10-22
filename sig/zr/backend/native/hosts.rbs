@@ -11,6 +11,7 @@ module Zr
         def materialized: (Integer n) -> Integer
         def immediate?: (Integer off, Integer width) -> bool
         def slot_address?: (Integer off) -> bool
+        def frame_reach?: (Integer off) -> bool
         def frame_base: () -> Integer
         def callee_saves: (Array[untyped] used) -> Array[untyped]
         def wide?: (String v) -> bool

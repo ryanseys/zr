@@ -20,6 +20,8 @@ module Zr
       # - `immediate?(off, width)`: one load or store of `width` bytes
       #   encodes `off` past its base;
       # - `slot_address?(off)`: one instruction makes `sp + off`;
+      # - `frame_reach?(off)`: the backend's frame address makes `sp + off`
+      #   with no register but the result;
       # - `frame_base`: the bytes below the first slot;
       # - `callee_saves(used)`: the callee-saved registers that the
       #   frame saves, in their order, given the registers the function uses;
@@ -374,10 +376,12 @@ module Zr
               @via[v] = root
               @silent << v
               other[base] -= 1
-            elsif (at = @stack[root])
+            elsif (at = @stack[root]) && frame_reach?(at + k)
               # Read as a value, but it is a slot address plus a constant:
               # one addition from sp, which reads nothing of the chain. The
               # argument vector that `Zr::Lower::Function` gives a send is one.
+              # A sum past the reach (a constant that the kernel folds into
+              # a slot's address) stays an addition.
               @from_sp[v] = at + k
               other[base] -= 1
             end
