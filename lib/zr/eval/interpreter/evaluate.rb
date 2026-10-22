@@ -87,7 +87,8 @@ module Zr
       end
 
       # The tree of `source`, the one built before for the same string and
-      # scope shape when there is one. A string that did not parse raises
+      # scope shape when there is one, and when each global alias that its
+      # build asked about is as it was. A string that did not parse raises
       # a copy of its first error, as the eval compiler does: a loop that
       # evals a broken string parses it once.
       # @rbs source: String
@@ -104,16 +105,18 @@ module Zr
         if key && (kept = trees[key])
           raise kept.dup if kept.is_a?(Exception)
 
-          return kept
+          hir, asked = kept
+          return hir if asked.all? { |name, value| World.alias_of(name) == value }
         end
 
+        asked = {} #: Hash[Symbol, Symbol?]
         begin
-          hir = built_new(source, file, line, names, params, coverage: coverage, loaded: loaded)
+          hir = built_new(source, file, line, names, params, coverage: coverage, loaded: loaded, asked: asked)
         rescue Hir::Invalid, SyntaxError => e
           keep_tree(trees, key, e.dup) if key
           raise
         end
-        keep_tree(trees, key, hir) if key
+        keep_tree(trees, key, [hir, asked]) if key
         hir
       end
 
@@ -128,9 +131,12 @@ module Zr
       # evals in a loop are few.
       KEPT_TREES = 256
 
+      # The build asks for the global that each `$name` aliases (`alias $a
+      # $~` that ran), as the eval compiler's does, and `asked` gets the
+      # answers.
       # @rbs (String source, String file, Integer line, Array[Array[Symbol]] names, untyped params, coverage: untyped,
-      #       loaded: bool) -> Hir::Program
-      def self.built_new(source, file, line, names, params, coverage:, loaded:)
+      #       loaded: bool, ?asked: Hash[Symbol, Symbol?]) -> Hir::Program
+      def self.built_new(source, file, line, names, params, coverage:, loaded:, asked: {})
         own = [] #: Array[Symbol]
         # The front end joins, splits and reads lines with ruby's defaults,
         # as the eval compiler's does (`Eval.plainly`); the walk itself runs
@@ -140,7 +146,8 @@ module Zr
           Runtime.compiling do
             Hir.build(source, file, BuildOptions.new(trace: measured), program: false, line: line, scopes: [*names.reverse, own], method: params,
                                                                     def_base: (coverage.send(:next_def_site) if measured),
-                                                                    branch_base: (coverage.send(:next_branch_id) if measured))
+                                                                    branch_base: (coverage.send(:next_branch_id) if measured),
+                                                                    aliases: ->(old) { asked[old] = World.alias_of(old) })
           end
         end
         if loaded
@@ -157,7 +164,9 @@ module Zr
       #: (String source, String file, Integer line, bool warn_now) -> void
       def self.check(source, file, line, warn_now)
         hir = Runtime.plain_separators do
-          Runtime.compiling { Hir.build(source, file, BuildOptions.new, program: false, line: line, scopes: [[]]) }
+          Runtime.compiling do
+            Hir.build(source, file, BuildOptions.new, program: false, line: line, scopes: [[]], aliases: ->(old) { World.alias_of(old) })
+          end
         end
         hir.warnings.each { |text| parse_warning(text) } if warn_now
       rescue Hir::Invalid, SyntaxError => e
@@ -202,7 +211,7 @@ module Zr
         names.each { |name| scope.local_variable_set(name, own.get(name)) }
       end
 
-      private_class_method :built, :built_new, :held, :keep, :parse_warning, :syntax_error, :warned
+      private_class_method :built, :built_new, :held, :keep, :keep_tree, :parse_warning, :syntax_error, :warned
     end
   end
 end

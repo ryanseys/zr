@@ -192,6 +192,8 @@ module Zr
 
         def gvar_get(name) = ::TOPLEVEL_BINDING.eval(name.to_s)
         def gvar_defined?(name) = ::TOPLEVEL_BINDING.eval("defined?(#{name})")
+        # CRuby keeps no record of an alias that the walker can read.
+        def alias_of(_name) = nil
 
         def gvar_set(_shown, name, value)
           ::TOPLEVEL_BINDING.local_variable_set(:__walk_value__, value)

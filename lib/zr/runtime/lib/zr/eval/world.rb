@@ -171,6 +171,9 @@ module Zr
       def cvar_set(cref, name, value) = Primitive.zr_cvar_set_m(cref, name, value)
 
       def gvar_get(name) = Primitive.zr_gvar_get_m(name)
+      # The global that `$name` aliases, from the record of an `alias` that
+      # ran, or nil (Runtime#alias_of).
+      def alias_of(name) = Primitive.zr_gvar_get_m(Hir::Build.alias_record(name))
       # Eval support's own require of a file that the program carries.
       #: (String path) -> bool
       def require_hidden(path) = Primitive.zr_walk_require_hidden_m(path)
