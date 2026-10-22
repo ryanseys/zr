@@ -28,7 +28,7 @@ class BuiltTest < Minitest::Test
         fork { exit! 0 }
       end
       stub_method(Built, :start, start) do
-        stub_method(Built, :load, ->(target, evals: false) { loaded << target }) { capture_io { Built.ready! } }
+        stub_method(Built, :load, ->(target, **) { loaded << target }) { capture_io { Built.ready! } }
       end
     end
 
@@ -48,7 +48,7 @@ class BuiltTest < Minitest::Test
   def test_a_tier_loads_what_is_built_and_builds_nothing
     loaded = []
     stub_method(Built, :built?, true) do
-      stub_method(Built, :load, ->(target, evals: false) { loaded << target }) { capture_io { Built.ready! } }
+      stub_method(Built, :load, ->(target, **) { loaded << target }) { capture_io { Built.ready! } }
     end
 
     assert_equal [Zr::Target.default], loaded
@@ -58,7 +58,7 @@ class BuiltTest < Minitest::Test
     stub_method(Built, :targets, [Zr::Target.default, Zr::Target::WASM32_WASI]) do
       loaded = []
       stub_method(Built, :built?, true) do
-        stub_method(Built, :load, ->(target, evals: false) { loaded << target }) { capture_io { Built.ready!(wasm: true) } }
+        stub_method(Built, :load, ->(target, **) { loaded << target }) { capture_io { Built.ready!(wasm: true) } }
       end
 
       assert_equal [Zr::Target.default, Zr::Target::WASM32_WASI], loaded

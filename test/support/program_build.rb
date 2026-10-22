@@ -101,8 +101,8 @@ module Zr
       def cli(test, run, bin, runner)
         megabytes = [test.limits[:build_mb] || 0, Harness::Child::BUILD_MB].max
         argv = runner.build_argv(test.rel, bin)
-        out, = Harness::Child.run(argv, cwd: run, env: runner.build_env.merge(test.env.slice("ZR_EVAL", "ZR_WASM_SPLIT")), seconds: Harness::Child::SECONDS * 5,
-                                        megabytes: megabytes)
+        env = runner.build_env.merge(test.env.slice("ZR_EVAL", "ZR_WASM_SPLIT"))
+        out, = Harness::Child.run(argv, cwd: run, env: env, seconds: Harness::Child::SECONDS * 5, megabytes: megabytes)
         return nil if out.code == 0
 
         tail = (out.stderr.empty? ? out.stdout : out.stderr).lines.last(20).join

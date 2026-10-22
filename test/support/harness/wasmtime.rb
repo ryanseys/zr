@@ -137,10 +137,12 @@ module Zr
       # runtime module took 50 to 100 ms, once for each test.
       def runtime(path, compiler: self.compiler)
         stat = File.stat(path)
+        # rubocop:disable ThreadSafety/ClassInstanceVariable -- a worker is a forked process with one thread
         known = (@runtimes ||= {})[[path, stat.size, stat.mtime, compiler]]
         return known if known && File.exist?(known)
 
         @runtimes[[path, stat.size, stat.mtime, compiler]] = compiled_runtime(path, compiler)
+        # rubocop:enable ThreadSafety/ClassInstanceVariable
       end
 
       def compiled_runtime(path, compiler)
