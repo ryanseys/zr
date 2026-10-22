@@ -48,8 +48,7 @@ module Zr::Kern
 
   #: () -> i32
   def fork
-    zr_notimplement(Machine.bytes("fork"), 4)
-    Machine.i32(0 - 1)
+    zr_wasi_fail(WASI_ENOSYS)
   end
 
   #: (ptr, ptr, ptr) -> i32
