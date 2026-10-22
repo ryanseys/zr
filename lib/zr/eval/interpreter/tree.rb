@@ -26,7 +26,6 @@ module Zr
         # @rbs @file: String
         # @rbs @frame: Binding
         # @rbs @once: Hash[Hir::Once, value]?
-        # @rbs @frozen: Hash[Hir::FrozenString, String]?
         # @rbs @coverage_row: Integer?
         # @rbs @plain_new: bool?
         # @rbs @regexps: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]?
@@ -311,11 +310,14 @@ module Zr
           end
         end
 
-        # The String of each frozen literal site that has one of its own.
+        # The String of each frozen literal site that has one of its own, for
+        # the whole process: each walk makes a new Tree, and two evals of one
+        # InstructionSequence walk the same nodes, so they give one String,
+        # as the compiled site does.
+        FROZEN_SITES = {}.compare_by_identity # steep:ignore UnannotatedEmptyCollection
+
         #: () -> Hash[Hir::FrozenString, String]
-        def frozen_sites
-          @frozen ||= {}.compare_by_identity # steep:ignore UnannotatedEmptyCollection
-        end
+        def frozen_sites = FROZEN_SITES
 
         # A Regexp literal is one frozen object for its site, as ruby
         # makes it once when it compiles the string. It is built as the
