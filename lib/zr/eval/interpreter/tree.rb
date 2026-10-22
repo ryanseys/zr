@@ -27,6 +27,7 @@ module Zr
         # @rbs @frame: Binding
         # @rbs @once: Hash[Hir::Once, value]?
         # @rbs @frozen: Hash[Hir::FrozenString, String]?
+        # @rbs @coverage_row: Integer?
         # @rbs @regexps: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]?
         # @rbs @svars: svars?
         # @rbs @loaded: bool
@@ -579,6 +580,7 @@ module Zr
           return body_visibility(node, ctx) if bare?(node) && (VISIBILITY.key?(node.name) || node.name == :module_function)
           recv = node.recv ? walk(node.recv, ctx) : ctx.self_
           return World.nesting(ctx.cref) if node.name == :nesting && recv.equal?(::Module) && node.args.empty? && node.block.nil?
+          cover_safe(node, recv) if node.covers
           return nil if node.safe && recv.nil?
           return recv if node.interp && (String === recv || Symbol === recv)
 
@@ -941,9 +943,26 @@ module Zr
         # compiles to nothing waits for the path that runs the body, which
         # the walk does not follow, so it counts no line.
         #: (Hir::Trace node) -> nil
+        # A :line or :branch_jump event: one run of its line, in the
+        # Coverage row of this walk. The walk takes a row of its own, as
+        # each compiled file and eval has one, once Coverage is set up: a
+        # row that Coverage measures for a loaded file, and for an eval
+        # under `eval: true`.
         def trace(node)
-          World.coverage_line(@file, node.line, node.event == :branch_jump) if node.event == :line || node.event == :branch_jump
+          return nil unless node.event == :line || node.event == :branch_jump
+
+          @coverage_row ||= World.coverage_begin(@file, @loaded)
+          World.coverage_line(@coverage_row, node.line, node.event == :branch_jump) if @coverage_row
           nil
+        end
+
+        # The branch of a safe call (`recv&.name`) that Coverage counts: the
+        # call, or for a nil receiver the nil one. `self&.x` counts the
+        # call, as the compiler's does (Function#safe_call).
+        #: (Hir::Send node, untyped recv) -> void
+        def cover_safe(node, recv)
+          covers = node.covers or return
+          World.coverage_branch((recv.nil? && !node.recv.is_a?(Hir::SelfRef) ? covers.last : covers.first).id)
         end
 
         # `a, (b, *c), *d, e = value`.

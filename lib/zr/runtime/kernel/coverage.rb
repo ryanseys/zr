@@ -193,36 +193,42 @@ module Zr::Kern
     zr_coverage_count(c, zr_coverage_row(c, FrameMeta[meta].file, FrameMeta[meta].file_len, toplevel), zr_frame_line(rec))
   end
 
-  # A :line event of code that the eval walker runs, which has no frame:
-  # line `line` of the file named by the String `path`. An eval's file is
-  # measured under `eval: true`, as compiled eval code's is. A `jump`
-  # event (`:branch_jump`) counts only while Coverage counts branches.
+  # A record of its own for a walk of the eval walker, which has no frame
+  # (and no file pointer, by which a compiled file's or eval's record is
+  # found): the file named by the String `path`, measured for a `loaded`
+  # file, and for an eval under `eval: true`, as compiled code's is. The
+  # record keeps its own copy of the name, so it never points into a
+  # String that the collector can free. The walk keeps the record's index,
+  # as the records move when there are more. nil before Coverage is set
+  # up.
+  #: (value, value) -> value
+  def zr_coverage_begin_m(path, loaded)
+    c = zr_coverage()
+    if Coverage[c].setup == 0
+      return QNIL
+    end
+    name = zr_xmalloc(RString[path].len + 1)
+    zr_memcpy(name, RString[path].ptr, RString[path].len)
+    measured = loaded == QTRUE || Machine.load64(Machine.static(:coverage_evals, 8), 0) != 0
+    row = zr_coverage_row(c, name, RString[path].len, measured)
+    zr_fix((Machine.word(row) - Machine.word(Coverage[c].rows)) / CovRow.size)
+  end
+
+  # A :line event of code that the eval walker runs: line `line` of the
+  # record at `index` (zr_coverage_begin_m). A `jump` event
+  # (`:branch_jump`) counts only while Coverage counts branches.
   #: (value, value, value) -> value
-  def zr_coverage_line_at_m(path, line, jump)
+  def zr_coverage_line_at_m(index, line, jump)
     c = zr_coverage()
     if Coverage[c].setup == 0 || (jump == QTRUE && Machine.load64(Machine.static(:coverage_branch_jumps, 8), 0) == 0)
       return QNIL
     end
-    zr_coverage_count(c, zr_coverage_named_row(c, path), zr_fix2long(line))
-    QNIL
-  end
-
-  # The record of the file named by the String `path`, found by its bytes.
-  # A new record keeps its own copy of the name, so it never points into
-  # a String that the collector can free.
-  #: (ptr, value) -> ptr
-  def zr_coverage_named_row(c, path)
-    i = 0
-    while i < Coverage[c].len
-      row = Coverage[c].rows + (i * CovRow.size)
-      if zr_bytes_eq(CovRow[row].file, CovRow[row].file_len, RString[path].ptr, RString[path].len)
-        return row
-      end
-      i += 1
+    i = zr_fix2long(index)
+    if i >= Coverage[c].len
+      return QNIL
     end
-    name = zr_xmalloc(RString[path].len + 1)
-    zr_memcpy(name, RString[path].ptr, RString[path].len)
-    zr_coverage_row(c, name, RString[path].len, Machine.load64(Machine.static(:coverage_evals, 8), 0) != 0)
+    zr_coverage_count(c, Coverage[c].rows + (i * CovRow.size), zr_fix2long(line))
+    QNIL
   end
 
   # Adds one run to `line` of `row`, if coverage measures the file and

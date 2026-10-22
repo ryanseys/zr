@@ -148,7 +148,10 @@ module Zr
 
       # Coverage's counters, for the line events and branch counters of
       # walked code (`Hir::Trace`, `Hir::Cover`).
-      def coverage_line(path, line, jump) = Primitive.zr_coverage_line_at_m(path, line, jump)
+      # The index of the Coverage row of a walk of `path`, or nil before
+      # Coverage is set up; then one run of a line in that row.
+      def coverage_begin(path, loaded) = Primitive.zr_coverage_begin_m(path, loaded)
+      def coverage_line(row, line, jump) = Primitive.zr_coverage_line_at_m(row, line, jump)
       def coverage_branch(id) = Primitive.zr_coverage_branch_m(id)
 
       # `Module.nesting` under `cref`, and a String literal's chill.
