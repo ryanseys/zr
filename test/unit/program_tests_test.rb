@@ -155,6 +155,17 @@ class ProgramTestsTest < Minitest::Test
     end
   end
 
+  # What WASI preview 1 has no call for skips on wasm, and every native
+  # target has it.
+  def test_a_part_of_posix_that_wasi_lacks_skips_on_wasm
+    wasm = Programs.new(target: Zr::Target.fetch("wasm32-wasi"), allowed: {}).runner
+    native = Programs.new(target: Zr::Target.fetch("x86_64-linux-musl"), allowed: {}).runner
+    %w[fibers pipes processes sockets pty ffi].each do |need|
+      refute Zr::Harness::Requirements.met?(need, wasm), need
+      assert Zr::Harness::Requirements.met?(need, native), need
+    end
+  end
+
   def test_a_wasi_guest_gets_zr_s_root_and_a_home
     runner = Programs.new(target: Zr::Target.fetch("wasm32-wasi"), allowed: {}).runner
     argv, = runner.run("a.wasm", %w[x], { "HOME" => "/h" }, compiled: nil)

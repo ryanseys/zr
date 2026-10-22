@@ -6,12 +6,8 @@
 # listed test that PASSES fails the run, with a message to remove it
 # from this file. Thus the file cannot become out of date.
 
-# wasi has no processes and no signals.
-cli/core/process/process_spawn.rb	spawn() is unimplemented on wasi
-cli/core/process/signal_trap.rb	kill has no wasm form
-cli/core/kernel/recursion_depth_follows_the_vm_stack_size.rb	IO.popen: pipe has no wasm form
-cli/lang/require/a_cleared_load_path_finds_no_file_of_rubys_library.rb	IO.popen: pipe has no wasm form
-cli/lang/require/with_gems_off_rubygems_defines_gem_over_nothing.rb	IO.popen: pipe has no wasm form
+# A wasm guest runs no ruby of its own. (What WASI preview 1 has no call
+# for, such as processes and sockets, is a `.needs` item, not a line here.)
 cli/stdlib/rbconfig/ruby_is_bindir_and_ruby_install_name.rb	RbConfig.ruby: a wasm guest has no ruby executable
 
 # wasm32-wasi runs eval through the tree walker (lib/zr/eval/interpreter).
@@ -29,11 +25,6 @@ lang/eval/eval_strings_keep_their_encoding_and_the_callers_refinements.rb	the ev
 # where RubyVM.keep_script_lines kept its lines.
 core/exception/location_source_range_finds_the_node_of_each_kind_that_raises.rb	a walked def fires no TracePoint :call
 core/exception/location_source_range_in_an_eval_works_only_when_keep_script_lines_kept_its_lines.rb	walked code keeps no node spots for source_range
-
-# A build of these programs for wasm needs more memory than the limit.
-
-# WASI preview 1 opens no socket.
-cli/stdlib/socket/socket_loopback.rb	socket(2) fails with ENOTSUP on wasi
 
 # The spec examples of the slice that CI runs on wasm32-wasi
 # (lang/methods, core/array, core/hash).

@@ -67,8 +67,31 @@ module Zr
       # to allocate (no Asyncify yet, docs/explanation/roadmap.md).
       def self.fibers?(runner) = !runner.wasm?
 
+      # The parts of POSIX that WASI preview 1 has no call for, so a wasm
+      # module cannot have them (wasi/missing.rb fails each with ENOTSUP or
+      # ENOSYS). Each is true on every native target.
+      #
+      # pipes: pipe(2), and so IO.pipe, a FIFO's other end and dup.
+      def self.pipes?(runner) = !runner.wasm?
+
+      # processes: a child process or a signal to one: fork, spawn,
+      # system, exec, IO.popen, backticks and Process.kill.
+      def self.processes?(runner) = !runner.wasm?
+
+      # sockets: socket(2) and getaddrinfo, and so every socket class.
+      def self.sockets?(runner) = !runner.wasm?
+
+      # pty: a pseudo-terminal (PTY.open, PTY.spawn).
+      def self.pty?(runner) = !runner.wasm?
+
+      # ffi: a call into C through libffi. Not `dlopen`: a static musl
+      # binary has no dynamic loader, but calls into its own libc.
+      def self.ffi?(runner) = !runner.wasm?
+
       CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?), "argv0" => method(:argv0?),
-                 "dlopen" => method(:dlopen?), "fibers" => method(:fibers?) }.freeze
+                 "dlopen" => method(:dlopen?), "fibers" => method(:fibers?), "pipes" => method(:pipes?),
+                 "processes" => method(:processes?), "sockets" => method(:sockets?), "pty" => method(:pty?),
+                 "ffi" => method(:ffi?) }.freeze
 
       def self.met?(name, runner) = CHECKS.fetch(name).call(runner)
     end
