@@ -140,6 +140,13 @@ module Zr
       PRETTY_PRINTER = File.join(Library::Layout::RUNTIME_LIB, "zr/pretty_printer.rb") #: String
       IRB_SESSION = File.join(Library::Layout::RUNTIME_LIB, "zr/irb_session.rb") #: String
       SYNTAX_TREE = File.join(Library::Layout::RUNTIME_LIB, "zr/syntax_tree.rb") #: String
+      # The ports that code the walker runs requires by a computed name:
+      # Digest.const_missing requires digest/<name>, and objspace.rb
+      # requires objspace.so. A port calls Primitive, which only compiled
+      # code can, so a program that walks carries them compiled.
+      WALKED_PORTS = %w[digest/md5 digest/sha1 digest/rmd160 digest/bubblebabble objspace].map do |name|
+        File.join(Library::Layout::EXT, "#{name}.so.rb")
+      end.freeze #: Array[String]
 
       # The file that loads RubyVM::AbstractSyntaxTree's translator. A
       # program that uses the module loads it before its body. Both are
@@ -199,9 +206,13 @@ module Zr
         path = Library::Roots.eval_file(target)
         # A string that the walker runs and that names
         # RubyVM::AbstractSyntaxTree requires the translator as it runs
-        # (`ast_translator`). The translator calls Primitive, which only
-        # compiled code can, so the program carries it compiled.
-        loader.hidden(SYNTAX_TREE) if path == Library::Roots::EVAL_INTERPRETER
+        # (`ast_translator`), and some code requires a port as it runs
+        # (WALKED_PORTS). Both call Primitive, which only compiled code
+        # can, so the program carries them compiled.
+        if path == Library::Roots::EVAL_INTERPRETER
+          loader.hidden(SYNTAX_TREE)
+          WALKED_PORTS.each { |port| loader.hidden(port) }
+        end
         Require.new(:hidden, "zr/eval", path, loader.hidden(path), 0)
       end
 
