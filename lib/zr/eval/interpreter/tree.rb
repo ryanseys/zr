@@ -185,13 +185,21 @@ module Zr
         #: (Ctx ctx, Integer line) -> Array[untyped]?
         def frame_at(ctx, line) = ctx.meta && [ctx.meta, line, ctx.self_]
 
-        # Runs `hir` in `ctx` and returns the value of its body. A program
-        # that turns off CRuby's specialized instructions sends `new`
-        # (Hir::Program#plain_new); else `new` is opt_new.
+        # Runs `hir` in `ctx` and returns the value of its body. Code that
+        # turns off CRuby's specialized instructions (Hir::Program#plain_new),
+        # or that runs after the program turned them off, sends `new`, as
+        # the compiled eval does (Eval::Compiler#plain_new?); else `new` is
+        # opt_new.
         #: (Hir::Program hir, Ctx ctx) -> value
         def run(hir, ctx)
-          @plain_new = hir.plain_new
+          @plain_new = hir.plain_new || specialized_off?
           walk(hir.body, ctx)
+        end
+
+        #: () -> bool
+        def specialized_off?
+          vm = Object.const_get(:RubyVM) #: untyped
+          vm::InstructionSequence.compile_option[:specialized_instruction] == false
         end
 
         def walk(node, ctx)
