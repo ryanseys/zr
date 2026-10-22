@@ -153,6 +153,9 @@ module Zr
       def coverage_begin(path, loaded) = Primitive.zr_coverage_begin_m(path, loaded)
       def coverage_line(row, line, jump) = Primitive.zr_coverage_line_at_m(row, line, jump)
       def coverage_branch(id) = Primitive.zr_coverage_branch_m(id)
+      # Coverage's record of the method `name` of `owner`, a def of the
+      # walked code at the def site `cover`.
+      def coverage_claim(owner, name, cover) = Primitive.zr_walk_coverage_claim_m(owner, name, cover)
 
       # `Module.nesting` under `cref`, and a String literal's chill.
       def nesting(cref) = Primitive.zr_cref_nesting(cref)

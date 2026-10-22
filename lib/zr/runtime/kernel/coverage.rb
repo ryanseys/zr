@@ -436,8 +436,18 @@ module Zr::Kern
   # from a measured file has no def-site id and gets no record.
   #: (value, word, ptr) -> void
   def zr_coverage_method_claim(klass, mid, meta)
+    if meta == 0
+      return
+    end
+    zr_coverage_method_claim_site(klass, mid, FrameMeta[meta].cover)
+  end
+
+  # The same for the def site `cover` (a scope's FrameMeta cover: the
+  # def-site id plus one, 0 for none).
+  #: (value, word, word) -> void
+  def zr_coverage_method_claim_site(klass, mid, cover)
     c = zr_coverage()
-    if Coverage[c].setup == 0 || meta == 0 || FrameMeta[meta].cover == 0
+    if Coverage[c].setup == 0 || cover == 0
       return
     end
     e = zr_find_method_at(zr_origin(klass), mid)
@@ -446,10 +456,19 @@ module Zr::Kern
     end
     rows = zr_coverage_method_rows()
     MEntry[e].cover = (RArray[rows].len / 4) + 1
-    zr_ary_push(rows, zr_fix(FrameMeta[meta].cover - 1))
+    zr_ary_push(rows, zr_fix(cover - 1))
     zr_ary_push(rows, zr_origin(klass))
     zr_ary_push(rows, zr_sym(mid))
     zr_ary_push(rows, zr_fix(0))
+  end
+
+  # A def of walked code, which has no scope meta of its own: the walker
+  # defines it with define_method, and claims its record with the def's
+  # site (Hir::Def#cover). A bmethod counts its runs (zr_bmethod_fn).
+  #: (value, value, value) -> value
+  def zr_walk_coverage_claim_m(klass, name, cover)
+    zr_coverage_method_claim_site(klass, zr_sym2id(name), zr_fix2long(cover))
+    QNIL
   end
 
   # Adds one run to the method of entry `e` while coverage runs. CRuby

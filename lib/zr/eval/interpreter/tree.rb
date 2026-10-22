@@ -798,6 +798,8 @@ module Zr
           # (a redefined core method) names its line.
           call(owner, :define_method, [node.name], nil, body, private: true, at: frame_at(ctx, node.line))
           World.walk_signature(owner.instance_method(node.name), node.params.rows, node.params.arity)
+          # Coverage's record of the method, at the def's site.
+          World.coverage_claim(owner, node.name, node.cover) if node.cover
           visibility(owner, node, cref) unless node.receiver
           node.name
         end
@@ -805,7 +807,10 @@ module Zr
         # Applies to a `def` in `cref` the current default visibility of the
         # body, and the singleton copy that `module_function` makes.
         def visibility(owner, node, cref)
-          owner.singleton_class.send(:define_method, node.name, owner.instance_method(node.name)) if World.module_function?(cref)
+          if World.module_function?(cref)
+            owner.singleton_class.send(:define_method, node.name, owner.instance_method(node.name))
+            World.coverage_claim(owner.singleton_class, node.name, node.cover) if node.cover
+          end
           case World.definition_vis(node.name, cref)
           when 1 then owner.send(:private, node.name)
           when 2 then owner.send(:protected, node.name)

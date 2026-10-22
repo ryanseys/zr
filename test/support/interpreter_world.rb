@@ -152,6 +152,7 @@ module Zr
         # CRuby's Binding#local_variable_set adds each new name itself.
         def binding_push(_b, _names) = nil
         def coverage_begin(_path, _loaded) = nil
+        def coverage_claim(_owner, _name, _cover) = nil
         def coverage_line(_row, _line, _jump) = nil
         def coverage_branch(_id) = nil
 
