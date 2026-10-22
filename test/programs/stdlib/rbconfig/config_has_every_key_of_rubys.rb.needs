@@ -1,0 +1,3 @@
+# The keys of a darwin or Linux ruby (LIBPATHENV, COROUTINE_TYPE).
+macos
+linux

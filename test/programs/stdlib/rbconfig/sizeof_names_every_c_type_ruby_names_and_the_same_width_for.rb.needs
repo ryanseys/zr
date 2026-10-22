@@ -1,0 +1,3 @@
+# The widths of a 64-bit host: wasm32's long and pointers are 4 bytes.
+macos
+linux

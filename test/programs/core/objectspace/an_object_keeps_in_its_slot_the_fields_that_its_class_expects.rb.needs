@@ -1,0 +1,3 @@
+# The slot sizes of a 64-bit host: wasm32's words are 4 bytes.
+macos
+linux

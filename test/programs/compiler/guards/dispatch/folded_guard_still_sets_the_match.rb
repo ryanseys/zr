@@ -15,7 +15,7 @@ if "ab" =~ /a/
   p $~[0]
   p $1.nil?
 end
-p RUBY_PLATFORM =~ /darwin|linux/ ? $~[0].is_a?(String) : nil
+p RUBY_PLATFORM =~ /darwin|linux|wasi/ ? $~[0].is_a?(String) : nil
 x = "cd"
 p(x =~ /c/ ? $~[0] : nil)
 p("zz" =~ /a/ ? "hit" : $~.inspect)

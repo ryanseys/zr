@@ -25,7 +25,7 @@ class Hosts
   FLAVOUR = flavour.inspect
 
   # The branch that IS taken assigns for real.
-  if RUBY_PLATFORM =~ /darwin|linux|bsd/
+  if RUBY_PLATFORM =~ /darwin|linux|bsd|wasi/
     live = :unix
   else
     live = :other

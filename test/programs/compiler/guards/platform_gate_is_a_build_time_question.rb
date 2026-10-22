@@ -33,7 +33,7 @@ end
 p Other.kind
 
 # `match?` is the same test without the capture.
-p RUBY_PLATFORM.match?(/darwin|linux/)
+p RUBY_PLATFORM.match?(/darwin|linux|wasi/)
 p RUBY_ENGINE =~ /jruby|truffleruby/ ? :alt : :mri
 
 # A guard on a single alternative with nothing to split.

@@ -1,0 +1,3 @@
+# The errno tables of macOS and Linux: WASI has no ENOKEY or ENOTBLK.
+macos
+linux
