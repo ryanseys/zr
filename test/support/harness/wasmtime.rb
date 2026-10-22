@@ -108,8 +108,19 @@ module Zr
       # compile. A trap still says "wasm trap: ".
       def flags(compiler: self.compiler)
         ["-C", "compiler=#{compiler}", "-C", "cache=n", "-C", "parallel-compilation=#{spare_cores? ? "y" : "n"}",
-         "-O", "opt-level=#{opt_level}", "-D", "address-map=n", "-W", "max-memory-size=#{memory}"]
+         "-O", "opt-level=#{opt_level}", "-D", "address-map=n", "-W", "max-memory-size=#{memory}",
+         "-W", "max-wasm-stack=#{stack}"]
       end
+
+      # The engine's stack for wasm frames. It must hold more frames than
+      # the shadow stack holds records (kernel/os/wasi/stack.rb), so that a
+      # recursion that is too deep raises SystemStackError, as a binary's
+      # does; wasmtime's default (512 KiB) trapped first. A plain recursion
+      # took 190 to 390 bytes of it for each 144 bytes of records, and the
+      # shadow stack holds 2 MiB (Backend::Wasm::Codegen::STACK_PAGES).
+      # wasmtime runs the module on its main thread, so the limit stays
+      # inside the host's 8 MiB thread stack.
+      def stack = Integer(ENV.fetch("ZR_TEST_WASM_STACK", 6 << 20))
 
       def opt_level = ENV.fetch("ZR_TEST_WASM_OPT_LEVEL", "0")
 
@@ -136,8 +147,9 @@ module Zr
       # (`<cache>/wasmtime`). Each worker of a tier asks for it, so the
       # first compiles it under a lock and the others wait. Returns nil
       # when the compile fails.
-      # The key leaves out `parallel-compilation`: the output is the same
-      # with it or without it, and MT_CPU changes it. A process keeps the
+      # The key leaves out `parallel-compilation` and `max-wasm-stack`: the
+      # output is the same with either (the code reads its stack limit as
+      # it runs), and MT_CPU and ZR_TEST_WASM_STACK change them. A process keeps the
       # answer for each file by its size and time: the hash of a 68 MB
       # runtime module took 50 to 100 ms, once for each test.
       def runtime(path, compiler: self.compiler)
@@ -151,7 +163,7 @@ module Zr
       end
 
       def compiled_runtime(path, compiler)
-        kept = flags(compiler: compiler).reject { |flag| flag.start_with?("parallel-compilation=") }
+        kept = flags(compiler: compiler).reject { |flag| flag.start_with?("parallel-compilation=", "max-wasm-stack=") }
         key = Digest::SHA256.hexdigest([Digest::SHA256.file(path).hexdigest, VERSION, *kept].join("\n"))
         dir = File.join(Paths.cache, "wasmtime")
         out = File.join(dir, "#{key}.cwasm")

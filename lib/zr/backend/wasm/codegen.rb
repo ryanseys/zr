@@ -59,7 +59,10 @@ module Zr
         # (`rec < stack_limit`) hold for it too.
         SCRATCH = 16
         DATA_BASE = 32
-        STACK_PAGES = 16
+        # 2 MiB: a recursion 10,000 deep, as CRuby's VM stack holds, takes
+        # about 1.4 MiB of frame records; 1 MiB stopped at 5,440. Pages
+        # that the stack never reaches are never touched.
+        STACK_PAGES = 32
         # Data objects at most this many bytes apart share a segment. wasm
         # allows 100,000 segments, and a module with eval support has about
         # 90,000 data objects. wasmtime 48 could not compile more than 65,535
