@@ -1,0 +1,4 @@
+# Named time zones: WASI has none, and local time is UTC there, as
+# wasi-libc gives it to ruby too.
+macos
+linux
