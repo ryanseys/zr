@@ -111,8 +111,14 @@ module Zr::Kern
 
   # The class whose constants a lookup reads at `cref`: the class, or for
   # an object whose singleton class is not made yet, the object's class.
+  # The frame of a call from walked code has no cref (nil); a builtin
+  # that asks for its caller's, as Kernel#autoload does, gets the top
+  # level's.
   #: (value) -> value
   def zr_cref_lookup_class(cref)
+    if cref == QNIL
+      cref = zr_global(G_TOP_CREF)
+    end
     obj = RCref[cref].lazy
     obj != QNIL ? zr_class_of(obj) : zr_cref_klass(cref)
   end
