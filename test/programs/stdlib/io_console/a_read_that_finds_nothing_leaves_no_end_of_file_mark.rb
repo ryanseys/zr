@@ -13,6 +13,9 @@ m, s = PTY.open
 t("getch min 0") { s.getch(min: 0) }
 t("getch min 0 time") { s.getch(min: 0, time: 0.1) }
 m.print("ab"); m.flush
+# Linux echoes the input later, on a work queue: the next getch turns
+# echo off, so it waits for the echo first.
+sleep 0.05
 t("getch min 1 time 1") { s.getch(min: 1, time: 1) }
 t("getch time 1") { s.getch(time: 1) }
 m.print("xy"); m.flush
@@ -27,7 +30,12 @@ $/ = "."
 th = Thread.new { sleep 0.1; m.print("asdf\n"); m.flush }
 t("getpass with $/ = '.'") { s.getpass("> ") }
 th.join
-t("prompt") { m.readpartial(100) }
+# The echo of the newline can come in a second read on Linux.
+t("prompt") do
+  echo = +""
+  echo << m.readpartial(100) until echo.end_with?("\n")
+  echo
+end
 $/ = old
 t("cursor") do
   th = Thread.new { m.readpartial(10).then { |q| m.print("\e[12;34R"); m.flush; q } }
