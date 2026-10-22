@@ -101,7 +101,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ----------------------------------------------------------------------
 musl libc 1.2.6's src/stdlib/qsort.c, which
-lib/zr/runtime/kernel/os/linux/libc/musl/smoothsort.rb ports. musl's
+lib/zr/runtime/kernel/libc/musl/smoothsort.rb ports. musl's
 COPYRIGHT file says: "The smoothsort implementation (src/stdlib/qsort.c)
 is Copyright © 2011 Lynn Ochs and is licensed under an MIT-style
 license." The file carries this notice:

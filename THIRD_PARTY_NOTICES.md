@@ -76,7 +76,7 @@ The gems whose C zr ports, at zr's versions:
 | `lib/zr/runtime/core/random.rb` | MT19937 (Makoto Matsumoto and Takuji Nishimura), as CRuby's `missing/mt19937.c` has it; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[missing/mt19937.c]` | BSD-3-Clause |
 | `lib/zr/runtime/kernel/os/wasi/libm.rb`, `lib/zr/runtime/kernel/os/wasi/libm_*.rb` | musl 1.2.5's `src/math` (Rich Felker, et al.), with code from FreeBSD's msun (Sun Microsystems) and from Arm Limited's optimized routines; the license texts are in `licenses/musl.txt` | MIT, the Sun notice, and MIT for Arm's files |
 | `lib/zr/runtime/kernel/sort.rb` (from `zr_sort_apple_all` to `zr_sort_heap`) | FreeBSD's `qsort.c` and `heapsort.c` (The Regents of the University of California; heapsort by Ronnie Kon, Kevin Lew and Elmer Yglesias), as Apple Libc-1752 ships them; the license texts are in `licenses/freebsd-libc.txt` | BSD-3-Clause |
-| `lib/zr/runtime/kernel/os/linux/libc/musl/smoothsort.rb` | musl 1.2.6's `src/stdlib/qsort.c`, Lynn Ochs's smoothsort; the license text is in `licenses/musl.txt` | MIT |
+| `lib/zr/runtime/kernel/libc/musl/smoothsort.rb` | musl 1.2.6's `src/stdlib/qsort.c`, Lynn Ochs's smoothsort; the license text is in `licenses/musl.txt` | MIT |
 | `lib/zr/runtime/kernel/os/wasi/strtod.rb` | the decimal conversion of Go's strconv package (`decimal.go`, `atof.go`; The Go Authors); the license text is in `licenses/go.txt` | BSD-3-Clause |
 | `lib/zr/runtime/kernel/digest.rb`, `lib/zr/runtime/ext/digest/*.rb`, `lib/zr/runtime/ext/digest.so.rb` | CRuby's `ext/digest`: MD5 (L. Peter Deutsch, Aladdin Enterprises; zlib-style; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/md5/md5.c]`), RIPEMD-160 (Antoon Bosselaers, Katholieke Universiteit Leuven; BSD; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/rmd160/rmd160.c]`), SHA-2 (Aaron D. Gifford; BSD-3-Clause; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/sha2/sha2.c]`), SHA-1 (Steve Reid, public domain), and ruby's own glue | as named, and Ruby or BSD-2-Clause for the glue |
 | `lib/zr/runtime/ext/psych/libyaml/*.rb` | libyaml 0.2.5 (Kirill Simonov, Ingy döt Net); the license text is in `licenses/libyaml.txt` | MIT |
@@ -103,7 +103,7 @@ Onigmo (BSD-2-Clause), MT19937 (BSD-3-Clause), Ryu (Apache-2.0 or
 Boost-1.0), fpconv (MIT and Boost-1.0), the Unicode tables (Unicode-3.0) and ruby's
 own code (Ruby or BSD-2-Clause). A macOS binary also contains the port
 of FreeBSD's qsort and heapsort (BSD-3-Clause), and a binary for a musl
-target the port of musl's smoothsort (MIT). A WASI module also contains the port
+target and a WASI module the port of musl's smoothsort (MIT). A WASI module also contains the port
 of musl's libm (MIT, and the Sun notice) and the port of Go's decimal
 conversion (BSD-3-Clause). A program that requires zlib, digest,
 psych, nkf, json, ffi or openssl also contains that part, and the files

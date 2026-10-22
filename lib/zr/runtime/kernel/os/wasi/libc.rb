@@ -1,11 +1,11 @@
 module Zr::Kern
   # The parts of wasi-libc that ruby behavior shows: the sort, which sets
-  # the order of equal elements. ruby.wasm's order is different from both
-  # darwin's and musl's. zr does not copy it yet, so a module sorts as
-  # darwin does.
+  # the order of equal elements. wasi-libc's qsort_r is musl's smoothsort
+  # (kernel/libc/musl/smoothsort.rb), and the wasi lane checks a module
+  # against the musl recordings.
   #: (ptr, word) -> void
   def zr_os_sort(st, n)
-    zr_sort_range(st, 0, n)
+    zr_smoothsort(st, n)
   end
 
   # ruby_qsort: a module runs no C extension.

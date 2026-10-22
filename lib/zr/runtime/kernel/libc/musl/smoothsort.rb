@@ -1,6 +1,7 @@
 # musl's qsort_r: Lynn Ochs's smoothsort (MIT, 2011), as musl 1.2.6
-# builds it for aarch64. When musl is the C library, ruby's `Array#sort`
-# uses this routine, so it sets the order of equal elements. Each
+# builds it for aarch64. When musl is the C library (wasi-libc is musl
+# too), ruby's `Array#sort` uses this routine, so it sets the order of
+# equal elements. Each
 # comparison and each move is the same as musl's, in the same order.
 # It works on the elements of a Sort (see lib/zr/runtime/kernel/sort.rb) by
 # index, not by address. See THIRD_PARTY_NOTICES.md and

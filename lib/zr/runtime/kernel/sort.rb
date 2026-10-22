@@ -3,8 +3,9 @@ module Zr::Kern
   # order of equal elements comes from that routine. `zr_os_sort` refers to
   # the OS's routine. For macOS, this file has the Bentley-McIlroy
   # algorithm, on records of `stride` bytes whose first word is the Value
-  # to compare. It uses indexes in place of pointers. musl's smoothsort is
-  # in lib/zr/runtime/kernel/os/linux/libc/musl/smoothsort.rb. On glibc,
+  # to compare. It uses indexes in place of pointers. musl's smoothsort,
+  # which the musl targets and WASI sort with, is in
+  # lib/zr/runtime/kernel/libc/musl/smoothsort.rb. On glibc,
   # the sort calls glibc's own qsort_r
   # (lib/zr/runtime/kernel/os/linux/libc/glibc/libc.rb).
   #

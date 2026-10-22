@@ -1,7 +1,7 @@
 module Zr::Kern
   # The parts of musl that ruby behavior shows. qsort_r sets the order of
-  # equal elements in a sort. musl's qsort_r is smoothsort (smoothsort.rb
-  # in this directory).
+  # equal elements in a sort. musl's qsort_r is smoothsort
+  # (kernel/libc/musl/smoothsort.rb).
   #: (ptr, word) -> void
   def zr_os_sort(st, n)
     zr_smoothsort(st, n)

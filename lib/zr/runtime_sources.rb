@@ -135,15 +135,19 @@ module Zr
     end
 
     # The kernel files: the portable kernel, then the POSIX layer that the
-    # OSes with POSIX threads share (not wasm), then its OS layer, that
-    # layer's part for the C library and its part for the architecture,
-    # then its architecture layer,
-    # then the C API for a target that runs native C extensions (not wasm).
+    # OSes with POSIX threads share (not wasm), then musl's part for a
+    # target whose C library is musl's (the musl targets, and WASI, whose
+    # wasi-libc is musl), then its OS layer, that layer's part for the C
+    # library and its part for the architecture, then its architecture
+    # layer, then the C API for a target that runs native C extensions
+    # (not wasm).
     #: () -> Array[String]
     def kernel_files
       native = target.arch != :wasm32
+      musl = target.libc == :musl || target.os == :wasi
       Dir[File.join(Paths::RUNTIME, "kernel/*.rb")].sort +
         (native ? Dir[File.join(Paths::RUNTIME, "kernel/os/posix/*.rb")].sort : []) +
+        (musl ? Dir[File.join(Paths::RUNTIME, "kernel/libc/musl/*.rb")].sort : []) +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/*.rb")].sort +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/libc/#{target.libc}/*.rb")].sort +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/arch/#{target.arch_layer}/*.rb")].sort +
