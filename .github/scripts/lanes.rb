@@ -48,12 +48,16 @@ module Lanes
   #   keep its cache and its log. A runner that is lost keeps neither:
   #   darwin's runner was lost after 67 to 74 minutes of a build, where a
   #   cold build takes 10 to 20.
+  # - slice: the programs of a push, when they are not SLICE (or
+  #   WASM_SLICE). darwin's leaves out lang/methods: its lane runs them
+  #   with the method cache verified (lane.yml), which runs each hit too.
   # - tier: what the lane's failure stops (docs/how-to/release.md). A
   #   release takes each lane whose tests passed; a tier 1 lane that did
   #   not pass stops it. A tier 2 lane (the default) or a tier 3 one that
   #   did not pass is left out of it.
   RUNNERS = {
-    "aarch64-apple-darwin" => { os: "macos-26", verify: "0", timeout: 150, build_timeout: 45, jobs: "2", shards: 6, stage1: true, tier: 1 },
+    "aarch64-apple-darwin" => { os: "macos-26", verify: "0", timeout: 150, build_timeout: 45, jobs: "2", slice: "core/string", shards: 6,
+                                stage1: true, tier: 1 },
     "aarch64-linux-gnu" => { os: "ubuntu-24.04-arm", shards: 4, seconds: "180" },
     "aarch64-linux-musl" => { os: "ubuntu-24.04-arm", container: true, vendor: true, shards: 4, seconds: "180" },
     "x86_64-linux-gnu" => { os: "ubuntu-24.04", shards: 4, seconds: "180", tier: 1 },
@@ -81,7 +85,7 @@ module Lanes
       { triple: target.triple, os: runner.fetch(:os), experimental: target.support == :experimental,
         container: runner.fetch(:container, false), jobs: runner.fetch(:jobs, ""), verify: runner.fetch(:verify, "1"),
         timeout: runner.fetch(:timeout, 90), build_timeout: runner.fetch(:build_timeout, 60), builds: [target.triple, *runner[:host]],
-        slice: target.object_format == :wasm ? WASM_SLICE : SLICE, shards: (1..shards).to_a, of: shards,
+        slice: runner[:slice] || (target.object_format == :wasm ? WASM_SLICE : SLICE), shards: (1..shards).to_a, of: shards,
         test_seconds: runner.fetch(:seconds, "60"), vendor: runner.fetch(:vendor, false), stage1: runner.fetch(:stage1, false),
         glibc: target.libc == :glibc, tier: runner.fetch(:tier, 2), gem_platform: target.gem_platform }
     end
