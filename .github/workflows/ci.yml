@@ -28,7 +28,12 @@ env:
 # A new push to a pull request or to main stops the run of the previous
 # push there. The nightly run and a run by hand have a group of their
 # own, so neither is dropped: to release a commit whose run a later
-# push stopped, run CI on it by hand (docs/how-to/release.md).
+# push stopped, run CI on it by hand (docs/how-to/release.md). A group
+# for each commit would not stop a push and a run by hand of one commit
+# from both building every runtime: the second run would wait and then
+# do the same work, or stop the full run, and a waiting run can replace
+# another. Instead, a push or nightly run that a full run of its commit
+# replaces builds and tests nothing (.github/scripts/changes.rb).
 concurrency:
   group: ${{ contains(fromJSON('["push", "pull_request"]'), github.event_name) && format('ci-{0}', github.ref) || format('ci-run-{0}', github.run_id) }}
   cancel-in-progress: ${{ contains(fromJSON('["push", "pull_request"]'), github.event_name) }}
@@ -43,9 +48,11 @@ jobs:
   checks:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # `actions: read` lists the other runs of this commit (changes.rb).
     permissions:
       contents: read
       pull-requests: read
+      actions: read
     outputs:
       code: ${{ steps.changes.outputs.code }}
       full: ${{ steps.changes.outputs.full }}

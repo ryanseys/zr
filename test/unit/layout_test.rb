@@ -123,6 +123,27 @@ class LayoutTest < Minitest::Test
     refute CIGate.ok?([{ "name" => CIGate::JOB, "conclusion" => "failure" }, { "name" => "ci-ok", "conclusion" => "success" }])
   end
 
+  # A push or nightly run gives its work to a full run of its commit on
+  # its branch, so one commit builds each runtime once. A run by hand
+  # never gives its work away, and a run on another branch (a tag's run,
+  # which makes that tag's prerelease) does not take it.
+  def test_a_push_defers_to_a_full_run_of_its_commit
+    require_relative "../../.github/scripts/changes"
+    run = ->(id, event, status, conclusion = nil, branch: "main") do
+      { "id" => id, "event" => event, "status" => status, "conclusion" => conclusion, "head_branch" => branch }
+    end
+    going = run.(2, "workflow_dispatch", "in_progress")
+
+    assert_equal 2, Changes.superseding([run.(1, "push", "in_progress"), going], event: "push", branch: "main", run_id: 1)&.fetch("id")
+    assert_nil Changes.superseding([run.(2, "workflow_dispatch", "queued", branch: "v1")], event: "push", branch: "main", run_id: 1)
+    assert_nil Changes.superseding([run.(2, "workflow_dispatch", "completed", "success")], event: "push", branch: "main", run_id: 1)
+    assert_equal 2, Changes.superseding([run.(2, "workflow_dispatch", "completed", "success")], event: "schedule", branch: "main",
+                                                                                                 run_id: 3)&.fetch("id")
+    assert_nil Changes.superseding([run.(2, "workflow_dispatch", "completed", "failure")], event: "schedule", branch: "main", run_id: 3)
+    assert_nil Changes.superseding([run.(1, "push", "in_progress")], event: "workflow_dispatch", branch: "main", run_id: 2)
+    assert_nil Changes.superseding([run.(3, "schedule", "in_progress")], event: "schedule", branch: "main", run_id: 3)
+  end
+
   # CI runs zr on each ruby series that zr is tested with (RUBY_TESTED):
   # the pinned one from .ruby-version, and each other one by its number.
   def test_ci_runs_each_tested_ruby

@@ -132,7 +132,9 @@ deployment in the Release workflow. By hand, the steps are:
    `docs/explanation/roadmap.md`, not in the notes.
 3. Commit, and push to `main`. Wait until the run passes `ci-ok` and
    makes the commit's prerelease. To run every program on the commit
-   first, run CI by hand (`gh workflow run ci.yml --ref main`).
+   first, run CI by hand (`gh workflow run ci.yml --ref main`). A push
+   run whose `checks` job sees that run going builds and tests nothing,
+   and the run by hand makes the prerelease.
 4. Tag the commit, and push the tag:
 
    ```console
