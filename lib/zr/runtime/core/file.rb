@@ -1734,7 +1734,7 @@ class Dir
       return nil if base.nil?
 
       base = File.send(:path_of, base)
-      base.empty? ? nil : base
+      base.empty? ? nil : Kernel.on_disk(base)
     end
 
     # dir_globs: each pattern of a list, which must name a path.
@@ -1769,7 +1769,9 @@ class Dir
       @result_enc = pattern.encoding
       @result_enc = Encoding.find("filesystem") if @result_enc == Encoding::US_ASCII
       @result_enc = Encoding::BINARY if @result_enc == Encoding::US_ASCII
-      pattern = File.send(:os_path, pattern) if @real_basename
+      # A path below the build's root (a library's `__dir__`) reads the
+      # directories where they are on disk, as every other call does.
+      pattern = @real_basename ? File.send(:os_path, pattern) : Kernel.on_disk(pattern)
       @pattern = pattern
       @enc = @real_basename ? Encoding::UTF_8 : pattern.encoding
       @onig = Regexp.encoder(@enc)
