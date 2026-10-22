@@ -413,9 +413,21 @@ module Zr
       # walked code's own frame (kernel/eval_walk.rb). The frame keeps its
       # kind, so `super`, `binding` and a bare `private` work in it.
       # The eval forms (Kernel#eval, Module#class_eval) are ruby's C
-      # methods, whose frames show, so theirs show too.
+      # methods, whose frames show, so theirs show too. So do the frames of
+      # ruby's own library that eval support carries (json's common.rb): a
+      # program that requires it runs that code as its own.
       #: () -> bool
-      def walker_frame? = @l.support? && !@l.internal? && !@l.file.match?(EVAL_FORMS) ? true : false
+      def walker_frame?
+        return false unless @l.support? && !@l.internal?
+
+        # zr's own code (the front end and its prism port, the eval
+        # compiler and walker), not the other ports of ruby's C libraries
+        # (json's parser), whose methods show as C methods do.
+        file = @l.file
+        ext = "#{Library::Layout::EXT}/"
+        own = file.start_with?("#{Paths::ROOT}/lib/zr/") && (!file.start_with?(ext) || file.start_with?("#{ext}prism/"))
+        own && !file.match?(EVAL_FORMS)
+      end
 
       # The files of the eval forms (runtime/lib/zr/eval).
       EVAL_FORMS = %r{/zr/eval/(?:interpreter_)?forms\.rb\z}
