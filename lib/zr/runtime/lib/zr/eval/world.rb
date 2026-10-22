@@ -171,6 +171,12 @@ module Zr
       def cvar_set(cref, name, value) = Primitive.zr_cvar_set_m(cref, name, value)
 
       def gvar_get(name) = Primitive.zr_gvar_get_m(name)
+      # A frozen String literal of the walked code (Tree#frozen_string):
+      # `kind` 0 interns, 1 interns unless String#freeze is redefined, 2
+      # unless String#-@ is, and 3 freezes a copy.
+      def frozen_string(text, kind) = Primitive.zr_walk_frozen_m(text, kind)
+      # A frozen copy of `text` that names `file:line`, where it was made.
+      def debug_string(text, file, line) = Primitive.zr_walk_debug_string_m(text, file, line)
       # The global that `$name` aliases, from the record of an `alias` that
       # ran, or nil (Runtime#alias_of).
       def alias_of(name) = Primitive.zr_gvar_get_m(Hir::Build.alias_record(name))

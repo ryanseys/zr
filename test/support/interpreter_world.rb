@@ -192,6 +192,8 @@ module Zr
 
         def gvar_get(name) = ::TOPLEVEL_BINDING.eval(name.to_s)
         def gvar_defined?(name) = ::TOPLEVEL_BINDING.eval("defined?(#{name})")
+        def frozen_string(text, kind) = kind == 3 ? text.dup.freeze : -text
+        def debug_string(text, _file, _line) = text.dup.freeze
         # CRuby keeps no record of an alias that the walker can read.
         def alias_of(_name) = nil
 

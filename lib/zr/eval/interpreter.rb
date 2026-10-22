@@ -67,19 +67,22 @@ module Zr
       # walk runs when the caller runs the code (`Kernel.run_code`). The
       # string is parsed now, so a syntax error and the parser's warnings
       # come from the compile, as in ruby.
-      # `warned` marks a compile that gave the parser's warnings already.
+      # `warned` marks a compile that gave the parser's warnings already,
+      # and `debug_frozen` one with debug_frozen_string_literal.
       class Deferred
         attr_reader :source #: String
         attr_reader :file #: String
         attr_reader :line #: Integer
         attr_reader :warned #: bool
+        attr_reader :debug_frozen #: bool
 
-        #: (String source, String file, Integer line, bool warned) -> void
-        def initialize(source, file, line, warned)
+        #: (String source, String file, Integer line, bool warned, ?debug_frozen: bool) -> void
+        def initialize(source, file, line, warned, debug_frozen: false)
           @source = source
           @file = file
           @line = line
           @warned = warned
+          @debug_frozen = debug_frozen
         end
       end
 
@@ -92,13 +95,14 @@ module Zr
         raise ArgumentError, "invalid source encoding" unless source.encoding.ascii_compatible?
 
         Interpreter.check(source, file, line.to_int, warn_now)
-        Deferred.new(source, file, line.to_int, warn_now)
+        Deferred.new(source, file, line.to_int, warn_now, debug_frozen: debug_frozen ? true : false)
       end
 
       # Walks code that `compile` deferred, in a new top-level `scope`.
       #: (Deferred code, untyped self_, untyped cref, Binding scope) -> untyped
       def walk_code(code, self_, cref, scope)
-        Interpreter.evaluate(code.source, scope, file: code.file, line: code.line, self_: self_, cref: cref, block: nil, quiet: code.warned)
+        Interpreter.evaluate(code.source, scope, file: code.file, line: code.line, self_: self_, cref: cref, block: nil, quiet: code.warned,
+                                                 debug_frozen: code.debug_frozen)
       end
     end
   end

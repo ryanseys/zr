@@ -188,4 +188,35 @@ module Zr::Kern
     end
     zr_require(path, Machine.ptr(zr_fix2long(fn)), 3)
   end
+
+  # A frozen String literal of walked code, as the compiled literal gives
+  # it (zr_str_literal_freeze and its kin): `kind` 0 is the interned String
+  # of `text`; 1 the same unless the program redefined String#freeze, which
+  # then runs; 2 the same for String#-@; 3 a frozen copy, not interned.
+  #: (value, value) -> value
+  def zr_walk_frozen_m(text, kind)
+    copy = zr_str_exact_copy(zr_str_new(RString[text].ptr, RString[text].len), text)
+    k = zr_fix2long(kind)
+    if k == 1 && (Machine.gates & GATE_FREEZE) != 0
+      return zr_send(copy, Machine.id(:freeze), 0, 0)
+    end
+    if k == 2 && (Machine.gates & GATE_STR_UMINUS) != 0
+      return zr_send(copy, Machine.id(:-@), 0, 0)
+    end
+    if k == 3
+      RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
+      return copy
+    end
+    zr_str_intern(copy)
+  end
+
+  # debug_frozen_string_literal: a frozen copy of `text` that names
+  # `file:line`, where it was made (zr_str_debug_frozen).
+  #: (value, value, value) -> value
+  def zr_walk_debug_string_m(text, file, line)
+    copy = zr_str_exact_copy(zr_str_new(RString[text].ptr, RString[text].len), text)
+    zr_str_created(copy, RString[file].ptr, RString[file].len, zr_fix2long(line))
+    RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
+    copy
+  end
 end

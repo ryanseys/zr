@@ -26,6 +26,7 @@ module Zr
         # @rbs @file: String
         # @rbs @frame: Binding
         # @rbs @once: Hash[Hir::Once, value]?
+        # @rbs @frozen: Hash[Hir::FrozenString, String]?
         # @rbs @regexps: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]?
         # @rbs @svars: svars?
         # @rbs @loaded: bool
@@ -188,7 +189,7 @@ module Zr
           when Hir::Seq then node.stmts.map { |s| walk(s, ctx) }.last
           when Hir::Literal then literal(node)
           when Hir::PathLiteral then World.path(literal(node.literal))
-          when Hir::FrozenString then node.value
+          when Hir::FrozenString then frozen_string(node)
           when Hir::SelfRef then ctx.self_
           when Hir::Trace then trace(node)
           when Hir::Cover then World.coverage_branch(node.id)
@@ -274,6 +275,21 @@ module Zr
           return value unless value.is_a?(::String)
 
           node.chilled ? World.chill(value.dup) : value.dup
+        end
+
+        # A frozen String literal, as the compiler gives it: the one
+        # interned String of its text (`shared` true, nil and :uminus, with
+        # a send of `freeze` or `-@` when the program redefines it), a
+        # frozen String of its own for a text that is not UTF-8 (false), or
+        # under debug_frozen_string_literal one that knows its file and line
+        # (:debug). The last two are one object for the site.
+        #: (Hir::FrozenString node) -> String
+        def frozen_string(node)
+          case node.shared
+          when :debug then (@frozen ||= {}.compare_by_identity)[node] ||= World.debug_string(node.value, @file, node.line)
+          when false then (@frozen ||= {}.compare_by_identity)[node] ||= World.frozen_string(node.value, 3)
+          else World.frozen_string(node.value, { true => 0, nil => 1, uminus: 2 }.fetch(node.shared))
+          end
         end
 
         # A Regexp literal is one frozen object for its site, as ruby

@@ -11,19 +11,21 @@ module Zr
       # string becomes a local of the Binding, as in ruby. `loaded` marks a
       # file that a load or require walks (`walk_next`): Coverage measures
       # it as a file, not as an eval. The parser's warnings come before the
-      # walk, unless a compile gave them already (`quiet`).
+      # walk, unless a compile gave them already (`quiet`). `debug_frozen`
+      # builds with debug_frozen_string_literal: each frozen literal knows
+      # where it was made.
       #
       # It reads the runtime only through `World`, so the tests run it on
       # CRuby over a `World` of plain Ruby (test/support/interpreter_world.rb).
       # @rbs (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped,
-      #        ?add: bool, ?loaded: bool, ?quiet: bool) -> untyped
-      def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false, quiet: false)
+      #        ?add: bool, ?loaded: bool, ?quiet: bool, ?debug_frozen: bool) -> untyped
+      def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false, quiet: false, debug_frozen: false)
         file = string(file)
         source = string(source)
         # eval_make_iseq: a source that is not ASCII compatible cannot be read.
         raise ArgumentError, "invalid source encoding" unless source.encoding.ascii_compatible?
 
-        hir = built(source, file, line.to_int, scope, loaded)
+        hir = built(source, file, line.to_int, scope, loaded, debug_frozen: debug_frozen)
         hir.warnings.each { |text| parse_warning(text) } unless quiet
         own = Tree::Scope.new(hir.locals)
         tree = Tree.new(file, scope, loaded: loaded)
@@ -72,18 +74,18 @@ module Zr
       # tree of its first build, as the eval compiler runs the code of its
       # first compile (a loop of `eval("")`). Under Coverage each build
       # takes counters of its own, so none is kept.
-      #: (String source, String file, Integer line, Binding scope, bool loaded) -> Hir::Program
-      def self.built(source, file, line, scope, loaded)
+      #: (String source, String file, Integer line, Binding scope, bool loaded, ?debug_frozen: bool) -> Hir::Program
+      def self.built(source, file, line, scope, loaded, debug_frozen: false)
         # Hir only tests a name for membership, so a slot with no name
         # matches nothing.
         names = World.binding_scopes(scope) #: Array[Array[Symbol]]
         params = World.binding_parameters(scope)
-        return kept_tree(source, file, line, names, params, loaded: loaded) if Ractor.main?
+        return kept_tree(source, file, line, names, params, loaded: loaded, debug_frozen: debug_frozen) if Ractor.main?
 
         # The parse reads the main Ractor's tables (RbConfig, prism's), so
         # another Ractor's tree is built there, as the compiler compiles
         # there (Eval::OnMain).
-        Ractor.__send__(:on_main) { kept_tree(source, file, line, names, params, loaded: loaded) }
+        Ractor.__send__(:on_main) { kept_tree(source, file, line, names, params, loaded: loaded, debug_frozen: debug_frozen) }
       end
 
       # The tree of `source`, the one built before for the same string and
@@ -97,10 +99,11 @@ module Zr
       # @rbs names: Array[Array[Symbol]]
       # @rbs params: untyped
       # @rbs loaded: bool
+      # @rbs debug_frozen: bool
       # @rbs return: Hir::Program
-      def self.kept_tree(source, file, line, names, params, loaded:)
+      def self.kept_tree(source, file, line, names, params, loaded:, debug_frozen: false)
         coverage = covering
-        key = [-source, source.encoding, -file, line, names, params, loaded] if coverage.nil?
+        key = [-source, source.encoding, -file, line, names, params, loaded, debug_frozen] if coverage.nil?
         trees = Eval.walk_trees
         if key && (kept = trees[key])
           raise kept.dup if kept.is_a?(Exception)
@@ -111,7 +114,8 @@ module Zr
 
         asked = {} #: Hash[Symbol, Symbol?]
         begin
-          hir = built_new(source, file, line, names, params, coverage: coverage, loaded: loaded, asked: asked)
+          hir = built_new(source, file, line, names, params, coverage: coverage, loaded: loaded, asked: asked,
+                                                             debug_frozen: debug_frozen)
         rescue Hir::Invalid, SyntaxError => e
           keep_tree(trees, key, e.dup) if key
           raise
@@ -135,16 +139,17 @@ module Zr
       # $~` that ran), as the eval compiler's does, and `asked` gets the
       # answers.
       # @rbs (String source, String file, Integer line, Array[Array[Symbol]] names, untyped params, coverage: untyped,
-      #       loaded: bool, ?asked: Hash[Symbol, Symbol?]) -> Hir::Program
-      def self.built_new(source, file, line, names, params, coverage:, loaded:, asked: {})
+      #       loaded: bool, ?asked: Hash[Symbol, Symbol?], ?debug_frozen: bool) -> Hir::Program
+      def self.built_new(source, file, line, names, params, coverage:, loaded:, asked: {}, debug_frozen: false)
         own = [] #: Array[Symbol]
         # The front end joins, splits and reads lines with ruby's defaults,
         # as the eval compiler's does (`Eval.plainly`); the walk itself runs
         # with the program's separators.
         measured = loaded ? !coverage.nil? : coverage&.send(:measures_evals?) || false
+        options = BuildOptions.new(trace: measured, switches: Hir::Switches.new(debug_frozen_string_literal: debug_frozen))
         hir = Runtime.plain_separators do
           Runtime.compiling do
-            Hir.build(source, file, BuildOptions.new(trace: measured), program: false, line: line, scopes: [*names.reverse, own], method: params,
+            Hir.build(source, file, options, program: false, line: line, scopes: [*names.reverse, own], method: params,
                                                                     def_base: (coverage.send(:next_def_site) if measured),
                                                                     branch_base: (coverage.send(:next_branch_id) if measured),
                                                                     aliases: ->(old) { asked[old] = World.alias_of(old) })
