@@ -53,7 +53,6 @@ module Zr
           "prism" => ["lib/zr/runtime/ext/prism/ruby/*.rb: the pure-Ruby prism", -> { require_relative "gen/prism"; PrismRuby }],
           "prism_encoding_tables" => ["lib/zr/runtime/ext/prism/ruby/encoding_tables.rb: prism's encodings",
                                       -> { require_relative "gen/prism_encoding_tables"; PrismEncodingTables }],
-          "support" => ["docs/reference/support.md: what zr refuses, from the compiler", -> { require_relative "gen/support"; Support }],
           "capi" => ["docs/reference/c-api.md: the C API that zr gives C extensions", -> { require_relative "gen/capi"; CApi }],
           "gem-compat" => ["docs/reference/gem-compat.md: how far each gem gets, from log/gems/compat.tsv",
                            -> { require_relative "gen/gem_compat"; GemCompat }],

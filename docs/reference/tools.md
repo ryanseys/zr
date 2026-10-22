@@ -230,7 +230,6 @@ in `tool/gen/`.
 | `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `lib/zr/runtime/core/os/<os>/` and `lib/zr/runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`. |
 | `zr-dev gen gem-compat` | `docs/reference/gem-compat.md`: how far each gem gets with zr, from `log/gems/compat.tsv`. It runs no gem; `zr-dev gems sweep --save` writes the table. The table is not committed, so `gen all` leaves this page out, and without the table the command stops. |
 | `zr-dev gen capi` | `docs/reference/c-api.md`: the functions and data of ruby's C API that the kernel gives C extensions, from `lib/zr/runtime/kernel/capi/*.rb` |
-| `zr-dev gen support` | `docs/reference/support.md`: what zr refuses, from the compiler, and the baseline of each target |
 | `zr-dev gen perf` | `docs/explanation/performance.md`: the run and build times, from the newest reports in `benchmark/results/` |
 | `zr-dev gen targets` | The table of targets in `README.md`, and the table of how far CI checks each target in `docs/reference/targets.md`, from `Zr::Target::ALL` and `Zr::Target::SUPPORT`: the lines between the two `targets` markers of each file |
 | `zr-dev gen redefinitions` | `lib/zr/runtime/core/redefinitions.rb`: the core methods whose redefinition makes ruby warn. It runs ruby for each core method, in parallel. |

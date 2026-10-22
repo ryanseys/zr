@@ -95,7 +95,7 @@ jobs:
         continue-on-error: true
         run: |
           stale=0
-          for page in support capi perf targets; do
+          for page in capi perf targets; do
             ruby tool/zr-dev.rb gen "$page" --check || { echo "::warning::run 'bin/zr-dev gen $page': its page is out of date"; stale=1; }
           done
           exit "$stale"
