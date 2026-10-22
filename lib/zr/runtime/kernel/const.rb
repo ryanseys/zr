@@ -230,10 +230,13 @@ module Zr::Kern
     end
     # The tree-walking interpreter reads a constant for the program that
     # it walks (`zr_walk_const`): it sees what compiled code there sees.
-    if Machine.load64(Machine.static(:const_for_program, 8), 0) > 0
+    # Code that the read runs (const_missing, an autoload's require, the
+    # message of a NameError) pushes a frame, and reads as itself.
+    rec = Task[zr_task()].top
+    walked = Machine.load64(Machine.static(:const_for_program, 8), 0)
+    if walked != 0 && Machine.ptr(walked) == rec
       return false
     end
-    rec = Task[zr_task()].top
     reflective = Machine.load64(Machine.static(:const_reflective, 8), 0) > 0
     if !reflective && rec != 0 && (FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN)
       return true
@@ -2181,11 +2184,14 @@ module Zr::Kern
   # zr/eval/world.rb). Its own frames are hidden, so a read would see
   # the constants that only eval support set (Zr, Prism). These read as
   # the walked program: `kind` 0 is `Name` under `at` (a cref), 1 is
-  # `defined?(Name)`, 2 is `at::Name` and 3 is `defined?(at::Name)`.
+  # `defined?(Name)`, 2 is `at::Name` and 3 is `defined?(at::Name)`. The
+  # static holds the frame that reads as the program: the top frame of
+  # the read, and not a frame that the read pushes, or another thread's.
   #: (word, value, value) -> value
   def zr_walk_const(kind, at, name)
     flag = Machine.static(:const_for_program, 8)
-    Machine.store64(flag, 0, Machine.load64(flag, 0) + 1)
+    outer = Machine.load64(flag, 0)
+    Machine.store64(flag, 0, Machine.word(Task[zr_task()].top))
     id = zr_sym2id(name)
     r = if kind == 0
           zr_const_get(at, id)
@@ -2196,7 +2202,7 @@ module Zr::Kern
         else
           zr_const_defined_at(at, id)
         end
-    Machine.store64(flag, 0, Machine.load64(flag, 0) - 1)
+    Machine.store64(flag, 0, outer)
     r
   end
 
