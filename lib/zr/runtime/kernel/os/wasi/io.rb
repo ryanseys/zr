@@ -788,12 +788,17 @@ Capabilities insufficient
     Machine.static(:wasi_cwd, CWD_MAX)
   end
 
+  # The kept directory, as getcwd(3) gives it: a directory that is gone
+  # fails with the errno of its stat (ENOENT), as the kernel's does.
   #: (ptr, word) -> ptr
   def getcwd(buf, size)
     cwd = zr_wasi_cwd()
     len = zr_cstr_len(cwd)
     if size < (len == 0 ? 2 : len + 1)
       zr_os_set_errno(ERANGE)
+      return Machine.ptr(0)
+    end
+    if len > 0 && zr_wasi_path_stat(cwd, Machine.slot(STAT_LEN), Machine.i32(1)) < Machine.i32(0)
       return Machine.ptr(0)
     end
     if len == 0
