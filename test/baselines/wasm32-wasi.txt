@@ -20,6 +20,9 @@ lang/methods/a_block_parameter_of_nil_refuses_a_block_after_the_arity_and_keywor
 compiler/cache/snippet_refines_and_uses_at_run_time.rb	the eval walker refuses `using`
 lang/eval/eval_forwards_anonymous_parameters_and_sees_refinements.rb	the eval walker does not see the caller's refinements
 lang/eval/eval_strings_keep_their_encoding_and_the_callers_refinements.rb	the eval walker does not see the caller's refinements
+lang/refinements/a_file_that_a_computed_require_compiles_with_using_leaves_later_compiles_their_refinements.rb	the eval walker refuses `using`
+lang/refinements/a_using_in_an_eval_stays_in_its_binding.rb	the eval walker refuses `using`
+lang/refinements/keeps_a_refinement_a_snippet_activates_out_of_the_compiler_s.rb	the eval walker refuses `using`
 # A walked def fires no TracePoint :call, and the walker keeps no node
 # spots, so Location#source_range finds no node in walked code, even
 # where RubyVM.keep_script_lines kept its lines.
