@@ -860,6 +860,25 @@ class File < IO
   end
   private_class_method :stat_either
 
+  # rb_check_realpath_internal gives the path back in the encoding of the
+  # path it was given (`wanted`): converted back where os_path converted
+  # it (macOS), else its bytes as they are, which the system kept; and its
+  # bytes under that encoding where they do not convert. The walk where
+  # the system has no realpath (WASI) answers the same way.
+  def self.in_encoding_of(result, given, wanted)
+    return result if result.encoding == wanted || wanted == Encoding::US_ASCII
+
+    result = +result
+    return result.force_encoding(wanted) if given.encoding == wanted
+
+    begin
+      result.encode(wanted)
+    rescue EncodingError
+      result.force_encoding(wanted)
+    end
+  end
+  private_class_method :in_encoding_of
+
   # rb_check_realpath_internal: realpath(3), and where it stops at a
   # file in the middle or at a name that exists after all, the walk of
   # rb_check_realpath_emulate.
@@ -869,19 +888,7 @@ class File < IO
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
     given = os_path(path)
     result = Primitive.zr_realpath_m(given)
-    # rb_check_realpath_internal gives the path back in the encoding of the
-    # path it was given: converted back where os_path converted it (macOS),
-    # else its bytes as they are, which the system kept; and its bytes
-    # under that encoding where they do not convert.
-    if result.is_a?(String) && result.encoding != wanted && wanted != Encoding::US_ASCII
-      return result.force_encoding(wanted) if given.encoding == wanted
-
-      begin
-        return result.encode(wanted)
-      rescue EncodingError
-        return result.force_encoding(wanted)
-      end
-    end
+    return in_encoding_of(result, given, wanted) if result.is_a?(String)
     return result unless result.is_a?(Integer)
     # A file compiled into the program, with no file on disk, is its own
     # real path: no link leads to it. Under WASI (ENOSYS) the walk below
@@ -900,7 +907,7 @@ class File < IO
       rescue SystemCallError
         nil
       end
-      return realpath_walk(path, false)
+      return in_encoding_of(realpath_walk(path, false), given, wanted)
     end
     return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 
