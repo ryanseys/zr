@@ -463,7 +463,8 @@ module Zr
           end
           here = Dir.pwd
           interrupt = Signal.trap("INT") { nil }
-          system("wasmtime", "run", "-W", "max-wasm-stack=#{6 << 20}", "--dir", ".", "--dir", "#{here}::#{here}", "--env", "PWD=#{here}", *preload, out, *rest)
+          system("wasmtime", "run", "-W", "max-wasm-stack=#{6 << 20}", "--dir", ".", "--dir", "#{here}::#{here}",
+                 "--env", "PWD=#{here}", *preload, out, *rest)
           Signal.trap("INT", interrupt)
           $?
         end
