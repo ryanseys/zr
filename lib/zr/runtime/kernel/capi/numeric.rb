@@ -375,17 +375,10 @@ module Zr::Kern
     zr_capi_unsigned(n)
   end
 
-  # The Integer of the unsigned 64 bits `n`. Past 2^63 the top half is
-  # taken as unsigned, so `Integer.big_from_word` makes a positive one.
+  # The Integer of the unsigned 64 bits `n` (zr_int_from_uword).
   #: (word) -> value
   def zr_capi_unsigned(n)
-    if n >= 0
-      return zr_c_result(zr_int_from_word(n))
-    end
-    pair = Machine.slot(16)
-    Machine.store64(pair, 0, Machine.word(zr_fix((n >> 32) & 4294967295)))
-    Machine.store64(pair, 8, Machine.word(zr_fix(n & 4294967295)))
-    zr_c_result(zr_send(zr_global(G_INTEGER), Machine.id(:big_from_word), 2, pair))
+    zr_c_result(zr_int_from_uword(n))
   end
 
   # rb_float_new (DBL2NUM): a double as a Float.

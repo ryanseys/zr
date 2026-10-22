@@ -330,12 +330,15 @@ module Zr::Kern
 
   # The fields that zr_stat_m returns. The owner is root and the device
   # number is zero, because a module gets neither. A block is 512 bytes.
+  # The device and the inode are unsigned 64-bit numbers: wasmtime makes
+  # each from a hash of the file, so the high bit is set for about half
+  # of the files.
   #: (ptr) -> value
   def zr_os_stat_rows(buf)
     size = Machine.load64(buf, 32)
     out = zr_ary_new(16)
-    zr_ary_push(out, zr_fix(Machine.load64(buf, 0)))
-    zr_ary_push(out, zr_fix(Machine.load64(buf, 8)))
+    zr_ary_push(out, zr_int_from_uword(Machine.load64(buf, 0)))
+    zr_ary_push(out, zr_int_from_uword(Machine.load64(buf, 8)))
     zr_ary_push(out, zr_fix(zr_os_stat_mode(buf)))
     zr_ary_push(out, zr_fix(Machine.load64(buf, 24)))
     zr_ary_push(out, zr_fix(0))

@@ -235,6 +235,20 @@ module Zr::Kern
     zr_send(zr_global(G_INTEGER), Machine.id(:big_from_word), 2, pair)
   end
 
+  # Converts a machine word that holds an unsigned 64-bit value, as
+  # rb_ulong2num does: a word with its high bit set is a bignum of 2^63
+  # or more, not a negative number.
+  #: (word) -> value
+  def zr_int_from_uword(n)
+    if n >= 0
+      return zr_int_from_word(n)
+    end
+    pair = Machine.slot(16)
+    Machine.store64(pair, 0, Machine.word(zr_fix((n >> 32) & 4294967295)))
+    Machine.store64(pair, 8, Machine.word(zr_fix(n & 4294967295)))
+    zr_send(zr_global(G_INTEGER), Machine.id(:big_from_word), 2, pair)
+  end
+
   # Writes a shift count into `out`. A bignum goes to the core. Any other
   # value converts through to_int (a Float truncates), as rb_to_int does.
   #: (value, ptr, ptr, word) -> value
