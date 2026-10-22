@@ -75,7 +75,12 @@ module Zr
         end
       end
 
-      def memory = Integer(ENV.fetch("ZR_TEST_WASM_MEMORY", 1 << 30))
+      # A module's address space: all 4 GiB of wasm32, as `zr run` and
+      # wasmtime give it. Pages that a module never touches are not
+      # resident, and the run's memory limit (Child::RUN_MB) bounds the
+      # pages that it does; the heap's arenas each take a 4 MiB window of
+      # the address space (zr_arena_of).
+      def memory = Integer(ENV.fetch("ZR_TEST_WASM_MEMORY", 1 << 32))
 
       def installed? = system(executable, "--version", out: File::NULL, err: File::NULL)
 
