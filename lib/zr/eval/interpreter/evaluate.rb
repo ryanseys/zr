@@ -87,7 +87,9 @@ module Zr
       end
 
       # The tree of `source`, the one built before for the same string and
-      # scope shape when there is one.
+      # scope shape when there is one. A string that did not parse raises
+      # a copy of its first error, as the eval compiler does: a loop that
+      # evals a broken string parses it once.
       # @rbs source: String
       # @rbs file: String
       # @rbs line: Integer
@@ -100,15 +102,26 @@ module Zr
         key = [-source, source.encoding, -file, line, names, params, loaded] if coverage.nil?
         trees = Eval.walk_trees
         if key && (kept = trees[key])
+          raise kept.dup if kept.is_a?(Exception)
+
           return kept
         end
 
-        hir = built_new(source, file, line, names, params, coverage: coverage, loaded: loaded)
-        if key
-          trees.shift if trees.size >= KEPT_TREES
-          trees[key] = hir
+        begin
+          hir = built_new(source, file, line, names, params, coverage: coverage, loaded: loaded)
+        rescue Hir::Invalid, SyntaxError => e
+          keep_tree(trees, key, e.dup) if key
+          raise
         end
+        keep_tree(trees, key, hir) if key
         hir
+      end
+
+      # Keeps a tree, or the error of a parse, under `key`.
+      #: (Hash[untyped, untyped] trees, untyped key, untyped kept) -> void
+      def self.keep_tree(trees, key, kept)
+        trees.shift if trees.size >= KEPT_TREES
+        trees[key] = kept
       end
 
       # The trees that `built` keeps, at most: the strings that a program
