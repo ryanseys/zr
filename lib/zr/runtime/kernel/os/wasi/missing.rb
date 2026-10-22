@@ -504,12 +504,14 @@ module Zr::Kern
   def syslog(priority, format)
   end
 
+  # The mask starts with every priority on (0xff), as musl's does. A
+  # static cell starts at 0, so it keeps the mask xor 0xff.
   #: (i32) -> i32
   def setlogmask(mask)
     cell = Machine.static(:wasi_logmask, 8)
-    old = Machine.load32(cell, 0)
+    old = Machine.load32(cell, 0) ^ Machine.i32(255)
     if mask != Machine.i32(0)
-      Machine.store32(cell, 0, mask)
+      Machine.store32(cell, 0, mask ^ Machine.i32(255))
     end
     old
   end
