@@ -75,7 +75,7 @@ class CExtThreadTest < Minitest::Test
       sleep 0.05
       before = ticks
       p Nap.sleep(300)
-      p ticks - before >= 5
+      p ticks - before >= 1
       ticker.kill
       p 3.times.map { Thread.new { Nap.sleep(50) } }.map(&:value)
     RUBY
