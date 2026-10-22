@@ -464,10 +464,11 @@ module Zr::Kern
 
   # A def of walked code, which has no scope meta of its own: the walker
   # defines it with define_method, and claims its record with the def's
-  # site (Hir::Def#cover). A bmethod counts its runs (zr_bmethod_fn).
+  # site (Hir::Def#cover, which a FrameMeta keeps plus one). A bmethod
+  # counts its runs (zr_bmethod_fn).
   #: (value, value, value) -> value
-  def zr_walk_coverage_claim_m(klass, name, cover)
-    zr_coverage_method_claim_site(klass, zr_sym2id(name), zr_fix2long(cover))
+  def zr_walk_coverage_claim_m(klass, name, site)
+    zr_coverage_method_claim_site(klass, zr_sym2id(name), zr_fix2long(site) + 1)
     QNIL
   end
 
