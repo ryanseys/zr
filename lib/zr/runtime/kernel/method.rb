@@ -466,6 +466,32 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # A Proc of the tree walk that runs walked code (a block, a lambda, or
+  # the body of a def) keeps where that code starts and ends, as
+  # zr_meta_span gives it for compiled code: [path, whether it comes from
+  # a file, line, column, end line, end column, 0]. source_location and
+  # source_range give it in place of the walker's own place.
+  #: (value, value) -> value
+  def zr_walk_span_m(proc, span)
+    zr_state_set(proc, zr_sym(Machine.id(:__walk_span__)), span)
+    Machine.value(QNIL)
+  end
+
+  # `source_location` of a walked span: [path, line].
+  #: (value) -> value
+  def zr_walk_location(span)
+    out = zr_ary_new(2)
+    zr_ary_push(out, zr_ary_at(span, 0))
+    zr_ary_push(out, zr_ary_at(span, 2))
+    out
+  end
+
+  # What zr_walk_span_m kept for the Proc `proc`, or nil.
+  #: (value) -> value
+  def zr_walk_span(proc)
+    zr_ivar_get(proc, Machine.id(:__walk_span__))
+  end
+
   # What `zr_walk_describe_m` kept as `id` for the method entry `e`, or nil.
   #: (ptr, word) -> value
   def zr_walk_described(e, id)
@@ -773,6 +799,10 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_method_source_location(recv, argc, argv, cref, blk)
     e = Machine.ptr(RMethod[recv].entry)
+    walked = zr_walk_described(e, Machine.id(:__walk_span__))
+    if walked != QNIL
+      return zr_walk_location(walked)
+    end
     meta = zr_method_location(e)
     if meta == 0
       # A method of the core: the def of the ones that CRuby writes in Ruby.

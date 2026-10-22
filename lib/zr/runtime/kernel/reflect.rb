@@ -621,6 +621,10 @@ module Zr::Kern
     if RProc[recv].fn == Machine.addr(:zr_method_block)
       return zr_send(RProc[recv].self, Machine.id(:source_location), 0, 0)
     end
+    walked = zr_walk_span(recv)
+    if walked != QNIL
+      return zr_walk_location(walked)
+    end
     meta = RProc[recv].meta
     if meta == 0 || FrameMeta[meta].file_len == 0
       return Machine.value(QNIL)
@@ -660,6 +664,10 @@ module Zr::Kern
     if RProc[recv].fn == Machine.addr(:zr_method_block)
       return zr_method_span(RProc[recv].self)
     end
+    walked = zr_walk_span(recv)
+    if walked != QNIL
+      return walked
+    end
     zr_meta_span(RProc[recv].meta)
   end
 
@@ -668,6 +676,10 @@ module Zr::Kern
   # writes in Ruby, if any; an attribute method or a C method has none.
   #: (value) -> value
   def zr_method_span(recv)
+    walked = zr_walk_described(Machine.ptr(RMethod[recv].entry), Machine.id(:__walk_span__))
+    if walked != QNIL
+      return walked
+    end
     meta = zr_method_meta(Machine.ptr(RMethod[recv].entry))
     if meta != 0 && FrameMeta[meta].file_len > 0
       return zr_meta_span(meta)

@@ -744,11 +744,20 @@ module Zr
           # Only the literal makes a lambda: `Kernel#lambda` refuses a Proc
           # that is not its literal block. The program gives the arguments,
           # so Steep cannot type them.
-          if lambda
-            return ->(*args, **kwargs, &blk) { tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: true, home: home, here: World.cref, self_: self) } # steep:ignore FallbackAny
-          end
+          made = if lambda
+                   ->(*args, **kwargs, &blk) { tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: true, home: home, here: World.cref, self_: self) } # steep:ignore FallbackAny
+                 else
+                   proc { |*args, **kwargs, &blk| tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: false, home: home, here: World.cref, self_: self) } # steep:ignore FallbackAny
+                 end
+          spanned(made, node.span)
+        end
 
-          proc { |*args, **kwargs, &blk| tree.__send__(:run_block, node, ctx, args, kwargs, blk, lambda: false, home: home, here: World.cref, self_: self) } # steep:ignore FallbackAny
+        # `proc` with the span of the walked code that it runs (World.walk_span),
+        # for its source_location and source_range.
+        #: (Proc proc, Array[Integer]? span) -> Proc
+        def spanned(proc, span)
+          World.walk_span(proc, [@file, @loaded, *span, 0]) if span
+          proc
         end
 
         # `home` and `here` are crefs (`World.cref`).
@@ -794,9 +803,9 @@ module Zr
           tree = self
           cref = ctx.cref
           # The program gives the arguments, so Steep cannot type them.
-          body = proc do |*args, **kwargs, &blk|
+          body = spanned(proc do |*args, **kwargs, &blk|
             tree.__send__(:run_method, node, self, owner, cref, args, kwargs, blk) # steep:ignore FallbackAny
-          end
+          end, node.span)
           # Under the walked code's frame, so a warning of the definition
           # (a redefined core method) names its line.
           call(owner, :define_method, [node.name], nil, body, private: true, at: frame_at(ctx, node.line))
