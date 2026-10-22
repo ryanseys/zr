@@ -529,6 +529,21 @@ module Zr::Kern
     r
   end
 
+  # A directory stream that reads the directory open on `fd` and leaves
+  # `fd` open. WASI has no dup, but fd_readdir reads from a cookie that
+  # the stream keeps, not from the descriptor's offset, so the stream
+  # reads `fd` itself.
+  #: (i32) -> ptr
+  def zr_os_dir_of_fd(fd)
+    Libc.fdopendir(fd)
+  end
+
+  # Ends a stream of zr_os_dir_of_fd, and leaves its descriptor open.
+  #: (ptr) -> void
+  def zr_os_dir_of_fd_close(d)
+    zr_xfree(d)
+  end
+
   # Calls poll_oneoff on all descriptors of `fds` at the same time. Each
   # waits for the events in its element of `events`. It also waits on the
   # clock when the wait has a timeout. Returns an Array of the ready events
