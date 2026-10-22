@@ -59,6 +59,18 @@ jobs:
         uses: ./.github/actions/setup
         with:
           wasmtime: "false"
+      # The restored store, the new entries and the swap share a macos-26
+      # runner's small disk. With less than 20 GB free, the Android SDK,
+      # CodeQL and .NET go: zr reads none of them. Xcode stays, as the
+      # darwin build calls its cc.
+      - name: Free the disk of what zr does not read (macOS)
+        if: steps.bundle.outputs.cache-hit != 'true' && runner.os == 'macOS'
+        run: |
+          df -h .
+          if [ "$(df -Pm . | awk 'NR == 2 { print $4 }')" -lt 20000 ]; then
+            sudo rm -rf "$HOME/Library/Android" "$RUNNER_TOOL_CACHE/CodeQL" "$HOME/.dotnet"
+            df -h .
+          fi
       - if: steps.bundle.outputs.cache-hit != 'true'
         uses: ./.github/actions/runtime-cache
         with:

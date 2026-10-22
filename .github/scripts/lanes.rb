@@ -28,10 +28,12 @@ module Lanes
 
   # The runner of each target, and what its lane differs in:
   # - jobs: ZR_JOBS for the runtime build, which sets the workers and
-  #   turns off the memory bound. No lane sets it: a build takes the
-  #   cores up to 6, and Parallel.afforded keeps the workers inside the
-  #   free memory (a macos-26 runner has 7 GB, an x86_64 Linux one 16 GB),
-  #   and ZR_TIMING prints the count that it chose.
+  #   turns off the memory bound. Without it, a build takes the cores up
+  #   to 6, and Parallel.afforded keeps the workers inside the free memory
+  #   (a macos-26 runner has 7 GB, an x86_64 Linux one 16 GB), and
+  #   ZR_TIMING prints the count that it chose. darwin's lane sets 2:
+  #   three workers on its 7 GB runner peaked at 5.3 GB with swap, and
+  #   its evals phase took 6 to 13 minutes where x86_64 Linux took 2.
   # - verify: "0" builds the runtime with no IR check, which the aarch64
   #   Linux lane makes on the same passes; the bundle is the same.
   # - container: the lane runs in the pinned ruby's Alpine image.
@@ -51,7 +53,7 @@ module Lanes
   #   not pass stops it. A tier 2 lane (the default) or a tier 3 one that
   #   did not pass is left out of it.
   RUNNERS = {
-    "aarch64-apple-darwin" => { os: "macos-26", verify: "0", timeout: 150, build_timeout: 45, shards: 6, stage1: true, tier: 1 },
+    "aarch64-apple-darwin" => { os: "macos-26", verify: "0", timeout: 150, build_timeout: 45, jobs: "2", shards: 6, stage1: true, tier: 1 },
     "aarch64-linux-gnu" => { os: "ubuntu-24.04-arm", shards: 4, seconds: "180" },
     "aarch64-linux-musl" => { os: "ubuntu-24.04-arm", container: true, vendor: true, shards: 4, seconds: "180" },
     "x86_64-linux-gnu" => { os: "ubuntu-24.04", shards: 4, seconds: "180", tier: 1 },
