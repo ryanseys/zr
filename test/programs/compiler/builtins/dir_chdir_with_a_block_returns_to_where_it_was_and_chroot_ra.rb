@@ -12,8 +12,10 @@ Dir.mktmpdir do |dir|
     puts "Dir#chdir block: #{inside == File.basename(dir)}"
   end
 end
+# A directory that exists: a user who is not root gets EPERM on every OS.
+# For a missing one, Linux looks the path up first and gives ENOENT.
 begin
-  Dir.chroot("/nonexistent-zr-probe")
+  Dir.chroot("/")
 rescue SystemCallError => e
   puts "Dir.chroot: #{e.class}"
 end

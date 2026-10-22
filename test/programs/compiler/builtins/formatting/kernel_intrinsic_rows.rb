@@ -14,23 +14,21 @@ rescue Exception => e # rubocop:disable Lint/RescueException
   puts "#{label}: #{e.class}: #{e.message}"
 end
 
+# `syscall` is left out: it is a NOTIMPLEMENT STUB on macOS and WASI and a
+# method on Linux, so its rows differ by OS -- see
+# `core/object/definition/notimplement_stub_respond_to.rb`.
 NAMES = %i[
-  Pathname printf exit exit! abort at_exit lambda fork syscall set_trace_func
+  Pathname printf exit exit! abort at_exit lambda fork set_trace_func
   __method__ __callee__ __dir__
 ].freeze
-
-# `syscall` is a NOTIMPLEMENT STUB on this platform, and ruby answers
-# `respond_to?` false for those while still listing them -- see
-# `tests/gaps/notimplement_stub_respond_to.rb`.
-ASKABLE = NAMES - %i[syscall]
 
 # ruby files all of these as PRIVATE instance methods and PUBLIC singleton
 # methods of Kernel -- what `module_function` means.
 show("private instance") { NAMES.all? { |m| Kernel.private_instance_methods(false).include?(m) } }
 show("public singleton") { NAMES.all? { |m| Kernel.singleton_methods(false).include?(m) } }
 show("not public instance") { NAMES.none? { |m| Kernel.instance_methods(false).include?(m) } }
-show("respond_to? private") { ASKABLE.all? { |m| respond_to?(m, true) } }
-show("respond_to? public") { ASKABLE.none? { |m| respond_to?(m) } }
+show("respond_to? private") { NAMES.all? { |m| respond_to?(m, true) } }
+show("respond_to? public") { NAMES.none? { |m| respond_to?(m) } }
 show("method objects") { NAMES.map { |m| method(m).class }.uniq }
 show("arities") { NAMES.to_h { |m| [m, Kernel.instance_method(m).arity] } }
 
@@ -43,7 +41,6 @@ show("send exit") { begin; send(:exit, 3); rescue SystemExit => e; e.status; end
 show("send exit true") { begin; send(:exit); rescue SystemExit => e; e.status; end }
 show("send exit false") { begin; send(:exit, false); rescue SystemExit => e; e.status; end }
 show("send abort") { begin; send(:abort, "boom"); rescue SystemExit => e; [e.status, e.message]; end }
-show("send syscall") { send(:syscall, 999_999) }
 show("send set_trace_func nil") { send(:set_trace_func, nil) }
 show("send at_exit") { send(:at_exit) { nil }.class }
 

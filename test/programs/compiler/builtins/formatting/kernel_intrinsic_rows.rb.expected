@@ -4,7 +4,7 @@ not public instance: true
 respond_to? private: true
 respond_to? public: true
 method objects: [Method]
-arities: {Pathname: 1, printf: -1, exit: -1, exit!: -1, abort: -1, at_exit: 0, lambda: 0, fork: 0, syscall: 0, set_trace_func: 1, __method__: 0, __callee__: 0, __dir__: 0}
+arities: {Pathname: 1, printf: -1, exit: -1, exit!: -1, abort: -1, at_exit: 0, lambda: 0, fork: 0, set_trace_func: 1, __method__: 0, __callee__: 0, __dir__: 0}
 1-a
 send printf: :printed
 0101
@@ -15,7 +15,6 @@ send exit: 3
 send exit true: 0
 send exit false: 1
 send abort: [1, "boom"]
-send syscall: NotImplementedError: syscall() function is unimplemented on this machine
 send set_trace_func nil: nil
 send at_exit: Proc
 send __method__: :named_method
