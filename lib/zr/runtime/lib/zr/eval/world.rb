@@ -74,7 +74,7 @@ module Zr
       # The scope of a block with no locals around it (`bare_binding`).
       BARE = proc { Primitive.zr_own_binding }
 
-      #: (Symbol kind, Symbol? name, Module? owner, Integer? parent, file: String, evaled: bool) -> Integer?
+      #: (Symbol kind, Symbol? name, Module? owner, Integer? parent, file: String, evaled: bool, ?box: untyped) -> Integer?
       def walk_meta(kind, name, owner, parent, file:, evaled:, box: nil)
         Primitive.zr_walk_meta_m(KINDS.fetch(kind), name, owner, file, parent, evaled, box)
       end
@@ -88,8 +88,8 @@ module Zr
       # one with a receiver, so a protected method sees the walked self. A
       # bare identifier (`vcall`) that finds no method raises NameError,
       # with the locals of the walked scope.
-      #: (Array[untyped]? at, untyped recv, Symbol name, Array[untyped] args, kwargs: Hash[Symbol, untyped]?, blk: Proc?, private: bool, ?vcall: bool) -> untyped
       # `new` is true for a `new` that ruby compiles to opt_new.
+      #: (Array[untyped]? at, untyped recv, Symbol name, Array[untyped] args, kwargs: Hash[Symbol, untyped]?, blk: Proc?, private: bool, ?vcall: bool, ?new: bool) -> untyped
       def walk_send(at, recv, name, args, kwargs:, blk:, private:, vcall: false, new: false)
         mode = if vcall then 1
                elsif private then 0

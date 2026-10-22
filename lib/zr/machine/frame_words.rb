@@ -50,8 +50,12 @@ module Zr
         yield "owns_backref", owns_backref ? 1 : 0
         yield "reads_backref", reads_backref ? 1 : 0
         # A Lower::Function#frameless_word, or a bool.
-        flag = frameless
-        yield "frameless", flag.is_a?(Integer) ? flag : (flag && 1) || 0
+        word = case frameless
+               when Integer then frameless
+               when true then 1
+               else 0
+               end
+        yield "frameless", word
         yield "blocks", blocks
         yield "using", using ? using + 1 : 0
         return unless span

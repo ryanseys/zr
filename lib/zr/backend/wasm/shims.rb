@@ -17,7 +17,7 @@ module Zr
         LIBC_SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]],
                        "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []], # steep:ignore UnannotatedEmptyCollection
                        "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], # steep:ignore UnannotatedEmptyCollection
-                       "zr_wasm_sbrk" => [[0x7E], [0x7E]], "zr_wasm_stack_low" => [[], [0x7E]],
+                       "zr_wasm_sbrk" => [[0x7E], [0x7E]], "zr_wasm_stack_low" => [[], [0x7E]], # steep:ignore UnannotatedEmptyCollection
                        "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
                             "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze #: Hash[String, signature]
 

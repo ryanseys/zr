@@ -109,7 +109,7 @@ module Zr
       # Code that the interpreter's `compile` deferred (Kernel.run_code).
       # This compile gives machine code and defers none, so no code
       # comes here.
-      #: (untyped code, untyped _self_, untyped _cref, Binding _scope) -> bot
+      #: (untyped code, untyped _self_, untyped _cref, Binding _scope, ?untyped _box) -> bot
       def walk_code(code, _self_, _cref, _scope, _box = nil) = raise TypeError, "no deferred code to walk: #{code.class}"
 
       # The toplevel address of the file at `path`, compiled as a required

@@ -32,6 +32,7 @@ module Zr
         # @rbs @regexps: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]?
         # @rbs @svars: svars?
         # @rbs @loaded: bool
+        # @rbs @box: untyped
 
         # A form that the interpreter does not support yet, with its
         # location. The contract lets zr refuse, but not guess.
@@ -184,10 +185,10 @@ module Zr
         #: (Ctx ctx, Integer line) -> Array[untyped]?
         def frame_at(ctx, line) = ctx.meta && [ctx.meta, line, ctx.self_]
 
-        # Runs `hir` in `ctx` and returns the value of its body.
+        # Runs `hir` in `ctx` and returns the value of its body. A program
+        # that turns off CRuby's specialized instructions sends `new`
+        # (Hir::Program#plain_new); else `new` is opt_new.
         #: (Hir::Program hir, Ctx ctx) -> value
-        # A program that turns off CRuby's specialized instructions sends
-        # `new` (Hir::Program#plain_new); else `new` is opt_new.
         def run(hir, ctx)
           @plain_new = hir.plain_new
           walk(hir.body, ctx)
@@ -296,10 +297,16 @@ module Zr
         #: (Hir::FrozenString node) -> String
         def frozen_string(node)
           case node.shared
-          when :debug then (@frozen ||= {}.compare_by_identity)[node] ||= World.debug_string(node.value, @file, node.line)
-          when false then (@frozen ||= {}.compare_by_identity)[node] ||= World.frozen_string(node.value, 3)
+          when :debug then frozen_sites[node] ||= World.debug_string(node.value, @file, node.line)
+          when false then frozen_sites[node] ||= World.frozen_string(node.value, 3)
           else World.frozen_string(node.value, { true => 0, nil => 1, uminus: 2 }.fetch(node.shared))
           end
+        end
+
+        # The String of each frozen literal site that has one of its own.
+        #: () -> Hash[Hir::FrozenString, String]
+        def frozen_sites
+          @frozen ||= {}.compare_by_identity # steep:ignore UnannotatedEmptyCollection
         end
 
         # A Regexp literal is one frozen object for its site, as ruby
@@ -779,6 +786,10 @@ module Zr
         # @rbs self_: value
         # @rbs return: value
         def run_block(node, ctx, args, kwargs, blk, lambda:, home: nil, here: nil, self_: nil)
+          # The ensure reads these, so they have their types there too.
+          # @type var outer: untyped
+          # @type var inner: Ctx
+          # @type var value: value
           outer = World.walk_enter(@box)
           ctx = ctx.with(self_: self_, cref: World.walk_cref(here, ctx.cref), name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
           tag = node.__id__
@@ -846,6 +857,9 @@ module Zr
         # (`World.walk_enter`): a constant that it defines on Object and a
         # file that it requires are the program's, not hidden.
         def run_method(node, self_, owner, cref, args, kwargs, blk)
+          # @type var outer: untyped
+          # @type var ctx: Ctx
+          # @type var value: value
           outer = World.walk_enter(@box)
           tag = node.__id__
           scope = Scope.new(node.locals)
@@ -980,7 +994,6 @@ module Zr
         # TracePoint hears no walked code. The event of an ensure body that
         # compiles to nothing waits for the path that runs the body, which
         # the walk does not follow, so it counts no line.
-        #: (Hir::Trace node) -> nil
         # A :line or :branch_jump event: one run of its line, in the
         # Coverage row of this walk. The walk takes a row of its own, as
         # each compiled file and eval has one, once Coverage is set up: a
@@ -988,6 +1001,7 @@ module Zr
         # under `eval: true`.
         # A :line event fires the TracePoints that listen, as compiled code's
         # does.
+        #: (Hir::Trace node, Ctx ctx) -> nil
         def trace(node, ctx)
           return nil unless node.event == :line || node.event == :branch_jump
 
