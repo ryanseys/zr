@@ -351,6 +351,9 @@ class File < IO
     fd = IO.send(:gc_for_fd) { Fiber.send(:offloaded) { Primitive.zr_io_open_flags(File.send(:os_path, path), flags, perm) } }
     raise SystemCallError.new(path, -fd, +"rb_sysopen") if fd < 0
 
+    # rb_file_open_generic keeps no path for a file opened with any bit of
+    # O_TMPFILE, so its inspect and its path show none.
+    path = nil if defined?(File::TMPFILE) && flags.anybits?(File::TMPFILE)
     super(fd, mode, **options, path: path)
   end
 
