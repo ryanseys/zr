@@ -9,9 +9,11 @@ description: >-
   vendor skips the build; a run with a change restores the newest entries
   and rebuilds only what changed. The parse, unit and binary caches are
   not kept: they are gigabytes. A job saves at its end, after `bin/zr
-  cache clean --days 1`, so the saved cache holds only what the run read
-  (tar keeps the mtimes, and a read touches an entry). A pull request
-  only restores: a cache that it wrote would serve main.
+  cache clean --days 1`. Before its build, a lane gives each restored
+  entry a date in 2000, so a read touches each entry that it reads (a
+  read touches an entry older than a day, and tar keeps the mtimes), and
+  the saved cache holds only what the run read. A pull request only
+  restores: a cache that it wrote would serve main.
 inputs:
   flavor:
     description: >-

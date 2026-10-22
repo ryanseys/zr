@@ -70,12 +70,27 @@ jobs:
       # What the build starts with: the disk, the cores, the memory and
       # the swap, and the store that the cache restored. A runner that is
       # lost keeps the log of each step that ended before it.
+      #
+      # Then the store keeps only what this run reads. The clean deletes
+      # each entry that no restored root names and that no run used in the
+      # last day (a partial build's entries stay). Then every entry gets a
+      # date in 2000: a read touches an entry older than a day
+      # (Store::TOUCH_EVERY), and tar kept the dates of the run that saved
+      # the cache, so without the new date the clean before the save kept
+      # every entry that it restored, and a day of runs grew darwin's
+      # cache to 2 GB. The export writes or touches each root that it
+      # bundles.
       - name: The runner, and the cache that it restored
         if: steps.bundle.outputs.cache-hit != 'true'
         run: |
           df -h .
           if command -v free > /dev/null; then nproc; free -m; else sysctl -n hw.ncpu hw.memsize vm.swapusage; fi
-          if [ -d tmp/cache/store ]; then .github/scripts/in_lane.sh bin/zr cache size; fi
+          if [ -d tmp/cache/store ]; then
+            .github/scripts/in_lane.sh bin/zr cache size
+            .github/scripts/in_lane.sh bin/zr cache clean --days 1
+            .github/scripts/in_lane.sh find tmp/cache/store -exec touch -t 200001010000 {} +
+            .github/scripts/in_lane.sh bin/zr cache size
+          fi
       # Every 10 s: the memory in use, the swap and the free disk, and on
       # Linux the largest processes above 8 GB. On macOS, the memory is
       # the active, wired and compressed pages, which set how many workers

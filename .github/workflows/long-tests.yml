@@ -37,6 +37,10 @@ jobs:
         run: bundle exec rake build
       - name: Run the long tests
         run: ZR_TEST_ALL=1 bin/minitest test/unit/core_cache_test.rb
+      # The saved cache holds what this run read: a week-old restore is
+      # older than a day, so each read touched its entry.
+      - name: Clean the cache of what this run did not use
+        run: bin/zr cache clean --days 1
       - uses: ./.github/actions/runtime-cache
         with:
           save: "true"
