@@ -365,7 +365,9 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # The name that ruby lists the C extension under whose port is at
   # `path` (`<feature>.so.rb` under a root of ports): its file in ruby's
   # archdir, `<archdir>/<feature>.<dlext>`, as rb_provide_feature lists
-  # it. nil for any other path.
+  # it. nil for any other path. A port that the program does not carry
+  # is found under the root's real path (found_in), which differs from
+  # the root as the build wrote it where the install moved, so both count.
   def self.port_feature(path)
     Primitive.attr! :hidden
     return nil unless path.end_with?(".so.rb")
@@ -373,8 +375,10 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     library_roots[0].each do |dir|
       next unless dir.start_with?("*")
 
-      root = "#{dir.delete_prefix("*")}/"
-      return "#{archdir}/#{path.delete_prefix(root).delete_suffix(".so.rb")}.#{dlext}" if path.start_with?(root)
+      load_dirs(dir.delete_prefix("*")).uniq.each do |base|
+        root = "#{base}/"
+        return "#{archdir}/#{path.delete_prefix(root).delete_suffix(".so.rb")}.#{dlext}" if path.start_with?(root)
+      end
     end
     nil
   end
