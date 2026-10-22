@@ -13,13 +13,14 @@ module Zr
       # it as a file, not as an eval. The parser's warnings come before the
       # walk, unless a compile gave them already (`quiet`). `debug_frozen`
       # builds with debug_frozen_string_literal: each frozen literal knows
-      # where it was made.
+      # where it was made. `compiled` code shows the label `<compiled>`.
       #
       # It reads the runtime only through `World`, so the tests run it on
       # CRuby over a `World` of plain Ruby (test/support/interpreter_world.rb).
       # @rbs (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped,
-      #        ?add: bool, ?loaded: bool, ?quiet: bool, ?debug_frozen: bool) -> untyped
-      def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false, quiet: false, debug_frozen: false)
+      #        ?add: bool, ?loaded: bool, ?quiet: bool, ?debug_frozen: bool, ?compiled: bool) -> untyped
+      def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false, quiet: false, debug_frozen: false,
+                        compiled: false)
         file = string(file)
         source = string(source)
         # eval_make_iseq: a source that is not ASCII compatible cannot be read.
@@ -31,8 +32,11 @@ module Zr
         tree = Tree.new(file, scope, loaded: loaded)
         # An eval's code shows the label of its caller; a required file's
         # is `<top (required)>`.
-        caller = World.eval_caller_meta unless loaded
-        meta = caller ? tree.scope_meta(:eval, nil, nil, caller) : tree.scope_meta(:top, nil, nil, nil)
+        caller = World.eval_caller_meta unless loaded || compiled
+        meta = if compiled then tree.scope_meta(:compiled, nil, nil, nil)
+               elsif caller then tree.scope_meta(:eval, nil, nil, caller)
+               else tree.scope_meta(:top, nil, nil, nil)
+               end
         ctx = Tree::Ctx.new(self_: self_, cref: cref, chain: [own, *held(scope)], block: block,
                             name: nil, owner: nil, args: nil, kwargs: nil, tag: nil, home: nil, svars: nil, meta: meta)
         World.walk_enter

@@ -69,7 +69,7 @@ module Zr
 
       # The frames of walked code (kernel/eval_walk.rb). A FrameMeta for a
       # scope of the string, as an Integer: `kind` is a key of KINDS.
-      KINDS = { def: 1, class: 3, module: 4, block: 5, sclass: 6, top: 8, eval: 9 }.freeze
+      KINDS = { def: 1, class: 3, module: 4, block: 5, sclass: 6, top: 8, eval: 9, compiled: 10 }.freeze
       # The scope of a block with no locals around it (`bare_binding`).
       BARE = proc { Primitive.zr_own_binding }
 

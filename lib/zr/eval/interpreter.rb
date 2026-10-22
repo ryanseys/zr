@@ -68,13 +68,17 @@ module Zr
       # string is parsed now, so a syntax error and the parser's warnings
       # come from the compile, as in ruby.
       # `warned` marks a compile that gave the parser's warnings already,
-      # and `debug_frozen` one with debug_frozen_string_literal.
+      # and `debug_frozen` one with debug_frozen_string_literal. Code of
+      # RubyVM::InstructionSequence.compile and of a box's eval is
+      # `compiled!`: its frames show the label `<compiled>`, as compiled
+      # code's do (zr_box_compiled).
       class Deferred
         attr_reader :source #: String
         attr_reader :file #: String
         attr_reader :line #: Integer
         attr_reader :warned #: bool
         attr_reader :debug_frozen #: bool
+        attr_reader :compiled #: bool
 
         #: (String source, String file, Integer line, bool warned, ?debug_frozen: bool) -> void
         def initialize(source, file, line, warned, debug_frozen: false)
@@ -83,7 +87,11 @@ module Zr
           @line = line
           @warned = warned
           @debug_frozen = debug_frozen
+          @compiled = false
         end
+
+        #: () -> void
+        def compiled! = @compiled = true
       end
 
       # @rbs (untyped source, untyped file, ?_ToInt line, ?Array[Array[Symbol]] scopes, ?untyped method,
@@ -102,7 +110,7 @@ module Zr
       #: (Deferred code, untyped self_, untyped cref, Binding scope) -> untyped
       def walk_code(code, self_, cref, scope)
         Interpreter.evaluate(code.source, scope, file: code.file, line: code.line, self_: self_, cref: cref, block: nil, quiet: code.warned,
-                                                 debug_frozen: code.debug_frozen)
+                                                 debug_frozen: code.debug_frozen, compiled: code.compiled)
       end
     end
   end

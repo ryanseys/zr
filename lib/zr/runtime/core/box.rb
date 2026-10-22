@@ -173,7 +173,7 @@ module Ruby
     def eval(source)
       if Primitive.zr_hidden_get(self, :kind) == :main
         code = ::Zr::Eval.current.compile(source, "eval", 1, [])
-        Primitive.zr_box_compiled(code[1]) if code.is_a?(Array)
+        code.is_a?(Array) ? Primitive.zr_box_compiled(code[1]) : code.compiled!
         cref = Primitive.zr_hidden_get(self, :cref) || Primitive.zr_hidden_set(self, :cref, Primitive.zr_eval_cref_under(Object, nil))
         return Kernel.run_code(code, TOPLEVEL_BINDING.receiver, cref)
       end
@@ -247,6 +247,8 @@ module Ruby
       if code.is_a?(Array)
         Primitive.zr_box_stamp(code[4], self)
         Primitive.zr_box_compiled(code[1])
+      else
+        code.compiled!
       end
       Kernel.run_code(code, @main, @cref)
     end

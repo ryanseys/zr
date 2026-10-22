@@ -184,7 +184,7 @@ class RubyVM
         magic = "# frozen_string_literal: #{frozen ? true : false}\n" unless frozen.nil? || source.match?(/^#.*frozen[-_]string[-_]literal:/i)
         code = ::Zr::Eval.current.compile("#{magic}#{source}", file, magic ? line - 1 : line, [], warn_now: true,
                                                                                          debug_frozen: option[:debug_frozen_string_literal])
-        Primitive.zr_box_compiled(code[1]) if code.is_a?(Array)
+        code.is_a?(Array) ? Primitive.zr_box_compiled(code[1]) : code.compiled!
         iseq = made(nil, code, "<compiled>", "<compiled>", file, line)
         Primitive.zr_hidden_set(iseq, :__source__, source)
         Primitive.zr_hidden_set(iseq, :__absolute_path__, path)
