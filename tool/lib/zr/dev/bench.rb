@@ -147,7 +147,7 @@ module Zr
         return Row.new(rb, :backend, failed(out)) unless out.code == 0
 
         want = Harness::Normalize.answer(recorded, rb, cwd)
-        argv, run_env = @runner.run(bin, [], {})
+        argv, run_env = @runner.run(bin, [], {}, cwd: cwd)
         got, wrong = medians("zr", argv, cwd, nil, run_env, rb, want)
         return Row.new(rb, :diverged, wrong) if wrong
 

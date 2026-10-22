@@ -257,15 +257,25 @@ module Zr::Kern
   STAT_LEN = 64
 
   # Gets a path's filestat. It follows a symlink at the end of the path,
-  # or not.
+  # or not. A directory above a preopened one (/private of
+  # /private/var/run) is a directory with no other field, though the
+  # guest cannot open it: a walk of the path that stats each part
+  # (File.realpath) finds a directory there, as on the host.
   #: (ptr, ptr, i32) -> i32
   def zr_wasi_path_stat(path, buf, follow)
     where = Machine.slot(16)
-    dir = zr_wasi_resolve(path, where)
-    if dir < Machine.i32(0)
-      return dir
+    r = zr_wasi_resolve(path, where)
+    if r >= Machine.i32(0)
+      r = zr_wasi_status(Libc.path_filestat_get(r, follow, zr_wasi_rest(where), zr_wasi_rest_len(where), zr_wasi_addr(buf)))
     end
-    zr_wasi_status(Libc.path_filestat_get(dir, follow, zr_wasi_rest(where), zr_wasi_rest_len(where), zr_wasi_addr(buf)))
+    if r < Machine.i32(0) && zr_wasi_above_preopen_p(path)
+      Libc.memset(buf, Machine.i32(0), STAT_LEN)
+      Machine.store8(buf, 16, Machine.i8(3))
+      Machine.store64(buf, 24, 1)
+      zr_os_set_errno(0)
+      return Machine.i32(0)
+    end
+    r
   end
 
   #: (ptr, ptr) -> i32
@@ -850,6 +860,23 @@ Capabilities insufficient
     end
     Machine.store8(out + len, 0, Machine.i8(0))
     Machine.i32(0)
+  end
+
+  # The working directory that the module starts in. WASI gives none, so
+  # a host that preopens the directory where it runs the module names it
+  # in PWD, as a shell does (test/support/harness/runner.rb, `zr run`).
+  # Then Dir.pwd and each relative path agree with the absolute paths
+  # that the build wrote (require_relative, coverage, backtraces). With
+  # no PWD, or one that the module cannot see, it starts at the root.
+  #: () -> void
+  def zr_wasi_start_cwd
+    pwd = Libc.getenv(Machine.bytes("PWD\0"))
+    if pwd == 0 || Machine.u8(Machine.load8(pwd, 0)) != 47
+      return
+    end
+    if Libc.chdir(pwd) < Machine.i32(0)
+      zr_os_set_errno(0)
+    end
   end
 
   # Sets the working directory to a directory that exists.

@@ -92,16 +92,23 @@ module Zr
       # A WASI guest sees only the directories and variables that it is
       # given. Without a temporary directory, `Dir.tmpdir` fails, and a
       # program that writes a file fails where the binary does not. The
-      # module is compiled first (`precompile`), so the memory limit of a
-      # run counts the program and not wasmtime's compiler. A caller that
-      # times the compile gives its result as `compiled`.
-      def run(out, args, env, compiled: :here)
+      # directory that the run starts in (`cwd`) is open at its own path
+      # too, and named in PWD, where the module starts (zr_wasi_start_cwd):
+      # the build wrote absolute paths (require_relative, coverage keys,
+      # backtraces), and from the root the guest named the same files
+      # `/<rel>`. `.` stays open, as the root that holds the others. The module is compiled first (`precompile`), so the
+      # memory limit of a run counts the program and not wasmtime's
+      # compiler. A caller that times the compile gives its result as
+      # `compiled`.
+      def run(out, args, env, compiled: :here, cwd: nil)
         return [[*exec, out, *args], env] if exec && !wasm?
         return [[out, *args], env] unless wasm?
 
+        here = cwd && File.realpath(cwd)
         dirs = { "." => ".", Dir.tmpdir => "/tmp", Zr::Paths::ROOT => Zr::Paths::HOME_SHOWN, "/dev" => "/dev" }
+        dirs[here] = here if here
         compiled = precompile(out) if compiled == :here
-        env = GUEST_ENV.merge(env)
+        env = GUEST_ENV.merge(here ? { "PWD" => here } : {}, env)
         if compiled.is_a?(Hash)
           return [Wasmtime.run(out, *args, dirs: dirs, env: env, compiler: split_compiler, preload: compiled.fetch(:preload)), {}]
         end
@@ -111,8 +118,11 @@ module Zr
 
       # The compiled form of a wasm module `out`, or nil: a native binary
       # needs none. For a program module, `{ preload: }` names its compiled
-      # runtime (`Wasmtime.runtime`); wasmtime compiles the small program
-      # module as it runs it.
+      # runtime (`Wasmtime.runtime`); wasmtime compiles the program module
+      # as it runs it. A module that walks evals carries the walker, and its
+      # compile alone took 250 s at the background priority of a big
+      # module's (`Wasmtime.compiled?`), so a program that holds more than
+      # the run's memory then gives a `run_mb` in its `.limits`.
       def precompile(out)
         return nil unless wasm?
 

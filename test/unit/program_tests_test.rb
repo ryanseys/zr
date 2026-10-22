@@ -177,6 +177,19 @@ class ProgramTestsTest < Minitest::Test
     assert_equal %w[a.wasm x], argv.last(2)
   end
 
+  def test_a_wasi_guest_starts_in_the_run_directory_at_its_own_path
+    runner = Programs.new(target: Zr::Target.fetch("wasm32-wasi"), allowed: {}).runner
+    Dir.mktmpdir("zr-run-") do |run|
+      here = File.realpath(run)
+
+      argv, = runner.run("a.wasm", [], {}, compiled: nil, cwd: run)
+
+      assert_includes argv.each_cons(2).to_a, ["--dir", "#{here}::#{here}"]
+      assert_includes argv.each_cons(2).to_a, ["--dir", ".::."], "the root that holds the others stays open"
+      assert_includes argv, "PWD=#{here}"
+    end
+  end
+
   def test_zr_programs_picks_the_tests_below_its_paths
     picked = Selection.cases("core/gc, lang/blocks").map(&:rel)
 

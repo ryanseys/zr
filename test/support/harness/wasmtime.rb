@@ -32,7 +32,8 @@ module Zr
     # The cli tier builds with `zr build`, which writes a whole module, so
     # the default stays tested.
     #
-    # `lib` does not use this: `zr run` starts wasmtime with its defaults.
+    # `lib` does not use this: `zr run` starts wasmtime with its defaults,
+    # but for the stack and the working directory.
     module Wasmtime
       COMPILERS = %w[winch cranelift].freeze
       # The wasmtime that the tests are run with: CI installs this version

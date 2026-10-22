@@ -7,6 +7,7 @@
 module Zr::Kern
   #: (i32, ptr) -> i32
   def zr_os_main(argc, argv)
+    zr_wasi_start_cwd()
     zr_main(argc, argv)
   end
 

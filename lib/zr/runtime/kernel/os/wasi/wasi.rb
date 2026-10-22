@@ -143,6 +143,32 @@ module Zr::Kern
     Machine.i32(best)
   end
 
+  # Whether `path` is a proper ancestor of a preopened directory: each
+  # preopen's name is a prefix of it followed by a `/`.
+  #: (ptr) -> bool
+  def zr_wasi_above_preopen_p(path)
+    p = zr_wasi_from_cwd(path)
+    if p == 0
+      return false
+    end
+    p = p + zr_wasi_path_start(p)
+    n = zr_cstr_len(p)
+    if n == 0
+      return false
+    end
+    rows = zr_wasi_preopens()
+    i = 0
+    while Machine.load64(rows + (i * 24), 0) != 0
+      at = rows + (i * 24)
+      name = Machine.ptr(Machine.load64(at, 8))
+      if Machine.load64(at, 16) > n && zr_bytes_eq(p, n, name, n) && Machine.u8(Machine.load8(name + n, 0)) == 47
+        return true
+      end
+      i += 1
+    end
+    false
+  end
+
   # `path` below the working directory (`chdir`), or `path` itself when
   # it is absolute or the working directory is the root. A call such as
   # rename resolves two paths, so the joined path takes turns between two

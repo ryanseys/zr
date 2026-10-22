@@ -44,7 +44,7 @@ module Zr
           next built if built
 
           compiled = Progress.clock(parts, :compile) { runner.precompile(bin) }
-          command, env = runner.run(bin, test.args, run_env(test, runner), compiled: compiled)
+          command, env = runner.run(bin, test.args, run_env(test, runner), compiled: compiled, cwd: run)
           megabytes = [test.limits[:run_mb] || 0, Harness::Child::RUN_MB].max
           out, = Progress.clock(parts, :run) do
             Harness::Child.run(command, cwd: run, stdin: test.stdin, env: env, seconds: Harness::Child::SECONDS, megabytes: megabytes)

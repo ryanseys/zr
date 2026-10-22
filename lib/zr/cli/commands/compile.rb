@@ -449,7 +449,11 @@ module Zr
           abort "zr: #{why}" if why
           return nil unless name == "run"
 
-          # The module can see the working directory, as a ruby program can.
+          # The module can see the working directory, as a ruby program can,
+          # at its own path, and starts there (PWD, zr_wasi_start_cwd): the
+          # build wrote absolute paths. The engine's stack holds more wasm
+          # frames than the shadow stack holds records, so a recursion that
+          # is too deep raises SystemStackError (kernel/os/wasi/stack.rb).
           # `system`, not `exec`, so that the build directory goes away after
           # the run, as for a binary.
           require_relative "../../backend/wasm"
@@ -457,8 +461,9 @@ module Zr
           if split && (runtime = Backend::Wasm.runtime_of(File.binread(out)))
             preload = ["--preload", "#{Backend::Wasm::Codegen::RUNTIME}=#{File.join(split, runtime)}"]
           end
+          here = Dir.pwd
           interrupt = Signal.trap("INT") { nil }
-          system("wasmtime", "run", "--dir", ".", *preload, out, *rest)
+          system("wasmtime", "run", "-W", "max-wasm-stack=#{6 << 20}", "--dir", ".", "--dir", "#{here}::#{here}", "--env", "PWD=#{here}", *preload, out, *rest)
           Signal.trap("INT", interrupt)
           $?
         end
