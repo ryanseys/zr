@@ -38,7 +38,7 @@ module Zr
       # The wasmtime that the tests are run with: CI installs this version
       # (`WASMTIME_VERSION` in each workflow; layout_test checks that they
       # agree).
-      VERSION = "49.0.2"
+      VERSION = "50.0.0"
       # The bounds of one `wasmtime compile`, summed over its process
       # group (Child.run): a compile of a runtime with eval support peaked
       # at 4.8 GB with Winch and 5.1 GB with Cranelift. A compile of a

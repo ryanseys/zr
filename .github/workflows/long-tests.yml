@@ -14,7 +14,7 @@ permissions:
 
 # The wasmtime of every job (test/support/harness/wasmtime.rb, VERSION).
 env:
-  WASMTIME_VERSION: 49.0.2
+  WASMTIME_VERSION: 50.0.0
 
 jobs:
   long:

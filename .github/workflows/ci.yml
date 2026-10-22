@@ -23,7 +23,7 @@ permissions:
 
 # The wasmtime of every job (test/support/harness/wasmtime.rb, VERSION).
 env:
-  WASMTIME_VERSION: 49.0.2
+  WASMTIME_VERSION: 50.0.0
 
 # A new push to a pull request or to main stops the run of the previous
 # push there. The nightly run and a run by hand have a group of their

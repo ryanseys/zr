@@ -32,7 +32,7 @@ concurrency:
 
 # The wasmtime of the release checks (test/support/harness/wasmtime.rb, VERSION).
 env:
-  WASMTIME_VERSION: 49.0.2
+  WASMTIME_VERSION: 50.0.0
 
 jobs:
   # Every check, with no environment, so a dry run works from any ref.
