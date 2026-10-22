@@ -126,8 +126,9 @@ class WasmTest < Minitest::Test
 
   # The wasi layer's allocator (kernel/os/wasi/malloc.rb) over the heap's
   # bump: a freed block serves the next request of its class, a class is
-  # at most a quarter larger than its request, and a block of
-  # posix_memalign frees the block that it was cut from.
+  # at most a quarter larger than its request, a block of posix_memalign
+  # is cut at its alignment, a small block of malloc takes the gap before
+  # it, and a freed aligned block serves the next posix_memalign.
   ALLOCATOR = <<~RUBY
     module Zr::Kern
       module Libc
@@ -178,16 +179,22 @@ class WasmTest < Minitest::Test
           return 1
         end
         slot = Machine.slot(8)
+        before = Machine.word(Libc.zr_wasm_sbrk(0))
         posix_memalign(slot, 4096, 5000)
         q = Machine.ptr(Machine.load64(slot, 0))
         if (Machine.word(q) & 4095) != 0 || zr_os_malloc_size(q) < 5000
           say(Machine.bytes("align\\n"), 6)
           return 1
         end
+        g = malloc(16)
+        if Machine.word(q) - before >= 64 && (Machine.word(g) < before || Machine.word(g) >= Machine.word(q))
+          say(Machine.bytes("gap\\n"), 4)
+          return 1
+        end
         free(q)
-        r = malloc(9096)
-        if Machine.word(q) < Machine.word(r) || Machine.word(q) >= Machine.word(r) + 9096
-          say(Machine.bytes("cut\\n"), 4)
+        posix_memalign(slot, 4096, 3000)
+        if Machine.ptr(Machine.load64(slot, 0)) != q
+          say(Machine.bytes("again\\n"), 6)
           return 1
         end
         if malloc(5000000000) != 0
