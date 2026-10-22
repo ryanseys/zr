@@ -25,7 +25,7 @@ t(:dir_fchdir) { d = Dir.new("."); [Dir.fchdir(d.fileno) { Dir.pwd == File.realp
 t(:dir_for_fd) { d = Dir.new("."); Dir.for_fd(d.fileno).class }
 t(:file_new_flags) { File.new("c.txt", File::WRONLY | File::CREAT | File::TRUNC, 0o644).tap { _1.write("z") }.close; File.read("c.txt") }
 t(:file_open_kw) { File.open("c.txt", mode: "a", perm: 0o600, flags: File::APPEND) { _1 << "y" }; File.read("c.txt") }
-t(:file_open_tmpfile) { File.open(".", File::RDWR | File::TMPFILE) rescue $!.class }
+t(:file_open_tmpfile) { File.open(".", File::RDWR | File::TMPFILE).inspect.sub(/\d+/, "N") rescue $!.class }
 t(:lchmod) { File.symlink("a.txt", "ln") rescue nil; File.lchmod(0o644, "ln") rescue $!.class }
 t(:identical) { [File.identical?("a.txt", "ln"), File.exist?("ln"), File.world_writable?("a.txt"), File.executable?("/bin/sh"), File.setgid?("a.txt")] }
 t(:ioctl) { STDOUT.ioctl(0) rescue $!.class }

@@ -17,7 +17,7 @@ dir_fchdir: [true, :ok]
 dir_for_fd: Dir
 file_new_flags: "z"
 file_open_kw: "zy"
-file_open_tmpfile: #<File:fd 20>
+file_open_tmpfile: "#<File:fd N>"
 lchmod: Errno::ENOTSUP
 identical: [true, true, nil, true, false]
 ioctl: Errno::ENOTTY
