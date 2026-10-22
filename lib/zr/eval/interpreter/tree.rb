@@ -201,7 +201,7 @@ module Zr
           when Hir::PathLiteral then World.path(literal(node.literal))
           when Hir::FrozenString then frozen_string(node)
           when Hir::SelfRef then ctx.self_
-          when Hir::Trace then trace(node)
+          when Hir::Trace then trace(node, ctx)
           when Hir::Cover then World.coverage_branch(node.id)
           when Hir::Send then send_node(node, ctx)
           when Hir::Local then read_local(node, ctx)
@@ -788,7 +788,9 @@ module Zr
           # in its `&blk` parameter.
           inner = ctx.with(chain: [scope, *ctx.chain], tag: tag, meta: scope_meta(:block, nil, nil, ctx.meta))
           bind(node.params, scope, args, kwargs, blk, inner, strict: lambda, spread: !lambda)
-          begin
+          fire(:b_call, inner, node.line, lambda: lambda)
+          value = nil
+          value = begin
             walk(node.body, inner)
           rescue Nexting => e
             raise unless e.tag.equal?(tag)
@@ -800,6 +802,7 @@ module Zr
             retry
           end
         ensure
+          fire(:b_return, inner, node.end_line || node.line, value, lambda: lambda) if inner
           World.walk_leave(outer)
         end
 
@@ -850,7 +853,9 @@ module Zr
                         name: node.name, owner: owner, args: args, kwargs: kwargs, tag: tag, home: tag, svars: [nil, nil],
                         meta: scope_meta(:def, node.name, owner, nil))
           bind(node.params, scope, args, kwargs, blk, ctx, strict: true, spread: false)
-          begin
+          fire(:call, ctx, node.line)
+          value = nil
+          value = begin
             walk(node.body, ctx)
           rescue Returning => e
             raise unless e.tag.equal?(tag)
@@ -858,6 +863,7 @@ module Zr
             e.value
           end
         ensure
+          fire(:return, ctx, node.end_line || node.line, value) if ctx
           World.walk_leave(outer)
         end
 
@@ -891,7 +897,15 @@ module Zr
           meta = scope_meta(kind, kind == :sclass ? nil : node.name, nil, nil)
           inner = Ctx.new(self_: mod, cref: World.cref_push(mod, ctx.cref), chain: [Scope.new(node.locals)],
                           block: nil, name: nil, owner: nil, args: nil, kwargs: nil, tag: node.__id__, home: nil, svars: [nil, nil], meta: meta)
-          walk(node.body, inner)
+          # A `class << obj` body fires neither :class nor :end, as in ruby.
+          return walk(node.body, inner) if kind == :sclass
+
+          fire(:class, inner, node.line)
+          begin
+            walk(node.body, inner)
+          ensure
+            fire(:end, inner, node.end_line || node.line)
+          end
         end
 
         # `begin ... rescue ... else ... ensure ... end`.
@@ -972,12 +986,29 @@ module Zr
         # each compiled file and eval has one, once Coverage is set up: a
         # row that Coverage measures for a loaded file, and for an eval
         # under `eval: true`.
-        def trace(node)
+        # A :line event fires the TracePoints that listen, as compiled code's
+        # does.
+        def trace(node, ctx)
           return nil unless node.event == :line || node.event == :branch_jump
 
           @coverage_row ||= World.coverage_begin(@file, @loaded)
           World.coverage_line(@coverage_row, node.line, node.event == :branch_jump) if @coverage_row
+          fire(:line, ctx, node.line) if node.event == :line
           nil
+        end
+
+        # ruby's RUBY_EVENT_* bits (Lower::Function::Tracing::EVENTS), and
+        # the bit of a lambda's block events (the kernel's TRACE_LAMBDA).
+        EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze
+        LAMBDA = 1 << 32
+
+        # Fires `event` of the walked scope of `ctx` at `line`, with a
+        # closing event's `value`, as the compiler's Tracing does.
+        #: (Symbol event, Ctx ctx, Integer? line, ?untyped value, ?lambda: bool) -> untyped
+        def fire(event, ctx, line, value = nil, lambda: false)
+          return value unless ctx.meta && line
+
+          World.walk_trace(frame_at(ctx, line), EVENTS.fetch(event) | (lambda ? LAMBDA : 0), value)
         end
 
         # The branch of a safe call (`recv&.name`) that Coverage counts: the

@@ -109,7 +109,8 @@ module Zr
       # @rbs return: Hir::Program
       def self.kept_tree(source, file, line, names, params, loaded:, debug_frozen: false)
         coverage = covering
-        key = [-source, source.encoding, -file, line, names, params, loaded, debug_frozen] if coverage.nil?
+        traced = World.tracing?
+        key = [-source, source.encoding, -file, line, names, params, loaded, debug_frozen, traced] if coverage.nil?
         trees = Eval.walk_trees
         if key && (kept = trees[key])
           raise kept.dup if kept.is_a?(Exception)
@@ -121,7 +122,7 @@ module Zr
         asked = {} #: Hash[Symbol, Symbol?]
         begin
           hir = built_new(source, file, line, names, params, coverage: coverage, loaded: loaded, asked: asked,
-                                                             debug_frozen: debug_frozen)
+                                                             debug_frozen: debug_frozen, traced: traced)
         rescue Hir::Invalid, SyntaxError => e
           keep_tree(trees, key, e.dup) if key
           raise
@@ -145,14 +146,17 @@ module Zr
       # $~` that ran), as the eval compiler's does, and `asked` gets the
       # answers.
       # @rbs (String source, String file, Integer line, Array[Array[Symbol]] names, untyped params, coverage: untyped,
-      #       loaded: bool, ?asked: Hash[Symbol, Symbol?], ?debug_frozen: bool) -> Hir::Program
-      def self.built_new(source, file, line, names, params, coverage:, loaded:, asked: {}, debug_frozen: false)
+      #       loaded: bool, ?asked: Hash[Symbol, Symbol?], ?debug_frozen: bool, ?traced: bool) -> Hir::Program
+      def self.built_new(source, file, line, names, params, coverage:, loaded:, asked: {}, debug_frozen: false, traced: false)
         own = [] #: Array[Symbol]
         # The front end joins, splits and reads lines with ruby's defaults,
         # as the eval compiler's does (`Eval.plainly`); the walk itself runs
         # with the program's separators.
         measured = loaded ? !coverage.nil? : coverage&.send(:measures_evals?) || false
-        options = BuildOptions.new(trace: measured, switches: Hir::Switches.new(debug_frozen_string_literal: debug_frozen))
+        # The tree has its trace events where Coverage measures it, and
+        # where a TracePoint can hear them (World.tracing?), as the eval
+        # compiler builds with the events (Runtime#tracing?).
+        options = BuildOptions.new(trace: measured || traced, switches: Hir::Switches.new(debug_frozen_string_literal: debug_frozen))
         hir = Runtime.plain_separators do
           Runtime.compiling do
             Hir.build(source, file, options, program: false, line: line, scopes: [*names.reverse, own], method: params,

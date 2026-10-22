@@ -155,6 +155,8 @@ module Zr
         def coverage_begin(_path, _loaded) = nil
         def coverage_claim(_owner, _name, _cover) = nil
         def walk_span(_proc, _span) = nil
+        def tracing? = false
+        def walk_trace(_at, _bit, value) = value
         def coverage_line(_row, _line, _jump) = nil
         def coverage_branch(_id) = nil
 

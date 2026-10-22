@@ -163,6 +163,14 @@ module Zr
       def coverage_begin(path, loaded) = Primitive.zr_coverage_begin_m(path, loaded)
       def coverage_line(row, line, jump) = Primitive.zr_coverage_line_at_m(row, line, jump)
       def coverage_branch(id) = Primitive.zr_coverage_branch_m(id)
+      # Whether a TracePoint can hear walked code: one is enabled, or the
+      # program was built with trace events (Runtime#tracing?).
+      def tracing? = Primitive.zr_trace_armed_m || Primitive.zr_trace_built_m
+      # Fires the TracePoint event `bit` (a RUBY_EVENT_ bit, with
+      # TRACE_LAMBDA for a lambda's block events) of walked code under a
+      # frame of `at`, as compiled code fires it; `value` is a closing
+      # event's. Returns `value`.
+      def walk_trace(at, bit, value) = Primitive.zr_walk_trace_m(at, bit, value)
       # Where the walked code of `proc` (a block, a lambda or a def's body)
       # starts and ends, which its source_location and source_range give.
       def walk_span(proc, span) = Primitive.zr_walk_span_m(proc, span)

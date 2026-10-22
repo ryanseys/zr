@@ -174,9 +174,12 @@ A literal `require` or `load` in the string runs the program's own
 `binding` in the string copies the string's own locals: a later write
 in the string does not reach that Binding.
 
-Under `Coverage.start(eval: true)`, the walk counts the lines and the
-branches that it runs, as compiled eval code does. A TracePoint hears
-no event from walked code.
+Under `Coverage.start(eval: true)`, the walk counts the lines, the
+branches and the methods that it runs, as compiled eval code does, and
+a file that it walks for a `require` is measured as a compiled file is.
+A TracePoint hears the `:line`, `:call`, `:return`, `:b_call`,
+`:b_return`, `:class` and `:end` events of walked code, as of compiled
+code.
 
 Backtraces give the interpreter's own files, not the line of the
 string.

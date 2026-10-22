@@ -280,4 +280,24 @@ module Zr::Kern
     RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
     copy
   end
+
+  # A TracePoint event of walked code, as zr_trace_fire fires it for
+  # compiled code: `event` is a RUBY_EVENT_ bit (with TRACE_LAMBDA for a
+  # lambda's :b_call and :b_return), under a frame of `at` (the scope's
+  # meta, the line, self), and `value` is a closing event's value. The
+  # walker counts its lines for Coverage itself (zr_coverage_line_at_m),
+  # so this fires only the hooks, while one listens. Returns `value`, or
+  # undef when a hook raised.
+  #: (value, value, value) -> value
+  def zr_walk_trace_m(at, event, value)
+    ev = zr_fix2long(event)
+    if at == QNIL || (Machine.load64(Machine.static(:trace_events, 8), 0) & ev & 4294967295) == 0
+      return value
+    end
+    rec = Machine.slot(Frame.size)
+    zr_walk_push(rec, at)
+    r = zr_trace_send(rec, ev, value)
+    Task[zr_task()].top = Frame[rec].prev
+    r == QUNDEF ? r : value
+  end
 end
