@@ -148,59 +148,169 @@ module Zr::Kern
   # ruby_xmalloc and its kin: the malloc that counts toward the
   # collector's payload limit, and stops with NoMemoryError's fatal
   # message when the system has no memory.
+  #
+  # C calls them without the GVL too: zlib's inflate allocates its state
+  # on a worker of the offload pool, or in a region. There each one calls
+  # libc alone, as CRuby's malloc starts no collection without the GVL.
+  # It touches neither the task that holds the GVL (zr_c_entered would
+  # set the C frames of that task's C call to this stack), nor the heap's
+  # counts, nor the chain of root frames: each entry is any_thread, and
+  # only the body that runs with the GVL has a root frame. A size that
+  # overflows there stops as a failed malloc does, since no error can be
+  # raised.
+  any_thread :ruby_xmalloc
+
   #: (word) -> ptr
   def ruby_xmalloc(size)
     Machine.gates_enter
-    zr_c_entered()
-    zr_xmalloc(size == 0 ? 1 : size)
+    if zr_capi_off_gvl()
+      return zr_capi_malloc_off_gvl(1, size)
+    end
+    zr_capi_xmalloc(1, size == 0 ? 1 : size, Machine.bytes("malloc"), 6)
   end
+
+  any_thread :ruby_xmalloc2
 
   #: (word, word) -> ptr
   def ruby_xmalloc2(n, size)
     Machine.gates_enter
-    zr_c_entered()
-    zr_xmalloc(zr_capi_size(n, size, Machine.bytes("malloc"), 6))
+    if zr_capi_off_gvl()
+      return zr_capi_malloc_off_gvl(n, size)
+    end
+    zr_capi_xmalloc(n, size, Machine.bytes("malloc"), 6)
   end
+
+  any_thread :ruby_xcalloc
 
   #: (word, word) -> ptr
   def ruby_xcalloc(n, size)
     Machine.gates_enter
-    zr_c_entered()
-    zr_capi_zalloc(zr_capi_size(n, size, Machine.bytes("calloc"), 6))
+    if zr_capi_off_gvl()
+      p = zr_capi_malloc_off_gvl(n, size)
+      Libc.memset(p, Machine.i32(0), n * size)
+      return p
+    end
+    zr_capi_xcalloc(n, size)
   end
+
+  any_thread :ruby_xrealloc
 
   #: (ptr, word) -> ptr
   def ruby_xrealloc(p, size)
     Machine.gates_enter
-    zr_c_entered()
-    zr_capi_realloc(p, size == 0 ? 1 : size)
+    if zr_capi_off_gvl()
+      return zr_capi_realloc_off_gvl(p, 1, size)
+    end
+    zr_capi_xrealloc(p, 1, size == 0 ? 1 : size, Machine.bytes("realloc"), 7)
   end
+
+  any_thread :ruby_xrealloc2
 
   #: (ptr, word, word) -> ptr
   def ruby_xrealloc2(p, n, size)
     Machine.gates_enter
-    zr_c_entered()
-    zr_capi_realloc(p, zr_capi_size(n, size, Machine.bytes("realloc"), 7))
+    if zr_capi_off_gvl()
+      return zr_capi_realloc_off_gvl(p, n, size)
+    end
+    zr_capi_xrealloc(p, n, size, Machine.bytes("realloc"), 7)
   end
+
+  any_thread :ruby_xfree
 
   #: (ptr) -> void
   def ruby_xfree(p)
     Machine.gates_enter
+    if zr_capi_off_gvl()
+      Libc.free(p)
+      return
+    end
+    zr_capi_xfree(p)
+  end
+
+  # The bodies with the GVL.
+  #: (word, word, ptr, word) -> ptr
+  def zr_capi_xmalloc(n, size, what, len)
+    zr_c_entered()
+    zr_xmalloc(zr_capi_size(n, size, what, len))
+  end
+
+  #: (word, word) -> ptr
+  def zr_capi_xcalloc(n, size)
+    zr_c_entered()
+    zr_capi_zalloc(zr_capi_size(n, size, Machine.bytes("calloc"), 6))
+  end
+
+  #: (ptr, word, word, ptr, word) -> ptr
+  def zr_capi_xrealloc(p, n, size, what, len)
+    zr_c_entered()
+    zr_capi_realloc(p, zr_capi_size(n, size, what, len))
+  end
+
+  #: (ptr) -> void
+  def zr_capi_xfree(p)
     zr_c_entered()
     zr_xfree(p)
   end
 
+  # Whether this OS thread runs C without the GVL: in a region, or on a
+  # worker of the offload pool (ruby_thread_has_gvl_p).
+  any_thread :zr_capi_off_gvl
+
+  #: () -> bool
+  def zr_capi_off_gvl
+    if zr_region_self() != 0
+      return true
+    end
+    pool = Machine.ptr(Machine.load64(Machine.static(:offload_pool, 8), 0))
+    pool != 0 && Libc.pthread_getspecific(OffloadPool[pool].key) != 0
+  end
+
+  # `n * size` bytes of libc's malloc, for C without the GVL.
+  any_thread :zr_capi_malloc_off_gvl
+
+  #: (word, word) -> ptr
+  def zr_capi_malloc_off_gvl(n, size)
+    if size != 0 && Machine.ptr(n) > Machine.ptr(0 - 1) / Machine.ptr(size)
+      zr_memory_exhausted()
+    end
+    p = Libc.malloc(n * size == 0 ? 1 : n * size)
+    if p == 0
+      zr_memory_exhausted()
+    end
+    p
+  end
+
+  any_thread :zr_capi_realloc_off_gvl
+
+  #: (ptr, word, word) -> ptr
+  def zr_capi_realloc_off_gvl(p, n, size)
+    if size != 0 && Machine.ptr(n) > Machine.ptr(0 - 1) / Machine.ptr(size)
+      zr_memory_exhausted()
+    end
+    q = Libc.realloc(p, n * size == 0 ? 1 : n * size)
+    if q == 0
+      zr_memory_exhausted()
+    end
+    q
+  end
+
   # The sized forms, which also give the old size: the allocator needs
   # no size to free or to move a block.
+  any_thread :ruby_xfree_sized
+
   #: (ptr, word) -> void
   def ruby_xfree_sized(p, size)
     ruby_xfree(p)
   end
 
+  any_thread :ruby_xrealloc_sized
+
   #: (ptr, word, word) -> ptr
   def ruby_xrealloc_sized(p, size, old_size)
     ruby_xrealloc(p, size)
   end
+
+  any_thread :ruby_xrealloc2_sized
 
   #: (ptr, word, word, word) -> ptr
   def ruby_xrealloc2_sized(p, n, size, old_n)

@@ -131,11 +131,7 @@ module Zr::Kern
   #: () -> i32
   def ruby_thread_has_gvl_p
     Machine.gates_enter
-    if zr_region_self() != 0
-      return Machine.i32(0)
-    end
-    pool = Machine.ptr(Machine.load64(Machine.static(:offload_pool, 8), 0))
-    pool != 0 && Libc.pthread_getspecific(OffloadPool[pool].key) != 0 ? Machine.i32(0) : Machine.i32(1)
+    zr_capi_off_gvl() ? Machine.i32(0) : Machine.i32(1)
   end
 
   # rb_thread_check_ints: a safe point, which runs what interrupts wait.
