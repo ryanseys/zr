@@ -144,7 +144,7 @@ module Zr
       # Digest.const_missing requires digest/<name>, and objspace.rb
       # requires objspace.so. A port calls Primitive, which only compiled
       # code can, so a program that walks carries them compiled.
-      WALKED_PORTS = %w[digest/md5 digest/sha1 digest/rmd160 digest/bubblebabble objspace].map do |name|
+      WALKED_PORTS = %w[digest/md5 digest/sha1 digest/rmd160 digest/bubblebabble digest/blake3 digest/crc32 objspace].map do |name|
         File.join(Library::Layout::EXT, "#{name}.so.rb")
       end.freeze #: Array[String]
 
