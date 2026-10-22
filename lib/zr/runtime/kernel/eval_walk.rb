@@ -14,9 +14,10 @@ module Zr::Kern
   # `kind` is a KIND_ number, `name` a Symbol or nil, `owner` the class of
   # a method or nil, `file` the path that the frame shows, and `parent` the
   # meta of the scope around it (a block's, or an eval's caller), as an
-  # Integer, or nil. `evaled` is true for code with no absolute path.
-  #: (value, value, value, value, value, value) -> value
-  def zr_walk_meta_m(kind, name, owner, file, parent, evaled)
+  # Integer, or nil. `evaled` is true for code with no absolute path, and
+  # `box` the Ruby::Box of the walked code, or nil for main.
+  #: (value, value, value, value, value, value, value) -> value
+  def zr_walk_meta_m(kind, name, owner, file, parent, evaled, box)
     m = zr_xmalloc(FrameMeta.size)
     Libc.memset(m, Machine.i32(0), FrameMeta.size)
     FrameMeta[m].kind = zr_fix2long(kind)
@@ -35,6 +36,9 @@ module Zr::Kern
     end
     if evaled == QTRUE
       FrameMeta[m].evaled = 1
+    end
+    if box != QNIL
+      FrameMeta[m].box = box
     end
     zr_fix(Machine.word(m))
   end

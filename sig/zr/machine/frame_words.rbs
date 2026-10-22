@@ -11,13 +11,13 @@ module Zr
       attr_reader cover: Integer?
       attr_reader owns_backref: bool
       attr_reader reads_backref: bool
-      attr_reader frameless: bool
+      attr_reader frameless: bool | Integer
       attr_reader blocks: Integer
       attr_reader using: Integer?
       attr_reader span: Array[Integer]?
 
       def self.new: (line: Integer, ?end_line: Integer, ?node: Integer, ?arity: Integer, ?env: bool, ?ruby: bool, ?cover: Integer?,
-                     ?owns_backref: bool, ?reads_backref: bool, ?frameless: bool, ?blocks: Integer, ?using: Integer?,
+                     ?owns_backref: bool, ?reads_backref: bool, ?frameless: bool | Integer, ?blocks: Integer, ?using: Integer?,
                      ?span: Array[Integer]?) -> instance
     end
   end

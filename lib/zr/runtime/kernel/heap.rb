@@ -1212,6 +1212,9 @@ module Zr::Kern
     attr_accessor :spread_top #: word
     # The argument slot of a lent keyword Hash (KW_LENT).
     attr_accessor :kw_at #: ptr
+    # The Ruby::Box of the code that the eval walker runs now, or nil for
+    # main (zr_walk_enter): the box of the walker's World calls.
+    attr_accessor :walk_box #: value
   end
 
   # The runtime's own roots: the core classes and the main object.

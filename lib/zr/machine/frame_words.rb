@@ -26,7 +26,7 @@ module Zr
       # @rbs cover: Integer?
       # @rbs owns_backref: bool
       # @rbs reads_backref: bool
-      # @rbs frameless: bool
+      # @rbs frameless: bool | Integer
       # @rbs blocks: Integer
       # @rbs using: Integer?
       # @rbs span: Array[Integer]?
@@ -49,7 +49,9 @@ module Zr
         yield "cover", cover ? cover + 1 : 0
         yield "owns_backref", owns_backref ? 1 : 0
         yield "reads_backref", reads_backref ? 1 : 0
-        yield "frameless", frameless ? 1 : 0
+        # A Lower::Function#frameless_word, or a bool.
+        flag = frameless
+        yield "frameless", flag.is_a?(Integer) ? flag : (flag && 1) || 0
         yield "blocks", blocks
         yield "using", using ? using + 1 : 0
         return unless span

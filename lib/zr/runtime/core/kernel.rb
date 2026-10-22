@@ -462,11 +462,13 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # with `self_` and `cref`, in a new top-level scope. The tree-walking
   # interpreter gives no machine code but the string, which it walks
   # now (Zr::Eval::Interpreter#walk_code).
-  def self.run_code(code, self_, cref)
+  # `box` is the Ruby::Box that walked code runs in, or nil for main;
+  # compiled code carries its box in its frames (zr_box_stamp).
+  def self.run_code(code, self_, cref, box = nil)
     Primitive.attr! :hidden
     return Primitive.zr_eval_run(code, self_, cref, nil, nil) if code.is_a?(Array)
 
-    ::Zr::Eval.current.walk_code(code, self_, cref, top_scope)
+    ::Zr::Eval.current.walk_code(code, self_, cref, top_scope, box)
   end
 
   # A scope with no locals, as a file's toplevel has.

@@ -241,7 +241,7 @@ module Ruby
     # The snippet runs IN the box: what it defines, what it reads and
     # what it writes are the box's own until the call is over.
     # The tree-walking interpreter's code (Kernel.run_code) has no frames
-    # to stamp: its walk reads the box through @main and @cref alone.
+    # to stamp: the walk runs in the box that it gives (zr_walk_enter).
     def run(code, _path)
       Primitive.attr! :hidden
       if code.is_a?(Array)
@@ -250,7 +250,7 @@ module Ruby
       else
         code.compiled!
       end
-      Kernel.run_code(code, @main, @cref)
+      Kernel.run_code(code, @main, @cref, self)
     end
 
     # The constants that a require from the box made on Object go into

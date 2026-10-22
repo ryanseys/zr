@@ -7,6 +7,9 @@ module Zr::Kern
   # what the runtime contained when the program started.
   G_MASTER_GVARS = 48
   G_BOX = 49
+  # FrameMeta `frameless` of a function of the eval walker's World
+  # (lib/zr/runtime/lib/zr/eval/world.rb; Lower::Function#walker_frame?).
+  FRAMELESS_WORLD = 2
 
   # The Ruby::Box class, which the core library sets here.
   #: (value) -> value
@@ -29,7 +32,9 @@ module Zr::Kern
 
   # The box of the running code, which is the box where its FUNCTION was
   # written. Code that is part of the runtime belongs to main, even when a
-  # box calls it.
+  # box calls it. The eval walker's World does for walked code what
+  # compiled code does inline, so its frames (FRAMELESS_WORLD) have the box
+  # of the walk.
   #: () -> value
   def zr_box_current
     t = Task[zr_task()].top
@@ -39,6 +44,9 @@ module Zr::Kern
     m = Frame[t].meta
     if m == 0
       return Machine.value(QNIL)
+    end
+    if FrameMeta[m].frameless == FRAMELESS_WORLD
+      return zr_walk_box()
     end
     b = FrameMeta[m].box
     Machine.word(b) == 0 ? Machine.value(QNIL) : b
@@ -53,6 +61,9 @@ module Zr::Kern
       m = Frame[f].meta
       if m == 0
         return Machine.value(QNIL)
+      end
+      if FrameMeta[m].frameless == FRAMELESS_WORLD
+        return zr_walk_box()
       end
       if FrameMeta[m].kind != KIND_BUILTIN && FrameMeta[m].kind != KIND_HIDDEN
         b = FrameMeta[m].box

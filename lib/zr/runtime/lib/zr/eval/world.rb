@@ -74,7 +74,9 @@ module Zr
       BARE = proc { Primitive.zr_own_binding }
 
       #: (Symbol kind, Symbol? name, Module? owner, Integer? parent, file: String, evaled: bool) -> Integer?
-      def walk_meta(kind, name, owner, parent, file:, evaled:) = Primitive.zr_walk_meta_m(KINDS.fetch(kind), name, owner, file, parent, evaled)
+      def walk_meta(kind, name, owner, parent, file:, evaled:, box: nil)
+        Primitive.zr_walk_meta_m(KINDS.fetch(kind), name, owner, file, parent, evaled, box)
+      end
       # The meta of the frame that called eval, whose label an eval's
       # code shows.
       #: () -> Integer?
@@ -113,11 +115,16 @@ module Zr
       # While the walk runs, the caller of the runtime is the program,
       # not the interpreter's own file, which loaded hidden from the
       # program. So a constant that the string defines is the program's,
-      # and so is a require that it makes.
-      #: () -> void
-      def walk_enter = Primitive.zr_walk_enter
-      #: () -> void
-      def walk_leave = Primitive.zr_walk_leave
+      # and so is a require that it makes. `box` is the Ruby::Box of the
+      # walked code, or nil for main: the box that these World calls read
+      # and write in. walk_enter returns the box of the walk around it,
+      # which walk_leave puts back.
+      #: (untyped box) -> untyped
+      def walk_enter(box) = Primitive.zr_walk_enter(box)
+      #: (untyped outer) -> void
+      def walk_leave(outer) = Primitive.zr_walk_leave(outer)
+      # The box of the walk that runs now, or nil.
+      def walk_box = Primitive.zr_walk_box
 
       # A method that the walk defined with define_method: its
       # `parameters` and `arity` are the def's (`rows`, `arity`), not

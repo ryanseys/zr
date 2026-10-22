@@ -420,6 +420,20 @@ module Zr
       # The files of the eval forms (runtime/lib/zr/eval).
       EVAL_FORMS = %r{/zr/eval/(?:interpreter_)?forms\.rb\z}
 
+      # The eval walker's World (runtime/lib/zr/eval/world.rb) does for
+      # walked code what compiled code does inline, so its frames read the
+      # box of the walk (kernel/box.rb, FRAMELESS_WORLD).
+      WORLD = %r{/zr/eval/world\.rb\z}
+
+      # The FrameMeta `frameless` word: 2 for a World function, 1 for a
+      # frame that shows in no backtrace, else 0.
+      #: () -> Integer
+      def frameless_word
+        return 2 if @l.file.match?(WORLD)
+
+        attributes.include?(:frameless) || walker_frame? ? 1 : 0
+      end
+
       # Whether this core def keeps its matches in its own `$~`
       # (`Hir::CoreDef.owns_backref?`).
       #: () -> bool
@@ -537,7 +551,7 @@ module Zr
                 else
                   words = Machine::FrameWords.new(line: line, end_line: end_line, node: node_id, arity: params ? params.arity : 0, env: @has_env,
                                          ruby: attributes.include?(:ruby), cover: method_cover, owns_backref: owns_backref?,
-                                         reads_backref: reads_backref?, frameless: attributes.include?(:frameless) || walker_frame?, blocks: @blocks,
+                                         reads_backref: reads_backref?, frameless: frameless_word, blocks: @blocks,
                                          using: own&.using, span: own&.span)
                   @l.meta(@name, kind, words, name: name, parent: @outer&.meta, params: params, locals: @locals, twin: @twin,
                                          lexical: @lexical&.meta)

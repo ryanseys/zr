@@ -157,12 +157,15 @@ module Zr
         # `frame` is the Binding of the frame that called eval: the scope
         # that a `return`, `$~` and `binding` of the string belong to.
         # `loaded` marks a file that a require walks, which has an absolute
-        # path, where an eval's code has none.
-        #: (String file, Binding frame, ?loaded: bool) -> void
-        def initialize(file, frame, loaded: false)
+        # path, where an eval's code has none. `box` is the Ruby::Box of the
+        # code (nil for main): each walk of it, and each method and block
+        # that it defines, runs in that box.
+        #: (String file, Binding frame, ?loaded: bool, ?box: untyped) -> void
+        def initialize(file, frame, loaded: false, box: nil)
           @file = file
           @frame = frame
           @loaded = loaded
+          @box = box
         end
 
         # The FrameMeta of a scope of the walked code, as World.walk_meta
@@ -171,9 +174,9 @@ module Zr
         # the meta of the scope around a block (or of eval's caller).
         #: (Symbol kind, Symbol? name, Module? owner, Integer? parent) -> Integer?
         def scope_meta(kind, name, owner, parent)
-          key = [kind, name, owner, parent, @file, @loaded]
+          key = [kind, name, owner, parent, @file, @loaded, @box]
           metas = Eval.walk_metas
-          metas.fetch(key) { metas[key] = World.walk_meta(kind, name, owner, parent, file: @file, evaled: !@loaded) }
+          metas.fetch(key) { metas[key] = World.walk_meta(kind, name, owner, parent, file: @file, evaled: !@loaded, box: @box) }
         end
 
         # The frame of a call from the walked code at `line`, or nil.
@@ -760,7 +763,7 @@ module Zr
         # @rbs self_: value
         # @rbs return: value
         def run_block(node, ctx, args, kwargs, blk, lambda:, home: nil, here: nil, self_: nil)
-          World.walk_enter
+          outer = World.walk_enter(@box)
           ctx = ctx.with(self_: self_, cref: World.walk_cref(here, ctx.cref), name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
           tag = node.__id__
           scope = Scope.new(node.locals)
@@ -781,7 +784,7 @@ module Zr
             retry
           end
         ensure
-          World.walk_leave
+          World.walk_leave(outer)
         end
 
         # Method definition. Each call walks the body, in the lexical scope
@@ -824,7 +827,7 @@ module Zr
         # (`World.walk_enter`): a constant that it defines on Object and a
         # file that it requires are the program's, not hidden.
         def run_method(node, self_, owner, cref, args, kwargs, blk)
-          World.walk_enter
+          outer = World.walk_enter(@box)
           tag = node.__id__
           scope = Scope.new(node.locals)
           ctx = Ctx.new(self_: self_, cref: cref, chain: [scope], block: blk,
@@ -839,7 +842,7 @@ module Zr
             e.value
           end
         ensure
-          World.walk_leave
+          World.walk_leave(outer)
         end
 
         def module_def(node, ctx)

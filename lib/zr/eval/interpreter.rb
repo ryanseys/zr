@@ -106,11 +106,12 @@ module Zr
         Deferred.new(source, file, line.to_int, warn_now, debug_frozen: debug_frozen ? true : false)
       end
 
-      # Walks code that `compile` deferred, in a new top-level `scope`.
-      #: (Deferred code, untyped self_, untyped cref, Binding scope) -> untyped
-      def walk_code(code, self_, cref, scope)
+      # Walks code that `compile` deferred, in a new top-level `scope`, in
+      # `box` (a Ruby::Box, or nil for main).
+      #: (Deferred code, untyped self_, untyped cref, Binding scope, ?untyped box) -> untyped
+      def walk_code(code, self_, cref, scope, box = nil)
         Interpreter.evaluate(code.source, scope, file: code.file, line: code.line, self_: self_, cref: cref, block: nil, quiet: code.warned,
-                                                 debug_frozen: code.debug_frozen, compiled: code.compiled)
+                                                 debug_frozen: code.debug_frozen, compiled: code.compiled, box: box)
       end
     end
   end

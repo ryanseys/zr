@@ -191,6 +191,7 @@ module Zr::Kern
     Task[t].pending_from = 0
     Task[t].root_env = Machine.value(QNIL)
     Task[t].flip_flops = Machine.value(QNIL)
+    Task[t].walk_box = Machine.value(QNIL)
     Task[t].spread = Machine.value(QNIL)
     Task[t].spread_top = 0
     Task[t].cframe = 0

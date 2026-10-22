@@ -14,13 +14,15 @@ module Zr
       # walk, unless a compile gave them already (`quiet`). `debug_frozen`
       # builds with debug_frozen_string_literal: each frozen literal knows
       # where it was made. `compiled` code shows the label `<compiled>`.
+      # `box` is the Ruby::Box that the code runs in: a box's eval gives
+      # it, and an eval in walked code runs in the box of that code.
       #
       # It reads the runtime only through `World`, so the tests run it on
       # CRuby over a `World` of plain Ruby (test/support/interpreter_world.rb).
       # @rbs (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped,
-      #        ?add: bool, ?loaded: bool, ?quiet: bool, ?debug_frozen: bool, ?compiled: bool) -> untyped
+      #        ?add: bool, ?loaded: bool, ?quiet: bool, ?debug_frozen: bool, ?compiled: bool, ?box: untyped) -> untyped
       def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false, loaded: false, quiet: false, debug_frozen: false,
-                        compiled: false)
+                        compiled: false, box: World.walk_box)
         file = string(file)
         source = string(source)
         # eval_make_iseq: a source that is not ASCII compatible cannot be read.
@@ -29,7 +31,7 @@ module Zr
         hir = built(source, file, line.to_int, scope, loaded, debug_frozen: debug_frozen)
         hir.warnings.each { |text| parse_warning(text) } unless quiet
         own = Tree::Scope.new(hir.locals)
-        tree = Tree.new(file, scope, loaded: loaded)
+        tree = Tree.new(file, scope, loaded: loaded, box: box)
         # An eval's code shows the label of its caller; a required file's
         # is `<top (required)>`.
         caller = World.eval_caller_meta unless loaded || compiled
@@ -39,11 +41,11 @@ module Zr
                end
         ctx = Tree::Ctx.new(self_: self_, cref: cref, chain: [own, *held(scope)], block: block,
                             name: nil, owner: nil, args: nil, kwargs: nil, tag: nil, home: nil, svars: nil, meta: meta)
-        World.walk_enter
+        outer = World.walk_enter(box)
         value = begin
           tree.run(hir, ctx)
         ensure
-          World.walk_leave
+          World.walk_leave(outer)
         end
         keep(scope, own) if add
         value

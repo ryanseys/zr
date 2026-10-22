@@ -666,16 +666,29 @@ module Zr::Kern
     Machine.load64(zr_walking(), 0) != 0
   end
 
-  #: () -> value
-  def zr_walk_enter
+  # `box` is the Ruby::Box of the walked code, or nil for main: the box
+  # of the World calls until the walk leaves (zr_box_current). Returns the
+  # box of the walk around it, which zr_walk_leave puts back.
+  #: (value) -> value
+  def zr_walk_enter(box)
     Machine.store64(zr_walking(), 0, Machine.load64(zr_walking(), 0) + 1)
+    t = zr_task()
+    outer = Task[t].walk_box
+    Task[t].walk_box = box
+    outer
+  end
+
+  #: (value) -> value
+  def zr_walk_leave(outer)
+    Machine.store64(zr_walking(), 0, Machine.load64(zr_walking(), 0) - 1)
+    Task[zr_task()].walk_box = outer
     Machine.value(QNIL)
   end
 
+  # The box of the walk that runs now, or nil.
   #: () -> value
-  def zr_walk_leave
-    Machine.store64(zr_walking(), 0, Machine.load64(zr_walking(), 0) - 1)
-    Machine.value(QNIL)
+  def zr_walk_box
+    Task[zr_task()].walk_box
   end
 
   # Returns the path of the hidden file that is loading now, or nil.

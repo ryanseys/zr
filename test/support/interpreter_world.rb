@@ -118,10 +118,11 @@ module Zr
         def set_module_function(cref) = cref.modfn = true
         def require_hidden(path) = require(path)
         def errinfo = $!
-        def walk_enter = nil
-        def walk_leave = nil
+        def walk_enter(_box) = nil
+        def walk_leave(_outer) = nil
+        def walk_box = nil
         # CRuby shows the walker's own frames: there is no frame to push.
-        def walk_meta(_kind, _name, _owner, _parent, file:, evaled:) = nil
+        def walk_meta(_kind, _name, _owner, _parent, file:, evaled:, box: nil) = nil
         def eval_caller_meta = nil
 
         def walk_send(_at, recv, name, args, kwargs:, blk:, private:, vcall: false)
