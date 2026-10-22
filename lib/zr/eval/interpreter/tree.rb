@@ -277,9 +277,17 @@ module Zr
         end
 
         # A Regexp literal is one frozen object for its site, as ruby
-        # makes it once when it compiles the string.
+        # makes it once when it compiles the string. It is built as the
+        # kernel's literal table builds it (Regexp.literal): a flag letter's
+        # encoding pins the pattern, and the build already printed its
+        # warnings.
         #: (Hir::RegexpLit node) -> Regexp
-        def regexp(node) = regexps[node] ||= ::Regexp.new(node.source, node.options).freeze
+        def regexp(node)
+          regexps[node] ||= begin
+            pinned = node.pinned && ::Encoding.list.index(node.pinned)
+            ::Regexp.__send__(:literal, node.source, node.options, pinned).freeze
+          end
+        end
 
         # The first value of a `/.../o` literal. The build runs its
         # interpolation in a block of its own, through the core's

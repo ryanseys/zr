@@ -210,6 +210,13 @@ module Zr
       unless ::Regexp.respond_to?(:interpolated, true)
         ::Regexp.define_singleton_method(:interpolated) { |fragments, bits, _pinned| new(fragments.join, bits & 7).freeze }
       end
+      # The same for a literal (`Regexp.literal`): the source in the
+      # encoding that a flag letter pins, by its index.
+      unless ::Regexp.respond_to?(:literal, true)
+        ::Regexp.define_singleton_method(:literal) do |source, bits, pinned|
+          new(pinned ? source.dup.force_encoding(::Encoding.list.fetch(pinned)) : source, bits & 7)
+        end
+      end
     end
   end
 end
