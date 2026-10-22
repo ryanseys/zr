@@ -125,7 +125,7 @@ module Zr
         def walk_meta(_kind, _name, _owner, _parent, file:, evaled:, box: nil) = nil
         def eval_caller_meta = nil
 
-        def walk_send(_at, recv, name, args, kwargs:, blk:, private:, vcall: false)
+        def walk_send(_at, recv, name, args, kwargs:, blk:, private:, vcall: false, new: false)
           kwargs ||= {}
           private ? recv.__send__(name, *args, **kwargs, &blk) : recv.public_send(name, *args, **kwargs, &blk)
         end

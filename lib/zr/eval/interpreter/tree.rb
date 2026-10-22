@@ -28,6 +28,7 @@ module Zr
         # @rbs @once: Hash[Hir::Once, value]?
         # @rbs @frozen: Hash[Hir::FrozenString, String]?
         # @rbs @coverage_row: Integer?
+        # @rbs @plain_new: bool?
         # @rbs @regexps: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]?
         # @rbs @svars: svars?
         # @rbs @loaded: bool
@@ -185,7 +186,12 @@ module Zr
 
         # Runs `hir` in `ctx` and returns the value of its body.
         #: (Hir::Program hir, Ctx ctx) -> value
-        def run(hir, ctx) = walk(hir.body, ctx)
+        # A program that turns off CRuby's specialized instructions sends
+        # `new` (Hir::Program#plain_new); else `new` is opt_new.
+        def run(hir, ctx)
+          @plain_new = hir.plain_new
+          walk(hir.body, ctx)
+        end
 
         def walk(node, ctx)
           case node
@@ -688,7 +694,8 @@ module Zr
           if svars
             svar_send(recv, name, args, kwargs, block, private, svars)
           else
-            World.walk_send(at, recv, name, args, kwargs: kwargs.nil? || kwargs.empty? ? nil : kwargs, blk: block, private: private, vcall: vcall)
+            World.walk_send(at, recv, name, args, kwargs: kwargs.nil? || kwargs.empty? ? nil : kwargs, blk: block, private: private, vcall: vcall,
+                                                  new: name == :new && !@plain_new)
           end
         rescue Breaking => e
           raise unless tag && e.tag.equal?(tag)

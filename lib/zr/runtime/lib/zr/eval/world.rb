@@ -89,11 +89,13 @@ module Zr
       # bare identifier (`vcall`) that finds no method raises NameError,
       # with the locals of the walked scope.
       #: (Array[untyped]? at, untyped recv, Symbol name, Array[untyped] args, kwargs: Hash[Symbol, untyped]?, blk: Proc?, private: bool, ?vcall: bool) -> untyped
-      def walk_send(at, recv, name, args, kwargs:, blk:, private:, vcall: false)
+      # `new` is true for a `new` that ruby compiles to opt_new.
+      def walk_send(at, recv, name, args, kwargs:, blk:, private:, vcall: false, new: false)
         mode = if vcall then 1
                elsif private then 0
                else 2
                end
+        mode += 512 if new
         return Primitive.zr_walk_send_m(at, recv, name, args, blk, mode) unless kwargs
 
         Primitive.zr_walk_send_m(at, recv, name, [*args, kwargs], blk, mode + 256)

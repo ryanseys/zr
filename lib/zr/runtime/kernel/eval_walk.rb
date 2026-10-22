@@ -86,8 +86,10 @@ module Zr::Kern
   # Sends `name` with the Array `args` to `recv` from walked code, under
   # a frame of `at` (`[meta, line, self]`, or nil for no frame). `mode` is
   # zr_dispatch's (0 for no receiver or self, 2 for another receiver),
-  # plus WALK_KEYWORDS when the last element of `args` is a keyword Hash.
+  # plus WALK_KEYWORDS when the last element of `args` is a keyword Hash,
+  # and WALK_NEW for a `new` that compiles to opt_new (zr_new_cached).
   WALK_KEYWORDS = 256
+  WALK_NEW = 512
   # The bits of Frame.line that hold the line (the node id is above them).
   WALK_LINE_MASK = 4294967295
   # The node id of a frame in a walked eval: the walker keeps no spots,
@@ -102,14 +104,29 @@ module Zr::Kern
       zr_kw_pass()
       m = m - WALK_KEYWORDS
     end
+    fresh = (m & WALK_NEW) != 0
+    if fresh
+      m = m - WALK_NEW
+    end
     if at == QNIL
-      return zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, m, blk)
+      return fresh ? zr_walk_new(recv, args, blk, m) : zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, m, blk)
     end
     rec = Machine.slot(Frame.size)
     zr_walk_push(rec, at)
-    r = zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, m, blk)
+    r = fresh ? zr_walk_new(recv, args, blk, m) : zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, m, blk)
     Task[zr_task()].top = Frame[rec].prev
     r
+  end
+
+  # `recv.new(*args)` as opt_new runs it: the object and its initialize,
+  # with no frame and no event of Class#new, through a call cache that
+  # starts empty (the walker keeps none for a site): 2 * CALL_WAYS entries,
+  # those of `new` and of `initialize`.
+  #: (value, value, value, word) -> value
+  def zr_walk_new(recv, args, blk, mode)
+    cc = Machine.slot(CallCache.size * 8)
+    Libc.memset(cc, Machine.i32(0), CallCache.size * 8)
+    zr_new_cached(cc, recv, RArray[args].len, RArray[args].ptr, blk, mode)
   end
 
   # A `class`, a `module` and a constant write of walked code, under a
