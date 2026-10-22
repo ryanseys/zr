@@ -73,5 +73,8 @@ module Zr::Kern
     # The heap's bump, which the module defines (backend/wasm/shims.rb).
     #: (word) -> word
     def self.zr_wasm_sbrk(n) = Machine.import
+    # The shadow stack's low end (backend/wasm/shims.rb).
+    #: () -> word
+    def self.zr_wasm_stack_low() = Machine.import
   end
 end

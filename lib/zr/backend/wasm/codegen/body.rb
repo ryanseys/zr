@@ -255,18 +255,18 @@ module Zr
             @code << "\x21" << leb(@local.fetch(v))
           end
 
-          # The frame: global 0 is the stack pointer. It is saved in the
-          # frame base local and incremented past the slots.
+          # The frame: global 0 is the stack pointer, which grows down. It
+          # moves down past the slots, and the frame base local keeps the
+          # new value, so a slot is at the base plus its offset.
           #: () -> void
           def prologue
-            @code << "\x23\x00" << "\x22" << leb(@fp)
-            @code << "\x41" << sleb(@frame) << "\x6A" << "\x24\x00"
+            @code << "\x23\x00" << "\x41" << sleb(@frame) << "\x6B" << "\x22" << leb(@fp) << "\x24\x00"
             @code << "\x41" << sleb(0) << "\x21" << leb(@bb)
           end
 
           #: () -> void
           def epilogue
-            @code << "\x20" << leb(@fp) << "\x24\x00"
+            @code << "\x20" << leb(@fp) << "\x41" << sleb(@frame) << "\x6A" << "\x24\x00"
           end
 
           # loop { block ... block { br_table } body0 end body1 end ... }

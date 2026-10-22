@@ -1,6 +1,8 @@
-# WASI machine stacks. A module has one stack. The engine sets its limit
-# and does not tell the module that limit. A module cannot map memory for
-# a second stack.
+# WASI machine stacks. A module has two: the engine's, which holds the
+# wasm frames and whose limit the engine does not tell the module, and
+# the shadow stack in linear memory, which holds zr's frame records and
+# slots and grows down to its base (backend/wasm/codegen.rb). A module
+# cannot map memory for a second stack.
 
 module Zr::Kern
   #: (i32, ptr) -> i32
@@ -8,11 +10,14 @@ module Zr::Kern
     zr_main(argc, argv)
   end
 
-  # 0: the stack check never fails. The engine's own limit stops a
-  # recursion that is too deep.
+  # The shadow stack's base: the main task's stack limit is a margin above
+  # it (zr_main_stack_limit), so a recursion that is too deep raises
+  # SystemStackError, where the engine would trap. The engine's limit
+  # must hold more wasm frames than the shadow stack holds records
+  # (`-W max-wasm-stack`, test/support/harness/wasmtime.rb).
   #: () -> word
   def zr_os_stack_low
-    0
+    Libc.zr_wasm_stack_low()
   end
 
   # 0: the module cannot get access to the engine's stack.

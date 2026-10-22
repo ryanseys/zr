@@ -54,7 +54,9 @@ module Zr
 
         PAGE = 65_536
         # The bottom of linear memory: the iovec scratch, then data objects,
-        # then the shadow stack growing up from its base.
+        # then the shadow stack, which grows down from its top to its base,
+        # as a machine stack does, so the kernel's stack checks
+        # (`rec < stack_limit`) hold for it too.
         SCRATCH = 16
         DATA_BASE = 32
         STACK_PAGES = 16
@@ -91,7 +93,7 @@ module Zr
         WASI = "wasi_snapshot_preview1"
         MAGIC = "\0asm\x01\0\0\0".b.freeze
         # Each global's export name and wasm type, in index order.
-        GLOBALS = [["stack_pointer", 0x7F], ["heap_pointer", 0x7F], ["gate", 0x7E]].freeze #: Array[[String, Integer]]
+        GLOBALS = [["stack_pointer", 0x7F], ["heap_pointer", 0x7F], ["gate", 0x7E], ["stack_low", 0x7F]].freeze #: Array[[String, Integer]]
         # An import: the module it comes from, its name, and its wasm
         # parameter and result types.
         # The fields of Import and Prelude are typed in
@@ -385,13 +387,20 @@ module Zr
         def import_section = section(2, vec(@imports.map { |i| name(i.from) + name(i.name) + "\0".b + leb(type_index(i.signature)) }))
 
         # The globals, in their order (`GLOBALS`): the shadow stack pointer,
-        # the heap pointer, and the gate word (`IR::Inst::GATES`).
+        # which starts at the stack's top, the heap pointer, the gate word
+        # (`IR::Inst::GATES`), and the stack's base, the low end that the
+        # kernel's stack limit stays above (`zr_wasm_stack_low`).
         #: (Integer stack_base, Integer heap_base) -> String
         def globals(stack_base, heap_base)
-          vec(["\x7F\x01".b + "\x41".b + sleb(stack_base) + "\x0B".b,
+          vec(["\x7F\x01".b + "\x41".b + sleb(stack_top(stack_base)) + "\x0B".b,
                "\x7F\x01".b + "\x41".b + sleb(heap_base) + "\x0B".b,
-               "\x7E\x01".b + "\x42\x00".b + "\x0B".b])
+               "\x7E\x01".b + "\x42\x00".b + "\x0B".b,
+               "\x7F\x01".b + "\x41".b + sleb(stack_base) + "\x0B".b])
         end
+
+        # The first address past the shadow stack, where it starts.
+        #: (Integer stack_base) -> Integer
+        def stack_top(stack_base) = stack_base + (STACK_PAGES * PAGE)
 
         # The function names, as a custom section. The program does not read
         # it, but wasmtime does: a trap then shows `zr_ivtab_append` in place
@@ -660,7 +669,7 @@ module Zr
               code << i32c(at) << i32c(0) << i32c(bytes.bytesize) << "\xFC\x08".b << leb(k) << "\x00".b
               code << "\xFC\x09".b << leb(k)
             end
-            code << i32c(stack_base) << "\x24\x00".b << i32c(heap_base) << "\x24\x01".b
+            code << i32c(stack_top(stack_base)) << "\x24\x00".b << i32c(heap_base) << "\x24\x01".b << i32c(stack_base) << "\x24\x03".b
           end
           params.each { |t| code << (t == 0x7E ? "\x42\x00".b : "\x41\x00".b) }
           code << "\x10".b << leb(function_index("main"))

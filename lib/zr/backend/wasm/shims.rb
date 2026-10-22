@@ -9,13 +9,16 @@ module Zr
         # the write, exit and abort calls of a unit with no OS layer.
         # `zr_wasm_sbrk` is malloc's bump of the heap alone, under the
         # allocator of the wasi layer (kernel/os/wasi/malloc.rb), which
-        # replaces malloc, free and posix_memalign.
+        # replaces malloc, free and posix_memalign. `zr_wasm_stack_low` is
+        # the shadow stack's base (global 3), which the stack limit is
+        # above (kernel/os/wasi/stack.rb).
         #
         # A type annotation does not reach the empty arrays through `.freeze`.
         LIBC_SHIMS = { "write" => [[0x7F, 0x7E, 0x7E], [0x7E]],
                        "exit" => [[0x7F], []], "_exit" => [[0x7F], []], "abort" => [[], []], # steep:ignore UnannotatedEmptyCollection
                        "malloc" => [[0x7E], [0x7E]], "free" => [[0x7E], []], # steep:ignore UnannotatedEmptyCollection
-                       "zr_wasm_sbrk" => [[0x7E], [0x7E]], "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
+                       "zr_wasm_sbrk" => [[0x7E], [0x7E]], "zr_wasm_stack_low" => [[], [0x7E]],
+                       "posix_memalign" => [[0x7E, 0x7E, 0x7E], [0x7F]],
                             "memmove" => [[0x7E, 0x7E, 0x7E], [0x7E]], "memset" => [[0x7E, 0x7F, 0x7E], [0x7E]] }.freeze #: Hash[String, signature]
 
         # How many i32 locals a shim body declares.
@@ -69,6 +72,8 @@ module Zr
             code << "\x37\x03\x00".b << "\x41\x00".b
           when "free"
             code << "".b
+          when "zr_wasm_stack_low"
+            code << "\x23\x03".b << "\xAD".b
           when "memmove"
             # memory.copy handles ranges that overlap; return the destination.
             code << "\x20\x00\xA7\x20\x01\xA7\x20\x02\xA7".b << "\xFC\x0A\x00\x00".b << "\x20\x00".b
