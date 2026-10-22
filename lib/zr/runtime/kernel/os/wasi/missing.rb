@@ -319,9 +319,11 @@ module Zr::Kern
     zr_wasi_unsupported_word()
   end
 
+  # A guest is never privileged, so chroot fails as it fails for a user
+  # who is not root.
   #: (ptr) -> i32
   def chroot(path)
-    zr_wasi_unsupported()
+    zr_wasi_fail(WASI_EPERM)
   end
 
   #: (i32) -> i32

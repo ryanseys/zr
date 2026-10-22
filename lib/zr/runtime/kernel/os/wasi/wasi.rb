@@ -10,6 +10,7 @@ module Zr::Kern
   WASI_ENOENT = 44
   WASI_ENOSYS = 52
   WASI_ENOTTY = 59
+  WASI_EPERM = 63
 
   # The low 32 bits of an address, which is the form a host call takes.
   #: (ptr) -> i32

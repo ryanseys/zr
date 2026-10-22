@@ -1400,7 +1400,9 @@ class Dir
   end
 
   # The process moves into this directory, and with a block back again.
-  def chdir(&) = Dir.fchdir(fileno, &)
+  # dir_chdir: by the descriptor, else (WASI, which has no fchdir) by the
+  # Dir's path, as chdir_path does with no path to yield.
+  def chdir(&) = RUBY_PLATFORM.end_with?("wasi") ? Dir.send(:chdir_path, @path, &) : Dir.fchdir(fileno, &)
 
   # A Dir is the directory's names and a cursor over them, read once
   # when it opens.
@@ -2242,6 +2244,20 @@ class Dir
   # dir.c's chdir lock: a chdir inside another thread's chdir block is
   # an error, and one without a block inside a block of this thread
   # warns, with where that block began.
+  # chdir_path with no path to yield: Dir#chdir where there is no
+  # fchdir.
+  def self.chdir_path(path)
+    Primitive.attr! :hidden
+    check_chdir(block_given?)
+    return move_to(path) unless block_given?
+
+    before = pwd
+    move_to(path, "dir_chdir0")
+    chdir_block(caller_locations(1, 1).first) { yield }
+  ensure
+    move_to(before) if before
+  end
+
   def self.check_chdir(block)
     Primitive.attr! :hidden
     return if @chdir_depth.nil? || @chdir_depth.zero?
@@ -2265,7 +2281,7 @@ class Dir
     @chdir_depth -= 1
     @chdir_thread = nil if @chdir_depth.zero?
   end
-  private_class_method :check_chdir, :chdir_block
+  private_class_method :check_chdir, :chdir_block, :chdir_path
 
   def self.move_to(path, site = +"chdir_path")
     Primitive.attr! :hidden
