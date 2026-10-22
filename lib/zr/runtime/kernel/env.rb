@@ -1648,9 +1648,15 @@ module Zr::Kern
     zr_buf_take(b)
   end
 
+  # etc_getlogin: getlogin(3), else $USER, as a process with no terminal
+  # (a CI runner's) has no login name.
   #: () -> value
   def zr_login_name
-    zr_cstr_str(Libc.getlogin())
+    login = Libc.getlogin()
+    if login == 0
+      login = Libc.getenv(Machine.bytes("USER\0"))
+    end
+    zr_cstr_str(login)
   end
 
   # Returns uname's first five fields: sysname, nodename, release, version
