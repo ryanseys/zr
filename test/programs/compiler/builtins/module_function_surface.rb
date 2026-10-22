@@ -64,11 +64,11 @@ p FileTest.identical?("/tmp", "/tmp")
 
 puts "-- but FileTest is not the whole of File's class surface"
 begin
-  FileTest.read("/etc/hosts")
+  FileTest.read(__FILE__)
 rescue NoMethodError => e
   puts e.message
 end
-p File.read("/etc/hosts").is_a?(String)
+p File.read(__FILE__).is_a?(String)
 
 puts "-- Kernel's converted rows answer as class methods too"
 p Kernel.respond_to?(:format)

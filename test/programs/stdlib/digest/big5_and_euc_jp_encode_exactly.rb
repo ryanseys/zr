@@ -23,10 +23,10 @@ require "digest"
     rescue RangeError
       next
     end
-    begin
-      ok << "#{cp}:#{s.encode(enc).unpack1('H*')}"
-    rescue Encoding::UndefinedConversionError
-    end
+    # A code point that the family does not map encodes to "", not to a
+    # raise: a raise for each of them took a minute under wasmtime.
+    e = s.encode(enc, undef: :replace, replace: "")
+    ok << "#{cp}:#{e.unpack1('H*')}" unless e.empty?
   end
   puts "#{enc}\t#{ok.size}\t#{Digest::SHA256.hexdigest(ok.join(','))[0, 16]}"
 end

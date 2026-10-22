@@ -62,7 +62,7 @@ f.close
 
 # ---- File::Stat
 st = File.stat(".")
-st2 = File.stat("..")
+st2 = File.stat("/tmp")
 st.send(:initialize_copy, st2)
 p st.directory?
 p File::Stat.instance_method(:initialize).arity
