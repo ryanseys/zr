@@ -38,11 +38,6 @@ cli/stdlib/socket/socket_loopback.rb	socket(2) fails with ENOTSUP on wasi
 # The spec examples of the slice that CI runs on wasm32-wasi
 # (lang/methods, core/array, core/hash).
 
-# The WASI layer ports musl's libm (lib/zr/runtime/kernel/os/wasi/libm*.rb), as a
-# C ruby on WASI uses it. macOS's libm wrote the expected output, and its
-# tan is up to 2 ulp from the exact value where musl's is within 1.
-core/math/a_float_or_an_integer_argument_is_answered_by_the_kernel_at.rb	tan(1) is 1.5574077246549023 with musl, 1.557407724654902 with macOS
-
 # callcc needs the whole stack, and a WASI module cannot reach it.
 core/array/iterators_raise_when_a_continuation_reenters_them.rb	callcc where the stack is out of reach is not implemented yet
 core/array/a_sort_that_a_continuation_reenters_raises_sort_reentered.rb	callcc where the stack is out of reach is not implemented yet
