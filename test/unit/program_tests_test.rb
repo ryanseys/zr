@@ -160,7 +160,7 @@ class ProgramTestsTest < Minitest::Test
   def test_a_part_of_posix_that_wasi_lacks_skips_on_wasm
     wasm = Programs.new(target: Zr::Target.fetch("wasm32-wasi"), allowed: {}).runner
     native = Programs.new(target: Zr::Target.fetch("x86_64-linux-musl"), allowed: {}).runner
-    %w[fibers pipes processes sockets pty ffi].each do |need|
+    %w[fibers pipes processes sockets pty ffi users rlimits modes byte_paths].each do |need|
       refute Zr::Harness::Requirements.met?(need, wasm), need
       assert Zr::Harness::Requirements.met?(need, native), need
     end

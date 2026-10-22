@@ -88,10 +88,28 @@ module Zr
       # binary has no dynamic loader, but calls into its own libc.
       def self.ffi?(runner) = !runner.wasm?
 
+      # users: a passwd and group database (getpwuid, getgrgid, Etc::Group,
+      # Dir.home of a user). A WASI guest has none: every lookup fails.
+      def self.users?(runner) = !runner.wasm?
+
+      # rlimits: resource limits and priorities (getrlimit, setpriority,
+      # RLIMIT_*, PRIO_*, sysconf's OPEN_MAX), which sys/resource.h gives.
+      def self.rlimits?(runner) = !runner.wasm?
+
+      # modes: permission bits and owners. WASI has neither, so chmod and
+      # umask change nothing, a file's mode is not the one it was made
+      # with, and chown fails.
+      def self.modes?(runner) = !runner.wasm?
+
+      # byte_paths: a path name that is not UTF-8 (EUC-JP, Windows-31J,
+      # binary). WASI's path calls take UTF-8 alone and fail with EILSEQ.
+      def self.byte_paths?(runner) = !runner.wasm?
+
       CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?), "argv0" => method(:argv0?),
                  "dlopen" => method(:dlopen?), "fibers" => method(:fibers?), "pipes" => method(:pipes?),
                  "processes" => method(:processes?), "sockets" => method(:sockets?), "pty" => method(:pty?),
-                 "ffi" => method(:ffi?) }.freeze
+                 "ffi" => method(:ffi?), "users" => method(:users?), "rlimits" => method(:rlimits?),
+                 "modes" => method(:modes?), "byte_paths" => method(:byte_paths?) }.freeze
 
       def self.met?(name, runner) = CHECKS.fetch(name).call(runner)
     end
