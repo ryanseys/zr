@@ -1232,7 +1232,7 @@ class IO
       own_descriptor
     else
       write_pending
-      dup_from(opened.fileno, other)
+      move_from(opened, other)
     end
     adopt_mode(opened.send(:mode_state)) if mode || !options.empty?
     opened.close unless opened.closed?
@@ -1289,6 +1289,25 @@ class IO
     Primitive.attr! :hidden
     result = Primitive.zr_io_dup2(fd, @fd)
     raise SystemCallError.new(name, -result, +"rb_io_reopen") if result < 0
+
+    keep_cloexec
+  end
+
+  # The same for the stream that a reopen onto a path opened: its open
+  # file moves onto this descriptor, and its own descriptor is freed
+  # (dup2 and close, which ruby does; on WASI, which has no dup,
+  # fd_renumber), so its close closes nothing.
+  def move_from(opened, name)
+    Primitive.attr! :hidden
+    result = Primitive.zr_io_move(opened.fileno, @fd)
+    raise SystemCallError.new(name, -result, +"rb_io_reopen") if result < 0
+
+    opened.autoclose = false
+    keep_cloexec
+  end
+
+  def keep_cloexec
+    Primitive.attr! :hidden
     return if @fd <= 2
 
     flags = Primitive.zr_io_fcntl(@fd, F_GETFD, 0)

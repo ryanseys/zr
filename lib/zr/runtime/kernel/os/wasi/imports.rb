@@ -36,6 +36,8 @@ module Zr::Kern
     def self.fd_read(i1, i2, i3, i4) = Machine.import(from: "wasi_snapshot_preview1")
     #: (i32, i32, i32, word, i32) -> i32
     def self.fd_readdir(i1, i2, i3, n, i4) = Machine.import(from: "wasi_snapshot_preview1")
+    #: (i32, i32) -> i32
+    def self.fd_renumber(i1, i2) = Machine.import(from: "wasi_snapshot_preview1")
     #: (i32, word, i32, i32) -> i32
     def self.fd_seek(i1, n, i2, i3) = Machine.import(from: "wasi_snapshot_preview1")
     #: (i32) -> i32

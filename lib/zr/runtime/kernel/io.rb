@@ -233,6 +233,14 @@ module Zr::Kern
     zr_io_status(Libc.dup2(Machine.i32(zr_fix2long(from)), Machine.i32(zr_fix2long(to))))
   end
 
+  # The open file of `from` on the descriptor `to`, and `from` freed
+  # (zr_os_fd_move), or the negated errno. WASI has no dup, but it can
+  # move a descriptor.
+  #: (value, value) -> value
+  def zr_io_move(from, to)
+    zr_io_status(zr_os_fd_move(Machine.i32(zr_fix2long(from)), Machine.i32(zr_fix2long(to))))
+  end
+
   #: (value) -> value
   def zr_io_fsync(fd)
     zr_io_status(Libc.fsync(Machine.i32(zr_fix2long(fd))))

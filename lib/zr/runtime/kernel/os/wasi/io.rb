@@ -209,6 +209,14 @@ module Zr::Kern
     zr_wasi_status(Libc.fd_close(fd))
   end
 
+  # Moves the open file of `from` onto `to`, which it closes, and frees
+  # `from`: WASI's fd_renumber. WASI has no dup, so this is how a reopen
+  # onto a path keeps its descriptor number.
+  #: (i32, i32) -> i32
+  def zr_os_fd_move(from, to)
+    zr_wasi_status(Libc.fd_renumber(from, to))
+  end
+
   #: (i32) -> i32
   def fsync(fd)
     zr_wasi_status(Libc.fd_sync(fd))
