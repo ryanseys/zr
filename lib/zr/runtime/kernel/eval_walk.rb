@@ -112,6 +112,46 @@ module Zr::Kern
     r
   end
 
+  # A `class`, a `module` and a constant write of walked code, under a
+  # frame of `at` (or none, for nil), as zr_walk_send_m sends: the
+  # constant records the walked file and line, as compiled code's does
+  # (zr_const_set_at), where it would record a frame of the walker.
+  #: (value, value, value, value, value, value) -> value
+  def zr_walk_class_define_m(at, scope, name, sup, given, scoped)
+    if at == QNIL
+      return zr_class_define_m(scope, name, sup, given, scoped)
+    end
+    rec = Machine.slot(Frame.size)
+    zr_walk_push(rec, at)
+    r = zr_class_define_m(scope, name, sup, given, scoped)
+    Task[zr_task()].top = Frame[rec].prev
+    r
+  end
+
+  #: (value, value, value, value) -> value
+  def zr_walk_module_define_m(at, scope, name, scoped)
+    if at == QNIL
+      return zr_module_define_scoped_m(scope, name, scoped)
+    end
+    rec = Machine.slot(Frame.size)
+    zr_walk_push(rec, at)
+    r = zr_module_define_scoped_m(scope, name, scoped)
+    Task[zr_task()].top = Frame[rec].prev
+    r
+  end
+
+  #: (value, value, value, value) -> value
+  def zr_walk_const_set_m(at, klass, name, v)
+    if at == QNIL
+      return zr_const_set_m(klass, name, v)
+    end
+    rec = Machine.slot(Frame.size)
+    zr_walk_push(rec, at)
+    r = zr_const_set_m(klass, name, v)
+    Task[zr_task()].top = Frame[rec].prev
+    r
+  end
+
   # A `yield` of walked code to `blk` with the Array `args`, under a frame
   # of `at`, as zr_walk_send_m sends: a method whose body only yields
   # shows in a backtrace from the block. `keywords` is true when the last

@@ -178,14 +178,14 @@ module Zr
 
         def const_get_at(scope, name) = scope.const_get(name)
         def const_defined_at?(scope, name) = scope.const_defined?(name)
-        def const_set(klass, name, value) = klass.const_set(name, value)
+        def const_set(klass, name, value, _at = nil) = klass.const_set(name, value)
 
         # The `class` and `module` keywords: open the constant, or define it.
-        def class_define(base, name, sup, given, _scoped)
+        def class_define(_at, base, name, sup, given, _scoped) # rubocop:disable Metrics/ParameterLists -- World.class_define's
           base.const_defined?(name, false) ? base.const_get(name, false) : base.const_set(name, Class.new(given ? sup : Object))
         end
 
-        def module_define(base, name, _scoped)
+        def module_define(_at, base, name, _scoped)
           base.const_defined?(name, false) ? base.const_get(name, false) : base.const_set(name, Module.new)
         end
 

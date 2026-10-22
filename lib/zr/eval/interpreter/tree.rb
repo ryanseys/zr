@@ -532,7 +532,7 @@ module Zr
 
         def const_write(node, value, ctx)
           # Steep finds Module#const_set on World before World#const_set.
-          World.const_set(const_base(node, ctx), node.name, value) # steep:ignore UnexpectedPositionalArgument
+          World.const_set(const_base(node, ctx), node.name, value, frame_at(ctx, node.line)) # steep:ignore UnexpectedPositionalArgument
           value
         end
 
@@ -855,9 +855,9 @@ module Zr
           scoped = !node.scope.nil?
           mod = if node.is_a?(Hir::ClassDef)
                   sup = node.superclass && walk(node.superclass, ctx)
-                  World.class_define(base, node.name, sup, !node.superclass.nil?, scoped)
+                  World.class_define(frame_at(ctx, node.line), base, node.name, sup, !node.superclass.nil?, scoped)
                 else
-                  World.module_define(base, node.name, scoped)
+                  World.module_define(frame_at(ctx, node.line), base, node.name, scoped)
                 end
           run_body(node, mod, ctx)
         end
@@ -1023,7 +1023,8 @@ module Zr
           when Hir::GvarWrite then World.gvar_set(target.shown || target.name, target.name, value)
           when Hir::CvarWrite then World.cvar_set(ctx.cref, target.name, value)
           # Steep finds Module#const_set on World before World#const_set.
-          when Hir::ConstWrite then World.const_set(prepared&.fetch(target, nil) || const_base(target, ctx), target.name, value) # steep:ignore UnexpectedPositionalArgument
+          when Hir::ConstWrite
+            World.const_set(prepared&.fetch(target, nil) || const_base(target, ctx), target.name, value, frame_at(ctx, target.line)) # steep:ignore UnexpectedPositionalArgument
           when Hir::MultiTarget then spread(target, splat_array(value), ctx, prepared)
           when Hir::Send then write_send(target, value, ctx, prepared&.fetch(target, nil))
           else refuse(target, "#{target.class.name.split("::").last} as an assignment target")

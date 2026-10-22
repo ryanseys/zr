@@ -43,9 +43,10 @@ module Zr
       # `1.instance_eval` there is none, and it raises TypeError.
       def cref_definee(cref) = Primitive.zr_cref_definee(cref)
       # The `class` and `module` keywords: open the constant, or define
-      # it, as compiled code does.
-      def class_define(base, name, sup, given, scoped) = Primitive.zr_class_define_m(base, name, sup, given, scoped)
-      def module_define(base, name, scoped) = Primitive.zr_module_define_scoped_m(base, name, scoped)
+      # it, as compiled code does, under a frame of `at` (Tree#frame_at),
+      # whose file and line the constant records.
+      def class_define(at, base, name, sup, given, scoped) = Primitive.zr_walk_class_define_m(at, base, name, sup, given, scoped)
+      def module_define(at, base, name, scoped) = Primitive.zr_walk_module_define_m(at, base, name, scoped)
       def cref_lexical(cref) = Primitive.zr_cref_lexical(cref)
       # The cref of a walked block that an exec runs (`here`), over the
       # block's own (`outer`) in place of the walker's.
@@ -177,7 +178,7 @@ module Zr
       def const_defined?(cref, name) = Primitive.zr_walk_const_defined_m(cref, name)
       def const_get_at(scope, name) = Primitive.zr_walk_const_get_at_m(scope, name)
       def const_defined_at?(scope, name) = Primitive.zr_walk_const_defined_at_m(scope, name)
-      def const_set(klass, name, value) = Primitive.zr_const_set_m(klass, name, value)
+      def const_set(klass, name, value, at = nil) = Primitive.zr_walk_const_set_m(at, klass, name, value)
 
       def cvar_get(cref, name) = Primitive.zr_cvar_get_m(cref, name)
       def cvar_defined?(cref, name) = Primitive.zr_cvar_defined_m(cref, name)
