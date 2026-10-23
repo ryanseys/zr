@@ -10,30 +10,35 @@ rescue Exception => e
   p [e.class, e.message]
 end
 m, s = PTY.open
+# What the terminal echoes. Linux echoes input later, on a work queue,
+# where macOS echoes during the write, so the test reads each echo before
+# a getch turns echo off; the prompt row prints all of it.
+echo = +""
+echoed = ->(text) { echo << m.readpartial(100) until echo.end_with?(text) }
+# A thread types only once echo is off: the getch or getpass that reads
+# its input has started.
+type = ->(text) { Thread.new { sleep 0.01 while s.echo?; m.print(text); m.flush } }
 t("getch min 0") { s.getch(min: 0) }
 t("getch min 0 time") { s.getch(min: 0, time: 0.1) }
 m.print("ab"); m.flush
-# Linux echoes the input later, on a work queue: the next getch turns
-# echo off, so it waits for the echo first.
-sleep 0.05
+echoed.("ab")
 t("getch min 1 time 1") { s.getch(min: 1, time: 1) }
 t("getch time 1") { s.getch(time: 1) }
 m.print("xy"); m.flush
-sleep 0.05
+echoed.("xy")
 t("getch min 2") { s.getch(min: 2) }
 t("raw min/time") { s.raw(min: 0, time: 0.1) { s.getc } }
-th = Thread.new { sleep 0.1; m.print("z"); m.flush }
+th = type.("z")
 t("getch waits") { s.getch }
 th.join
 old = $/
 $/ = "."
-th = Thread.new { sleep 0.1; m.print("asdf\n"); m.flush }
+th = type.("asdf\n")
 t("getpass with $/ = '.'") { s.getpass("> ") }
 th.join
 # The echo of the newline can come in a second read on Linux.
 t("prompt") do
-  echo = +""
-  echo << m.readpartial(100) until echo.end_with?("\n")
+  echoed.("\n")
   echo
 end
 $/ = old
