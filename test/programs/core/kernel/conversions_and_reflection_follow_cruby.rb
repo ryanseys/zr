@@ -23,7 +23,8 @@ $stderr = $stdout
 show { abort(message) }
 $stderr = STDERR
 interval = Object.new
-def interval.divmod(_) = [0, 0.001]
+# No time at all: a sleep that crosses a second of the wall clock answers 1.
+def interval.divmod(_) = [0, 0]
 show { sleep(interval) }
 seed = Object.new
 def seed.to_int = 34

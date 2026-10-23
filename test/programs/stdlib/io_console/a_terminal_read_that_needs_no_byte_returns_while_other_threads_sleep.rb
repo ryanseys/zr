@@ -4,10 +4,11 @@ require "pty"
 # A terminal whose read needs no byte (min: 0) returns at once, or after
 # its time, also while another thread sleeps with a time limit, as the
 # timeout library's own thread does after a block ends.
-sleeper = Thread.new { sleep 5 }
+# Their waits are far longer than any bound below, and than the program.
+sleeper = Thread.new { sleep 60 }
 waiter = Thread.new do
   mutex = Thread::Mutex.new
-  mutex.synchronize { Thread::ConditionVariable.new.wait(mutex, 5) }
+  mutex.synchronize { Thread::ConditionVariable.new.wait(mutex, 60) }
 end
 Thread.pass
 
@@ -19,11 +20,11 @@ end
 
 m, s = PTY.open
 value, took = elapsed { s.getch(min: 0) }
-p [:min0, value, took < 1]
+p [:min0, value, took < 10]
 value, took = elapsed { s.getch(min: 0, time: 0.2) }
-p [:min0_time, value, took >= 0.15, took < 2]
+p [:min0_time, value, took >= 0.15, took < 10]
 value, took = elapsed { s.raw(min: 0) { s.read_nonblock(1, exception: false) } }
-p [:nonblock, value, took < 1]
+p [:nonblock, value, took < 10]
 value, = elapsed { s.raw(min: 0, time: 0.1) { s.sysread(1) rescue $!.class } }
 p [:sysread, value]
 

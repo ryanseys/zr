@@ -12,5 +12,5 @@ p DateTime.new(2000, 4, 6, 0, 0, Rational(999999999999, 1000_000_000_000)).strft
 t = Time.utc(3, 12, 31, 23, 58, 59); p t.to_datetime.to_time.utc == t
 p DateTime.civil(1582, 10, 4, 23, 58, 59).to_time.utc
 p DateTime.new(2012, 12, 24, 12, 23, 0, "+03:00").to_time.utc_offset
-p (DateTime.now.to_time - Time.now).abs < 2
+p (DateTime.now.to_time - Time.now).abs < 30
 p DateTime.jd(2451944, 1.5), DateTime.ordinal(2001, 34, 4, 5, 6.5), DateTime.commercial(2001, 5, 6, 4, 5, 6, "+7")

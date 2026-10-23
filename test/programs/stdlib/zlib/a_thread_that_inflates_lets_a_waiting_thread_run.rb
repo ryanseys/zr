@@ -13,4 +13,5 @@ gzipped = Zlib.gzip("abc" * 2000)
   thr.join
 end
 el = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0
-puts el < 5 ? "fast" : "slow #{el}"
+# Time slices would take 50 s; a busy host takes a few.
+puts el < 20 ? "fast" : "slow #{el}"

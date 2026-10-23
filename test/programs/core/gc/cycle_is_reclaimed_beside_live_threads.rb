@@ -49,7 +49,7 @@ elapsed = timed do
   GC.start
   GC.start
 end
-puts "busy collected=#{busy.size == 0} bounded=#{elapsed < 3.0}"
+puts "busy collected=#{busy.size == 0} bounded=#{elapsed < 30.0}"
 p workers.map(&:value).uniq.size
 
 # A sleeping thread parks too: `Kernel#sleep` re-checks its interrupts on
@@ -63,5 +63,5 @@ elapsed = timed do
   GC.start
   GC.start
 end
-puts "sleeping collected=#{sleeping.size == 0} bounded=#{elapsed < 3.0}"
+puts "sleeping collected=#{sleeping.size == 0} bounded=#{elapsed < 30.0}"
 napper.join

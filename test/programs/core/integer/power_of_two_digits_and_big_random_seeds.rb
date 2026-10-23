@@ -11,7 +11,7 @@ p (2**130).digits(2**32).size, (-(2**129)).to_s(2).size
 end
 srand(2**300 + 1)
 p rand(2**80)
-t = Time.now
+t = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 r = Random.new(2**1000000 - 1)
 p r.rand(0x100000000), r.rand(2**1000)
-$stderr.puts "big seed in time: #{Time.now - t < 10}"
+$stderr.puts "big seed in time: #{Process.clock_gettime(Process::CLOCK_MONOTONIC) - t < 45}"

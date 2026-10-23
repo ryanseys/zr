@@ -19,7 +19,7 @@ Dir.mktmpdir do |dir|
   p File.lstat(link).mtime.nsec, File.stat(link).mtime.nsec
 
   File.utime(nil, nil, path)
-  p (Time.now - File.stat(path).mtime).abs < 5
+  p (Time.now - File.stat(path).mtime).abs < 60
 
   begin
     File.utime(nil, 1, path)

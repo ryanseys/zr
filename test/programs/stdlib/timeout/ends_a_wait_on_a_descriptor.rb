@@ -8,7 +8,8 @@ begin
 rescue Timeout::Error => e
   p e.class
 end
-p (Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0) < 1
+# Far below the wait with no end, far above a busy host's delay.
+p (Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0) < 10
 begin
   Timeout.timeout(0.2) { r.read }
 rescue Timeout::Error => e

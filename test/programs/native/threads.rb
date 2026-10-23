@@ -157,7 +157,9 @@ p Thread.new { (Thread.main.join rescue $!.message) }.value
 p Thread.list.size, Thread.list.include?(Thread.current)
 sleeper = Thread.new { sleep 0.01; :slept }
 p sleeper.join(0.001), sleeper.status, sleeper.join(5).equal?(sleeper), sleeper.value
-p sleep(0.001), sleep(0), Thread.new { sleep }.tap { |z| Thread.pass; p z.status; z.wakeup }.join.status
+# sleep answers whole seconds of the wall clock, so a short one that
+# crosses a second answers 1: only its class is the same each run.
+p sleep(0.001).class, sleep(0), Thread.new { sleep }.tap { |z| Thread.pass; p z.status; z.wakeup }.join.status
 start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 sleep 0.02
 p Process.clock_gettime(Process::CLOCK_MONOTONIC) - start >= 0.02, Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond).class, Process::CLOCK_REALTIME.class
