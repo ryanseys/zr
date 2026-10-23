@@ -23,9 +23,10 @@ slave.close
 master.close
 
 r, w, pid = PTY.spawn("true")
-sleep 0.3
 begin
-  PTY.check(pid, true)
+  # The child exits when it gets to run: check until it has, not once
+  # after a fixed time.
+  200.times { PTY.check(pid, true); sleep 0.05 }
   p "no raise"
 rescue PTY::ChildExited => e
   p e.class

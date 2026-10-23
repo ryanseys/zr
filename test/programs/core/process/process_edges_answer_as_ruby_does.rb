@@ -13,7 +13,8 @@ t(:popen_env) { IO.popen({"ZZ" => "q"}, "echo $ZZ", &:read) }
 t(:fork) { r, w = IO.pipe; pid = fork { r.close; w.write("child"); exit!(4) }; w.close; Process.wait(pid); [r.read, $?.exitstatus] }
 t(:fork_status) { pid = fork { Process.kill(:TERM, Process.pid) }; Process.wait(pid); [$?.signaled?, $?.termsig, $?.to_s.sub(/\d+/, "N")] }
 t(:wait2) { pid = spawn("sh", "-c", "exit 7"); Process.wait2(pid)[1].exitstatus }
-t(:waitpid_nohang) { pid = spawn("sleep", "0.2"); r = Process.waitpid(pid, Process::WNOHANG); Process.wait(pid); r }
+# A child that cannot have exited yet, however late the wait comes.
+t(:waitpid_nohang) { pid = spawn("sleep", "30"); r = Process.waitpid(pid, Process::WNOHANG); Process.kill(:KILL, pid); Process.wait(pid); r }
 t(:detach) { pid = spawn("true"); Process.detach(pid).value.class }
 t(:redirect) { r, w = IO.pipe; pid = spawn("sh", "-c", "echo err >&2", err: w); w.close; Process.wait(pid); r.read }
 t(:redirect2) { r, w = IO.pipe; pid = spawn("sh -c 'echo o; echo e >&2'", [:out, :err] => w); w.close; Process.wait(pid); r.read }

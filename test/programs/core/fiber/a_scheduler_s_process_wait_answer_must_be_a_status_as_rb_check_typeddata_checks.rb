@@ -51,8 +51,10 @@ Thread.new do
     pid = spawn("exit 3")
     p [Process.wait(pid) == pid, $?.exitstatus]
     p Process::Status.wait(spawn("true")).success?
-    pid = spawn("sleep 0.05")
+    # A child that cannot have exited yet, however late the wait comes.
+    pid = spawn("sleep 30")
     p Process.wait(pid, Process::WNOHANG)
+    Process.kill(:KILL, pid)
     Process.wait(pid)
   end
 end.join

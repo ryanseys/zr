@@ -7,7 +7,8 @@ end
 def timed
   started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   yield
-  Process.clock_gettime(Process::CLOCK_MONOTONIC) - started < 3
+  # A bound that only a trap that never ran can pass, not a slow runner.
+  Process.clock_gettime(Process::CLOCK_MONOTONIC) - started < 30
 end
 
 # A sleep with no end.
@@ -53,8 +54,11 @@ end)
 got = []
 trap(:USR2) { got << :usr2 }
 p(timed do
-  from_outside(:USR2, 0.1)
+  pid = from_outside(:USR2, 0.1)
   sleep 1
+  # The child may start late: its signal is sent once it has exited.
+  Process.wait(pid)
+  sleep 0.01 while got.empty?
 end)
 p got
 

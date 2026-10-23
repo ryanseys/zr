@@ -58,16 +58,18 @@ end
 p PTY.check(999_999)
 p PTY.check(1)
 
+# Each child exits when it gets to run: check until it has, not once
+# after a fixed time.
 r2, w2, pid2 = PTY.spawn("true")
-sleep 0.3
-p PTY.check(pid2).class.to_s
+st = nil
+200.times { break if (st = PTY.check(pid2)); sleep 0.05 }
+p st.class.to_s
 r2.close
 w2.close
 
 r3, w3, pid3 = PTY.spawn("true")
-sleep 0.3
 begin
-  PTY.check(pid3, true)
+  200.times { PTY.check(pid3, true); sleep 0.05 }
 rescue PTY::ChildExited => e
   p [e.class.to_s, e.message.start_with?("pty - exited: "), e.status.class.to_s,
      e.status.exitstatus]
