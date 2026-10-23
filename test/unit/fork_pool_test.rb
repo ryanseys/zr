@@ -18,8 +18,10 @@ class ForkPoolTest < Minitest::Test
     class Bounded < Minitest::Test
       def test_a_quick_one = assert(true)
       def test_one_that_never_returns = sleep(300)
+      # Far inside the 3 s, which also holds the fork and the report on a
+      # busy host.
       def test_a_slow_one_that_fails
-        sleep(1.5)
+        sleep(0.2)
         flunk("on purpose")
       end
     end
@@ -38,6 +40,15 @@ class ForkPoolTest < Minitest::Test
     out, = suite("3")
 
     assert_match(/3 runs, 2 assertions, 1 failures, 1 errors/, out)
+  end
+
+  # Before the deadline, a line names the example that still runs, so a
+  # log shows a hang as it starts.
+  def test_an_example_that_still_runs_is_named_before_the_deadline
+    out, = suite("3", "ZR_TEST_HEARTBEAT" => "1")
+
+    assert_match(/still running Bounded#test_one_that_never_returns after [12]s of 3s, holding \d+ MB/, out)
+    refute_match(/still running Bounded#test_a_quick_one/, out)
   end
 
   def test_the_deadline_is_three_minutes_unless_it_is_asked_for
@@ -198,8 +209,8 @@ class ForkPoolTest < Minitest::Test
 
   # Runs SUITE in a child, with a limit of `timeout` seconds for each
   # example.
-  def suite(timeout)
-    Dir.mktmpdir("zr-pool-") { |work| child(SUITE, work, "ZR_TEST_TIMEOUT" => timeout) }
+  def suite(timeout, env = {})
+    Dir.mktmpdir("zr-pool-") { |work| child(SUITE, work, { "ZR_TEST_TIMEOUT" => timeout, **env }) }
   end
 
   # Runs `source` as its own suite in `work`, and returns its output and

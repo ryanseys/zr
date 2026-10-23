@@ -60,7 +60,7 @@ class CExtPortsTest < Minitest::Test
     # version, which ruby's require activates too.
     built = Zr::Test::CExt.run(env, File.join(Zr::Test::CExt::ROOT, "bin", "zr"), "build", "--native-ext", gems.join(","), path,
                                "-o", path.delete_suffix(".rb"))
-    zr = built.status.zero? ? Zr::Test::CExt.run(env, path.delete_suffix(".rb")) : built
+    zr = built.status == 0 ? Zr::Test::CExt.run(env, path.delete_suffix(".rb")) : built
 
     assert_equal 0, ruby.status, "ruby failed:\n#{ruby.stderr}"
     assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr stderr:\n#{zr.stderr}"

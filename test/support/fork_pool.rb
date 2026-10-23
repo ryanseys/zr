@@ -132,6 +132,10 @@ module Zr
 
       # One forked process and its two pipes.
       class Worker
+        # The seconds between the lines that name an example that still
+        # runs (`ZR_TEST_HEARTBEAT`; 0 prints none).
+        HEARTBEAT = Integer(ENV.fetch("ZR_TEST_HEARTBEAT", 60))
+
         attr_reader :pid, :resident, :grown
 
         def self.open
@@ -288,7 +292,7 @@ module Zr
         # allows.
         def ask(klass, name)
           Marshal.dump([Minitest::Runnable.runnables.index(klass), name], @jobs)
-          return nil unless answered?(ForkPool.deadline_for(klass))
+          return nil unless answered?(ForkPool.deadline_for(klass), "#{klass}##{name}")
 
           result, @resident, @grown = Marshal.load(@back)
           result
@@ -300,9 +304,25 @@ module Zr
         # `seconds`. A wait on the pipe finds a worker that is stuck
         # anywhere: in Ruby code, in a C call, or on a machine that swaps.
         # A timeout inside the worker finds only the first of these.
-        def answered?(seconds)
-          return true if seconds.zero? || @back.wait_readable(seconds)
+        #
+        # The wait goes in slices of `HEARTBEAT` seconds, and after each one
+        # a line names the example that still runs (`label`), so a log
+        # shows a hang as it starts and not only at the deadline.
+        def answered?(seconds, label)
+          return true if seconds.zero?
 
+          started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          loop do
+            waited = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+            left = seconds - waited
+            break if left <= 0
+            return true if @back.wait_readable(HEARTBEAT.positive? ? [left, HEARTBEAT].min : left)
+
+            waited = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+            if waited < seconds
+              warn "still running #{label} after #{waited.round}s of #{seconds}s, holding #{self.class.resident_of(@pid)} MB"
+            end
+          end
           @overdue = [seconds, self.class.resident_of(@pid)]
           false
         end

@@ -7,6 +7,7 @@ require "digest/sha2"
 require "fileutils"
 require "rbconfig"
 require_relative "../../lib/zr/config"
+require_relative "../../lib/zr/paths"
 require_relative "../../lib/zr/gem_set"
 require_relative "../../lib/zr/target"
 
@@ -133,7 +134,9 @@ module Zr
       def outputs_under(ext, program, binary_envs, env: {}, mode: "static")
         source = "$LOAD_PATH.unshift(File.expand_path(\".\", __dir__))\n#{program}"
         path = File.join(ext.dir, "prog_#{Digest::SHA256.hexdigest(source)[0, 12]}.rb")
-        File.write(path, source)
+        # Through a rename: two examples of one program write the same path
+        # while the other's ruby or zr build may read it.
+        Paths.write_atomic(path, source)
         ruby = run(env, RbConfig.ruby, path)
         # Each set of runs has its own binary: two tests of one program
         # build at the same time.
@@ -141,7 +144,7 @@ module Zr
         given = mode == "static" ? "#{ext.bundle}=#{ext.object}" : ext.bundle
         zr_env = env.merge("ZR_EXT_OBJECTS" => given, "ZR_EXT" => mode)
         built = run(zr_env, File.join(ROOT, "bin", "zr"), "build", path, "-o", bin)
-        return [ruby, binary_envs.map { built }] unless built.status.zero?
+        return [ruby, binary_envs.map { built }] unless built.status == 0
 
         [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]
       ensure
@@ -157,12 +160,12 @@ module Zr
         dir = File.join(DIR, "together")
         FileUtils.mkdir_p(dir)
         path = File.join(dir, "prog_#{Digest::SHA256.hexdigest([paths, program, static.map(&:bundle)].inspect)[0, 12]}.rb")
-        File.write(path, paths + program)
+        Paths.write_atomic(path, paths + program)
         ruby = run({}, RbConfig.ruby, path)
         given = exts.map { |ext| static.include?(ext) ? "#{ext.bundle}=#{ext.object}" : ext.bundle }.join(" ")
         bin = path.delete_suffix(".rb")
         built = run({ "ZR_EXT_OBJECTS" => given }, File.join(ROOT, "bin", "zr"), "build", path, "-o", bin)
-        [ruby, built.status.zero? ? run({}, bin) : built]
+        [ruby, built.status == 0 ? run({}, bin) : built]
       ensure
         FileUtils.rm_f(bin) if bin
       end
@@ -206,29 +209,35 @@ module Zr
         dir = File.join(DIR, "gem-#{name}-#{version}")
         FileUtils.mkdir_p(dir)
         path = File.join(dir, "prog_#{Digest::SHA256.hexdigest(program)[0, 12]}.rb")
-        File.write(path, program)
+        Paths.write_atomic(path, program)
         ruby = run(env, RbConfig.ruby, path)
         # Each set of runs has its own binary: two tests of one program
         # build at the same time.
         bin = "#{path.delete_suffix(".rb")}-#{Digest::SHA256.hexdigest([binary_envs, build_env, home].inspect)[0, 8]}"
         built = run(env.merge(build_env), File.join(ROOT, "bin", "zr"), "build", "--native-ext", "#{name}=#{version}", path, "-o", bin)
-        return [ruby, binary_envs.map { built }] unless built.status.zero?
+        return [ruby, binary_envs.map { built }] unless built.status == 0
 
         [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]
       ensure
         FileUtils.rm_f(bin) if bin
       end
 
+      # The seconds of one command: a ruby, a build, a run of a binary or a
+      # compile. A command that hangs (a deadlock in a thread test) stops
+      # here with its output so far, as status :timeout, well before the
+      # worker's deadline kills the example with no output at all.
+      SECONDS = 240
+
       #: (Hash[String, String] env, *String command) -> Output
       def run(env, *command)
-        answer, = Harness::Child.run(command, cwd: Dir.pwd, seconds: nil, megabytes: nil, env: env)
+        answer, = Harness::Child.run(command, cwd: Dir.pwd, seconds: SECONDS, megabytes: nil, env: env)
         Output.new(stdout: answer.stdout, stderr: answer.stderr, status: answer.code)
       end
 
       #: (*String command) -> void
       def run!(*command)
-        answer, = Harness::Child.run(command, cwd: Dir.pwd, seconds: nil, megabytes: nil, merge: true)
-        raise "#{command.first} failed:\n#{answer.stdout}" unless answer.code.zero?
+        answer, = Harness::Child.run(command, cwd: Dir.pwd, seconds: SECONDS, megabytes: nil, merge: true)
+        raise "#{command.first} failed (#{answer.code}):\n#{answer.stdout}" unless answer.code == 0
       end
     end
   end
