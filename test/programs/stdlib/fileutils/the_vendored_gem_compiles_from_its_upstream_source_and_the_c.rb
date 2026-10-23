@@ -6,7 +6,7 @@ require "fileutils"
 puts FileUtils::VERSION.match?(/\A\d+\.\d+\.\d+/)
 puts FileUtils.respond_to?(:mkdir_p)
 
-d = "/tmp/zr_fileutils_example"
+d = "/tmp/zr_fileutils_example_#{Process.pid}"
 FileUtils.rm_rf(d) # a clean slate, idempotent across runs
 
 FileUtils.mkdir_p("#{d}/a/b/c")

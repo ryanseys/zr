@@ -61,7 +61,8 @@ def trace(label, value)
   value
 end
 
-path = "/tmp/spinel_typed_slot_conversion.txt"
+# In the run directory: /tmp is shared with the tests that run beside.
+path = "typed_slot_conversion.txt"
 File.write(path, "x")
 File.delete(path)
 

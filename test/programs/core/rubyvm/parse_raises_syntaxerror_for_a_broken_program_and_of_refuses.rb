@@ -26,7 +26,7 @@ rescue RuntimeError => e
   p [e.class, e.message]
 end
 p RubyVM::AbstractSyntaxTree.of(method(:puts))
-File.write("/tmp/zr_ast_fixture.rb", "z = 42\n")
-pf = RubyVM::AbstractSyntaxTree.parse_file("/tmp/zr_ast_fixture.rb")
+File.write("zr_ast_fixture.rb", "z = 42\n")
+pf = RubyVM::AbstractSyntaxTree.parse_file("zr_ast_fixture.rb")
 p [pf.type, pf.children.last.type]
 

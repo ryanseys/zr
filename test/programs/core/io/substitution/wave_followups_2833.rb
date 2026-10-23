@@ -1,7 +1,7 @@
 # File.foreach return values, Dir.open block children, boolean operator
 # Method objects, deferred handler captures, NoMethodError#args, find_index
 # pair destructuring.
-path = "/tmp/sp_ff"
+path = "sp_ff" # the run directory, not the /tmp of every test
 File.write(path, "hello\nworld\n")
 v = File.foreach(path) { |line| line }; p v
 fe = File.foreach(path).class;           p fe
@@ -9,7 +9,7 @@ acc = []
 File.foreach(path) { |l| acc << l }
 p acc
 File.delete(path)
-d = "/tmp/sp_dir34"
+d = "sp_dir34"
 Dir.mkdir(d) unless Dir.exist?(d)
 File.write("#{d}/x", "")
 a = []; Dir.open(d) { |dir| a = dir.children }
