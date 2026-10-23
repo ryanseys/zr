@@ -1,6 +1,9 @@
 # rb_io_close_read on a duplex popen: the read end closes, and the write
 # end takes the stream's place with its child, so the stream writes on.
-IO.popen("cat", "r+") do |f|
+# The child writes nowhere near the closed end: busybox's cat copies with
+# sendfile(2), which raises SIGPIPE on a pipe with no reader before it
+# waits for input, so a plain cat can die before the write below.
+IO.popen("cat >/dev/null", "r+") do |f|
   pid = f.pid
   f.close_read
   p f.closed?
