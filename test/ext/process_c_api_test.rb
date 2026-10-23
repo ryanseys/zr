@@ -331,7 +331,8 @@ class CExtProcessCApiTest < Minitest::Test
 
     puts "-- rb_thread_sleep_deadly"
     main = Thread.current
-    waker = Thread.new { sleep 0.05; main.wakeup }
+    # A wakeup before the sleep starts would be lost, and the sleep has no end.
+    waker = Thread.new { Thread.pass until main.stop?; main.wakeup }
     p ProcExt.sleep_deadly
     waker.join
     p child { STDERR.reopen(File::NULL); ProcExt.sleep_deadly; puts "not reached" }

@@ -31,6 +31,22 @@ class CExtThreadTest < Minitest::Test
       return INT2FIX((intptr_t)rb_thread_call_without_gvl(spin, NULL, unblock, NULL));
     }
 
+    /* A handshake with no clock in it: the C waits, without the GVL, for a
+       flag that only another Ruby thread sets, for 30 s at most. */
+    static volatile int waiting, flag;
+    static void *wait_flag(void *arg) {
+      waiting = 1;
+      for (int i = 0; i < 30000 && !flag; i++) usleep(1000);
+      waiting = 0;
+      return (void *)(intptr_t)flag;
+    }
+    static VALUE wait_for_flag(VALUE self) {
+      flag = 0;
+      return rb_thread_call_without_gvl(wait_flag, NULL, RUBY_UBF_IO, NULL) ? Qtrue : Qfalse;
+    }
+    static VALUE is_waiting(VALUE self) { return waiting ? Qtrue : Qfalse; }
+    static VALUE set_flag(VALUE self) { flag = 1; return Qnil; }
+
     static void *in_gvl(void *blk) { return (void *)rb_funcall((VALUE)blk, rb_intern("call"), 0); }
     static void *reenter(void *blk) { usleep(20000); return rb_thread_call_with_gvl(in_gvl, blk); }
     static VALUE call_back(VALUE self, VALUE blk) {
@@ -46,6 +62,9 @@ class CExtThreadTest < Minitest::Test
       VALUE m = rb_define_module("Nap");
       rb_define_module_function(m, "sleep", sleep_without_gvl, 1);
       rb_define_module_function(m, "wait_for_unblock", wait_for_unblock, 0);
+      rb_define_module_function(m, "wait_for_flag", wait_for_flag, 0);
+      rb_define_module_function(m, "waiting?", is_waiting, 0);
+      rb_define_module_function(m, "set_flag", set_flag, 0);
       rb_define_module_function(m, "call_back", call_back, 1);
       rb_define_module_function(m, "asked_inside", asked_inside, 0);
       rb_define_module_function(m, "asked_outside", asked_outside, 0);
@@ -70,13 +89,11 @@ class CExtThreadTest < Minitest::Test
     assert_same_as_ruby(<<~RUBY)
       require "nap"
       p Nap.sleep(5)
-      ticks = 0
-      ticker = Thread.new { loop { ticks += 1; sleep 0.01 } }
-      sleep 0.05
-      before = ticks
-      p Nap.sleep(300)
-      p ticks - before >= 1
-      ticker.kill
+      # The thread runs only while the C holds no GVL, and the C returns
+      # true only once the thread has run: no tick count, no clock.
+      t = Thread.new { Thread.pass until Nap.waiting?; Nap.set_flag }
+      p Nap.wait_for_flag
+      t.join
       p 3.times.map { Thread.new { Nap.sleep(50) } }.map(&:value)
     RUBY
   end

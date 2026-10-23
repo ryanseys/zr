@@ -141,8 +141,12 @@ class CExtSweepGapsTest < Minitest::Test
     end
     show(:lock) { Gaps.lock }
     show(:wait) do
-      slow = Process.spawn("/bin/sh", "-c", "sleep 0.3; exit 3")
+      # The child ends only when the pipe closes, after the first wait.
+      r, w = IO.pipe
+      slow = Process.spawn("/bin/sh", "-c", "read x; exit 3", in: r)
+      r.close
       running = Gaps.wait(slow, true)
+      w.close
       klass, pid, code = Gaps.wait(slow, false)
       [running, klass, pid == slow, code]
     end

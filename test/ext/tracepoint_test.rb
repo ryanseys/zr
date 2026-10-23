@@ -195,10 +195,13 @@ class CExtTracepointTest < Minitest::Test
     show(:class) { class Shape; def extra = 1; end; Shape.new.extra }
     Tracer.disable(classes)
 
-    other = Thread.new { sleep 0.01; Shape.new.area(5, 5) }
+    # The other thread calls only once the point is on. Thread.stop and
+    # Thread#run are C methods: a Queue's are Ruby, and the point sees them.
+    other = Thread.new { Thread.stop; Shape.new.area(5, 5) }
+    Thread.pass until other.stop?
     mine = Tracer.point_for(other, CALL)
     Tracer.enable(mine)
-    show(:thread) { Shape.new.area(6, 6); other.join.value }
+    show(:thread) { Shape.new.area(6, 6); other.run; other.join.value }
     Tracer.disable(mine)
 
     Tracer.keep_raises

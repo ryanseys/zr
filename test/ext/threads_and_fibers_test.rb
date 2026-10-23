@@ -208,7 +208,7 @@ class CExtThreadsAndFibersTest < Minitest::Test
     end
 
     show(:create) { Threads.create(21) }
-    show(:alone) { [Threads.alone, (t = Thread.new { sleep 0.05 }; r = Threads.alone; t.join; r)] }
+    show(:alone) { [Threads.alone, (t = Thread.new { sleep }; r = Threads.alone; t.kill.join; r)] }
     show(:main) { [Threads.main, Thread.new { Threads.main }.value] }
     show(:locals) { [Threads.locals, Thread.current[:from_c]] }
     show(:stop_run) do
