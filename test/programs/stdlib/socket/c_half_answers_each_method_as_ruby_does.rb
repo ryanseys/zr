@@ -27,8 +27,10 @@ t("ai unix_path") { Addrinfo.unix("/tmp/x").unix_path }
 t("ai ivars") { Addrinfo.tcp("127.0.0.1", 80).instance_variables }
 t("ai getnameinfo") { Addrinfo.tcp("127.0.0.1", 80).getnameinfo(Socket::NI_NUMERICHOST | Socket::NI_NUMERICSERV) }
 t("ai family_addrinfo") { Addrinfo.tcp("127.0.0.1", 80).family_addrinfo("127.0.0.1", 81) }
-t("sock getaddrinfo bad") { Socket.getaddrinfo("no such host.invalid", 80) }
-t("resolution error code") { begin; Socket.getaddrinfo("no such host.invalid", 80); rescue SocketError => e; [e.class, e.respond_to?(:error_code) && e.error_code]; end }
+# AI_NUMERICHOST: the name fails at once, with no query to a DNS server
+# that may be slow or away.
+t("sock getaddrinfo bad") { Socket.getaddrinfo("no such host.invalid", 80, nil, nil, nil, Socket::AI_NUMERICHOST) }
+t("resolution error code") { begin; Socket.getaddrinfo("no such host.invalid", 80, nil, nil, nil, Socket::AI_NUMERICHOST); rescue SocketError => e; [e.class, e.respond_to?(:error_code) && e.error_code]; end }
 t("newline") { Socket.getaddrinfo("localhost\n", 80) }
 t("pack un") { Socket.sockaddr_un("/tmp/x").bytesize }
 t("unpack un") { Socket.unpack_sockaddr_un(Socket.sockaddr_un("/tmp/x")) }

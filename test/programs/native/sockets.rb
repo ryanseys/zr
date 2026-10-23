@@ -64,7 +64,8 @@ rescue SystemCallError => e
   p e.class
 end
 begin
-  Socket.getaddrinfo("no-such-host.invalid", nil)
+  # No query to a DNS server, which may be slow or away.
+  Socket.getaddrinfo("no-such-host.invalid", nil, nil, nil, nil, Socket::AI_NUMERICHOST)
 rescue SocketError => e
   p e.class
 end
