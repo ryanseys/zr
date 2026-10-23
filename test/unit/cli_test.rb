@@ -416,10 +416,11 @@ end
   end
 
   def test_guard_shows_the_backtrace_under_zr_debug
+    old = ENV.fetch("ZR_DEBUG", nil)
     ENV["ZR_DEBUG"] = "1"
     assert_raises(NoMethodError) { CLI.guard { raise NoMethodError, "x" } }
   ensure
-    ENV.delete("ZR_DEBUG")
+    ENV["ZR_DEBUG"] = old # the worker runs other examples after this one
   end
 
   # A cache that zr cannot write to gives the way to move it.

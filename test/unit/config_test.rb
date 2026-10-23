@@ -18,22 +18,27 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  # The worker runs other examples after these, so each puts back the
+  # value it found.
   def test_with_restores_the_environment_after_the_block
+    old = ENV.fetch("ZR_LINKER", nil)
     ENV["ZR_LINKER"] = "ruby"
 
     Zr::Config.with(ZR_LINKER: "cc") { |config| assert_equal "cc", config.linker }
 
     assert_equal "ruby", ENV["ZR_LINKER"]
   ensure
-    ENV.delete("ZR_LINKER")
+    ENV["ZR_LINKER"] = old
   end
 
   def test_with_restores_an_unset_variable_to_unset
-    ENV.delete("ZR_LINKER")
+    old = ENV.delete("ZR_LINKER")
 
     Zr::Config.with(ZR_LINKER: "cc") { |_| }
 
     refute_operator ENV, :key?, "ZR_LINKER"
+  ensure
+    ENV["ZR_LINKER"] = old
   end
 
   def test_link_args_split_as_a_shell_splits_them

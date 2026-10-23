@@ -35,14 +35,19 @@ class RegallocScaleTest < Minitest::Test
   end
 
   # The fastest of three compiles, so that one pause for other work on
-  # the machine does not decide the result.
+  # the machine does not decide the result. The collector stays off in
+  # the timed part: a major collection there depends on what the worker
+  # ran before, not on the compile.
   def seconds(n)
     f = chain(n)
     Array.new(3) do
       GC.start
+      GC.disable
       started = Process.clock_gettime(Process::CLOCK_PROCESS_CPUTIME_ID)
       Zr::Backend::Aarch64::Codegen.new(f).compile
       Process.clock_gettime(Process::CLOCK_PROCESS_CPUTIME_ID) - started
+    ensure
+      GC.enable
     end.min
   end
 
