@@ -11,9 +11,10 @@ second.join
 p results
 
 # The maker sleeps while another thread waits.
-slow = proc { |i| /#{sleep 0.1; i}/o }
+making = Thread::Queue.new
+slow = proc { |i| /#{making << i; sleep 0.1; i}/o }
 a = Thread.new { slow.call(1) }
-sleep 0.02
+making.pop # the first thread is in the interpolation
 b = Thread.new { slow.call(2) }
 p a.value, b.value, a.value.equal?(b.value)
 

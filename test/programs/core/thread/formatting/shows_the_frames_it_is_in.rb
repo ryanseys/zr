@@ -7,7 +7,7 @@ def outer = inner
 def shown(rows) = rows.map { |row| row.sub(%r{\A.*/}, "").sub(/:\d+/, ":L") }
 
 t = Thread.new { outer }
-sleep 0.05
+sleep 0.01 until t.status == "sleep"
 rows = t.backtrace
 p rows.class
 p shown(rows)

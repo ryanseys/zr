@@ -27,7 +27,7 @@ t = Thread.new do
     log << :ensure_ran
   end
 end
-Thread.pass
+Thread.pass until t.status == "sleep"
 t.kill
 t.join
 p log                                    # [:started, :ensure_ran]
@@ -43,7 +43,7 @@ r = Thread.new do
     "caught: #{e.message}"
   end
 end
-Thread.pass
+Thread.pass until r.status == "sleep"
 r.raise("boom")
 p r.value                                # "caught: boom"
 

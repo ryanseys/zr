@@ -2,7 +2,7 @@
 # here, waking its sleep -- and rescuable like any other raise.
 
 main = Thread.main
-t = Thread.new { sleep 0.05; main.raise("to-main") }
+t = Thread.new { sleep 0.01 until main.status == "sleep"; main.raise("to-main") }
 begin
   sleep 5
   puts "overslept"

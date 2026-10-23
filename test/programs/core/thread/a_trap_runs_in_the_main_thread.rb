@@ -7,9 +7,11 @@ Signal.trap(:INT) { ran << Thread.current.equal?(Thread.main); ran << t.value }
 p t.value
 Thread.pass until ran.size == 2
 p ran
-s = Thread.new { sleep 0.05; Process.kill(:USR1, $$) }
+s = Thread.new { Thread.pass until t0.stop?; Process.kill(:USR1, $$) }
 Signal.trap(:USR1) { ran << :usr1 }
 started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 sleep 0.3
-p ran.last, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started >= 0.29
+# A sender that ran late still sends while the main thread waits here.
 s.join
+Thread.pass until ran.last == :usr1
+p ran.last, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started >= 0.29

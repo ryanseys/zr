@@ -20,4 +20,5 @@ Thread.pass until started
 t.raise("first")
 t.kill
 p t.join(0.3)&.status
+Thread.pass while log.empty? # the raise reaches a thread that ran late
 p log

@@ -6,8 +6,8 @@ log = []
 r, w = IO.pipe
 started = false
 t = Thread.new do
-  started = true
   begin
+    started = true
     IO.select(nil, [w])
   rescue => e
     log << e.message

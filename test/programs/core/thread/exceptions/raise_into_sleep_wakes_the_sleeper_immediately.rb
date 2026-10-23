@@ -12,7 +12,7 @@ t = Thread.new do
     e.message
   end
 end
-sleep 0.05
+sleep 0.01 until t.status == "sleep"
 t.raise("wake up")
 v = t.value
 elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start

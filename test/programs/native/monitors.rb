@@ -30,7 +30,7 @@ mu.synchronize { p mu.sleep(0.01) }
 # What it waited is what the machine was doing, not what ruby promises:
 # an Integer says the signal woke it, and nil would say it timed out.
 t = Thread.new { mu.synchronize { p cv.wait(mu, 5).is_a?(Integer) } }
-sleep 0.05
+sleep 0.01 until t.status == "sleep"
 mu.synchronize { cv.signal }
 t.join
 # monitor -- new_cond and MonitorMixin::ConditionVariable: the check-owner

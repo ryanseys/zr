@@ -10,7 +10,7 @@ class A
 
   def go
     if @t.nil?
-      @t = Thread.new { sleep(0.05) }
+      @t = Thread.new { sleep } # alive until the kill below
     end
     puts "thread created"
   end
