@@ -54,6 +54,7 @@ module Zr::Kern
     # The next thread in the GVL's list of threads back from a region.
     attr_accessor :back #: ptr
     # 1 when the thread ended before its first turn: its OS thread ends.
+    # 2 when that OS thread reads this state no more.
     attr_accessor :cancel #: word
   end
 
@@ -262,13 +263,20 @@ module Zr::Kern
   end
 
   # A thread that ends before its first turn (Thread#kill of a new
-  # thread): its OS thread, which waits for that turn, ends instead.
+  # thread): its OS thread, which waits for that turn, ends instead. The
+  # caller waits until that OS thread reads the thread's state no more,
+  # since the collection can free the state with the fiber after this.
   #: (value) -> value
   def zr_thread_cancel(root)
     ts = RFiber[root].native
     if ts != 0 && ThreadState[ts].pthread != 0
       ThreadState[ts].cancel = 1
       zr_gvl_give(ts)
+      Libc.pthread_mutex_lock(ThreadState[ts].mutex)
+      while ThreadState[ts].cancel != 2
+        Libc.pthread_cond_wait(ThreadState[ts].cond, ThreadState[ts].mutex)
+      end
+      Libc.pthread_mutex_unlock(ThreadState[ts].mutex)
     end
     Machine.value(QNIL)
   end
@@ -377,6 +385,11 @@ module Zr::Kern
     Libc.pthread_mutex_unlock(ThreadState[ts].mutex)
     zr_gvl_wait(ts)
     if ThreadState[ts].cancel != 0
+      # The thread that cancels waits for this (zr_thread_cancel).
+      Libc.pthread_mutex_lock(ThreadState[ts].mutex)
+      ThreadState[ts].cancel = 2
+      Libc.pthread_cond_broadcast(ThreadState[ts].cond)
+      Libc.pthread_mutex_unlock(ThreadState[ts].mutex)
       zr_crash_thread_end(altstack)
       return Machine.ptr(0)
     end
