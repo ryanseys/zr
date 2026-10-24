@@ -42,7 +42,8 @@ module Zr::Kern
     # The thread's root fiber, whose stack the OS thread runs on.
     attr_accessor :fiber #: word
     # The context of the OS thread's own stack. A thread that ends
-    # switches back to it, and gives the GVL to `next` from there.
+    # switches back to it, and gives the GVL to `next` from there, or
+    # frees it when `next` is GVL_GOES_FREE.
     attr_accessor :entry #: ptr
     attr_accessor :next #: ptr
     # 1 while the thread runs C without the GVL (a region), in fiber
@@ -80,6 +81,10 @@ module Zr::Kern
   # The signal that ends it: SIGVTALRM, as ruby's ubf uses, with a handler
   # that does nothing and restarts no call.
   SIGNAL_VTALRM = 26
+
+  # ThreadState#next of a thread that ends with nothing to run: its OS
+  # thread frees the GVL.
+  GVL_GOES_FREE = 1
 
   THREADS_GREEN = 1
   THREADS_NATIVE = 2
@@ -396,9 +401,15 @@ module Zr::Kern
     zr_gvl_enter(ThreadState[ts].fiber)
     zr_gates_reload()
     zr_switch(ThreadState[ts].entry, RFiber[Machine.value(ThreadState[ts].fiber)].ctx)
-    # A thread that ended with the GVL free gives it to nobody.
-    if ThreadState[ts].next != 0
-      zr_gvl_give(ThreadState[ts].next)
+    # A thread that ended with nothing to run frees the GVL, whose mutex
+    # it holds (zr_gvl_release_idle); any other gives the GVL to `next`.
+    to = ThreadState[ts].next
+    if to == GVL_GOES_FREE
+      g = Machine.static(:gvl, Gvl.size)
+      Gvl[g].free = 1
+      Libc.pthread_mutex_unlock(Gvl[g].mutex)
+    else
+      zr_gvl_give(to)
     end
     zr_crash_thread_end(altstack)
     Machine.ptr(0)
@@ -643,6 +654,11 @@ module Zr::Kern
   # run C without the GVL: the GVL goes free, and this thread waits for
   # its next turn, or ends if its thread has (`exiting`). False, with the
   # GVL kept, if a thread came back first.
+  #
+  # A thread that ends keeps the GVL's mutex until its OS thread is off
+  # the fiber's stack, and frees the GVL from its own stack
+  # (zr_thread_entry): the thread that takes the GVL next can collect the
+  # fiber and its state.
   #: (value) -> value
   def zr_gvl_release_idle(exiting)
     g = zr_gvl()
@@ -650,13 +666,19 @@ module Zr::Kern
     me = zr_thread_state(RFiber[cur].home, true)
     RFiber[cur].kroots = Machine.ptr(Machine.load64(zr_kroots(), 0))
     zr_signals_mask(true)
-    if !zr_gvl_free_unless_back(g)
+    if exiting == QTRUE
+      Libc.pthread_mutex_lock(Gvl[g].mutex)
+      if Gvl[g].back == 0
+        ThreadState[me].next = Machine.ptr(GVL_GOES_FREE)
+        zr_switch(RFiber[cur].ctx, ThreadState[me].entry)
+      end
+      Libc.pthread_mutex_unlock(Gvl[g].mutex)
       zr_signals_mask(false)
       return Machine.value(QFALSE)
     end
-    if exiting == QTRUE
-      ThreadState[me].next = Machine.ptr(0)
-      zr_switch(RFiber[cur].ctx, ThreadState[me].entry)
+    if !zr_gvl_free_unless_back(g)
+      zr_signals_mask(false)
+      return Machine.value(QFALSE)
     end
     zr_gvl_wait(me)
     zr_gvl_enter(Machine.word(cur))
